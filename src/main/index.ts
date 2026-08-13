@@ -31,12 +31,11 @@ protocol.registerSchemesAsPrivileged([
   }
 ])
 import {
-  checkDependencies,
-  runSetup,
   ytDlpVersion,
   updateYtDlp,
   hasLocalYtDlp
 } from './deps'
+import { checkRuntimeDependencies, runRuntimeSetup } from './runtimeSetup'
 import { readFile, writeFile } from 'node:fs/promises'
 import { fetchInfo, fetchPlaylist, download, ytdlpErrorPayload } from './ytdlp'
 import {
@@ -112,6 +111,11 @@ function domainOf(url: string): string {
 import { DownloadRequest, LogEntry, SetupProgress } from '../shared/types'
 import type { BurnReq } from '../shared/types'
 import { registerMainFeatures } from './features/registry'
+
+// Cho phep smoke-test ban dong goi bang mot thu muc du lieu sach, tach biet
+// hoan toan voi du lieu that cua nguoi dung. Ban phat hanh khong dat bien nay.
+const userDataOverride = process.env['TBLAO_USER_DATA_DIR']
+if (userDataOverride) app.setPath('userData', userDataOverride)
 
 let mainWindow: BrowserWindow | null = null
 const isPrimaryInstance = app.requestSingleInstanceLock()
@@ -259,8 +263,10 @@ app.on('before-quit', () => wipeLogFileSync())
 function registerIpc(): void {
   // Kiem tra phu thuoc luc khoi dong
   ipcMain.handle('deps:check', async () => {
-    const s = await checkDependencies()
-    logInfo(`Kiểm tra môi trường: bộ tải xuống=${s.ytdlp ? 'có' : 'thiếu'}, ffmpeg=${s.ffmpeg ? 'có' : 'thiếu'}`)
+    const s = await checkRuntimeDependencies()
+    logInfo(
+      `Kiểm tra môi trường: bộ tải xuống=${s.ytdlp ? 'có' : 'thiếu'}, ffmpeg=${s.ffmpeg ? 'có' : 'thiếu'}, engines=${s.engines ? 'có' : 'thiếu'}`
+    )
     return s
   })
 
@@ -268,7 +274,7 @@ function registerIpc(): void {
   ipcMain.handle('deps:setup', async (event) => {
     const send = (p: SetupProgress): void => event.sender.send('deps:setup-progress', p)
     try {
-      await runSetup(send)
+      await runRuntimeSetup(send)
       return { ok: true }
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) }

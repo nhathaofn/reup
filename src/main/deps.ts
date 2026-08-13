@@ -210,13 +210,19 @@ export async function resolveFfmpeg(): Promise<string | null> {
 }
 
 export async function checkDependencies(): Promise<DepStatus> {
-  // Trang setup can cai ban official do app quan ly ngay ca khi PATH co yt-dlp.
-  // PATH van la fallback cua resolveYtDlp neu viec cai dat chua hoan tat.
-  const [managedYtDlp, ff] = await Promise.all([
+  // Trang setup bat buoc cai ban do app quan ly vao userData/bin, ke ca khi
+  // PATH da co yt-dlp/ffmpeg. Nho vay installer luon nhe va moi may dung dung
+  // binary da khoa tren release runtime cua du an.
+  const [managedYtDlp, managedFfmpeg] = await Promise.all([
     canRun(managedYtDlpPath()),
-    resolveFfmpeg()
+    canRun(join(binDir(), exe('ffmpeg')), ['-version'])
   ])
-  return { ytdlp: managedYtDlp, ffmpeg: ff !== null, platform: process.platform }
+  return {
+    ytdlp: managedYtDlp,
+    ffmpeg: managedFfmpeg,
+    engines: false,
+    platform: process.platform
+  }
 }
 
 type ProgressCb = (p: SetupProgress) => void

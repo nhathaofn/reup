@@ -23,6 +23,7 @@
     "check:architecture": "node scripts/check-architecture.mjs",
     "feature:create": "node scripts/create-feature.mjs",
     "verify": "npm run typecheck && npm run check:architecture && npm run build",
+    "verify:package:win": "node scripts/check-package-runtime-assets.mjs dist/win-unpacked",
     "fonts:copy": "node scripts/copy-fonts.mjs",
     "package:win": "electron-vite build && electron-builder --win -p never",
     "package:mac": "electron-vite build && electron-builder --mac -p never"

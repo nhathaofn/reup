@@ -119,7 +119,7 @@ export default function App(): JSX.Element {
   const check = async (): Promise<void> => {
     setStage('checking')
     const status = await window.api.checkDeps()
-    setStage(status.ytdlp && status.ffmpeg ? 'ready' : 'setup')
+    setStage(status.ytdlp && status.ffmpeg && status.engines ? 'ready' : 'setup')
   }
 
   useEffect(() => {

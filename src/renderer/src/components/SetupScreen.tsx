@@ -1,6 +1,18 @@
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
-import type { SetupProgress } from '../../../shared/types'
+import type { SetupPhase, SetupProgress } from '../../../shared/types'
+
+const FRIENDLY_PROGRESS: Partial<Record<SetupPhase, string>> = {
+  'downloading-ytdlp': 'Đang cài tính năng tải video…',
+  'downloading-ffmpeg': 'Đang cài tính năng xử lý video…',
+  'downloading-douyin': 'Đang cài công cụ tải Douyin…',
+  'downloading-whisper': 'Đang cài công cụ tạo phụ đề…',
+  'downloading-ocr': 'Đang cài công cụ đọc chữ trong video…',
+  'downloading-video2x': 'Đang cài công cụ nâng cấp video…',
+  'downloading-cuda': 'Đang cài gói tăng tốc NVIDIA…',
+  extracting: 'Đang hoàn tất cài đặt…',
+  done: 'Hoàn tất! T-blao đã sẵn sàng.'
+}
 
 interface Props {
   onDone: () => void
@@ -37,24 +49,16 @@ export default function SetupScreen({ onDone }: Props): JSX.Element {
   }, [])
 
   const indeterminate = progress.percent < 0
-  const friendlyProgress =
-    progress.phase === 'downloading-ytdlp'
-      ? 'Đang cài tính năng tải video…'
-      : progress.phase === 'downloading-ffmpeg'
-        ? 'Đang cài tính năng xử lý video…'
-        : progress.phase === 'extracting'
-          ? 'Đang hoàn tất cài đặt…'
-          : progress.phase === 'done'
-            ? 'Hoàn tất! T-blao đã sẵn sàng.'
-            : progress.message
+  const friendlyProgress = FRIENDLY_PROGRESS[progress.phase] ?? progress.message
 
   return (
     <div className="center setup">
       <div className="card setup-card">
         <h2>Chuẩn bị T-blao</h2>
         <p className="muted">
-          Ứng dụng cần tải một số thành phần để tải và xử lý video. Quá trình này chỉ thực hiện khi
-          cần và không yêu cầu quyền quản trị.
+          Ứng dụng sẽ tải các công cụ xử lý vào thư mục dữ liệu riêng trong lần chạy đầu tiên. Bản
+          cài đặt không chứa engine hoặc FFmpeg; quá trình tải có thể lâu và không yêu cầu quyền
+          quản trị.
         </p>
 
         {!running && !error && (

@@ -1,5 +1,11 @@
 ## T-blao v0.1.17
 
+### Bản cài đặt gọn
+
+- File `.exe` chỉ chứa ứng dụng, không đóng gói FFmpeg, yt-dlp hoặc các engine xử lý.
+- Trong lần chạy đầu tiên, ứng dụng tự tải toàn bộ thành phần phù hợp với máy và hiển thị tiến độ trực tiếp.
+- Các thành phần đã tải được lưu trong thư mục dữ liệu của ứng dụng; những lần chạy sau không phải tải lại nếu không có bản cập nhật.
+
 ### Tải video ổn định hơn
 
 - Cải thiện tải Facebook và Bilibili với phiên đăng nhập riêng cho từng website.

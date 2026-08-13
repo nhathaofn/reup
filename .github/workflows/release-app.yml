@@ -56,6 +56,10 @@ jobs:
       - name: Build and package app
         run: npm run ${{ matrix.package_script }}
 
+      - name: Verify Windows package is runtime-free
+        if: matrix.name == 'Windows'
+        run: npm run verify:package:win
+
       - name: Upload release artifacts
         uses: actions/upload-artifact@v7
         with:

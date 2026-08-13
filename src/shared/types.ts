@@ -15,6 +15,7 @@ export interface LogEntry {
 export interface DepStatus {
   ytdlp: boolean
   ffmpeg: boolean
+  engines: boolean
   platform: NodeJS.Platform
 }
 
@@ -26,7 +27,18 @@ export interface YtDlpCapabilityStatus {
   impersonateTargets: string[]
 }
 
-export type SetupPhase = 'checking' | 'downloading-ytdlp' | 'downloading-ffmpeg' | 'extracting' | 'done' | 'error'
+export type SetupPhase =
+  | 'checking'
+  | 'downloading-ytdlp'
+  | 'downloading-ffmpeg'
+  | 'downloading-douyin'
+  | 'downloading-whisper'
+  | 'downloading-ocr'
+  | 'downloading-video2x'
+  | 'downloading-cuda'
+  | 'extracting'
+  | 'done'
+  | 'error'
 
 export interface SetupProgress {
   phase: SetupPhase
