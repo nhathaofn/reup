@@ -1,0 +1,78 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+dist-engine/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets / du lieu nhay cam - TUYET DOI khong commit
+.env
+.env.*
+*.local
+cookies.txt
+cookies-*.txt
+cookies.txt.*.legacy-unmigrated
+cookies-*.txt.*.legacy-unmigrated
+cookies/
+*.cookies.json
+.cookies.json
+# Chromium/Electron cookie databases if a userData folder is copied here by mistake
+**/Network/Cookies
+**/Network/Cookies-journal
+config.yml
+*.secret
+*.pem
+*.key
+
+# Du lieu runtime (khi ghep dy-downloader sau nay)
+*.db
+Downloaded/
+
+# Binaries engine (khong commit - tai/dong goi rieng)
+*.exe
+!build/**/*.exe
+*.zip
+
+# Engine build / venv (PyInstaller, pip) — khong day len git
+engines/**/.venv-build/
+engines/**/build/
+engines/**/storage/
+engines/**/dist/
+
+# Clone / thu nghiem noi bo
+repo test/
+
+# Font nguon day du (chi ship subset resources/fonts/ khi duoc phep)
+font/
+
+# Binary font dong goi — khong commit len GitHub public (ban quyen UTM/SVN/Windows…)
+# Giu catalog.json + README; copy local bang: npm run fonts:copy
+resources/fonts/**
+!resources/fonts/catalog.json
+!resources/fonts/README.md
+
+# Anh ca nhan / branding local (khong bat buoc public)
+QR.jpg
+selfie.jpg
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+
+# Tai lieu noi bo (khong cong khai)
+ROADMAP.md
+AGENTS.md
+DONG_GOI.md
+
+# File tien ich ca nhan (mo app thu cong)
+run.bat

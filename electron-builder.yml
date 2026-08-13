@@ -1,0 +1,59 @@
+appId: com.nhathaofn.tblao
+productName: T-blao
+directories:
+  buildResources: build
+  output: dist
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!font/**'
+  - '!resources/fonts/**'
+  # Never package local sessions or credential files, even if copied into the repo.
+  - '!cookies{,/**}'
+  - '!cookies.txt'
+  - '!cookies-*.txt'
+  - '!cookies.txt.*.legacy-unmigrated'
+  - '!cookies-*.txt.*.legacy-unmigrated'
+  - '!**/*.cookies.json'
+  - '!**/Network/Cookies'
+  - '!**/Network/Cookies-journal'
+  - '!**/.env{,.*}'
+  - '!**/*.pem'
+  - '!**/*.key'
+  # Khong nhet engine/clone/zip vao installer (tai tu assets-v1 luc chay)
+  - '!repo test{,/**}'
+  - '!dist-engine{,/**}'
+  - '!engines{,/**}'
+  - '!**/*.zip'
+  - '!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}'
+  - '!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}'
+extraResources:
+  - from: resources/fonts
+    to: fonts
+    filter:
+      - '**/*'
+win:
+  target:
+    - nsis
+  icon: build/icon.ico
+  artifactName: ${productName}-${version}-setup.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+mac:
+  target:
+    - dmg
+    - zip
+  icon: build/icon.png
+  category: public.app-category.utilities
+  artifactName: ${productName}-${version}.${ext}
+# Nguon phat hanh cho electron-updater (app tu cap nhat tu GitHub Releases).
+# LUU Y: owner/repo phai TRUNG repo that ma ban up Release len.
+publish:
+  provider: github
+  owner: nhathaofn
+  repo: reup

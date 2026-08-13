@@ -1,0 +1,2726 @@
+﻿:root {
+  --bg: #0b1018;
+  --panel: #131b27;
+  --panel-2: #1b2634;
+  --panel-hover: #243246;
+  --border: #2d3d52;
+  --control-border: #465b76;
+  --text: #e9f0fa;
+  --muted: #98a8bd;
+  --signal-blue: #6ea1ff;
+  --signal-blue-hover: #82adff;
+  --render-violet: #b58aff;
+  --render-violet-hover: #c39cff;
+  --output-mint: #3ed6a0;
+  --action-ink: #08111e;
+  --primary: var(--signal-blue);
+  --primary-hover: var(--signal-blue-hover);
+  --ok: var(--output-mint);
+  --fail: #ff747b;
+  --warn: #f4b860;
+  --danger: var(--fail);
+  --journey-gradient: linear-gradient(105deg, #5f97ff 0%, #a178ff 56%, #43d7b2 100%);
+  --progress-gradient: linear-gradient(90deg, #5f97ff 0%, #55c7f5 100%);
+  --radius: 12px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* ---- Thanh cuon hien dai: mong, bo tron, TRONG SUOT khi ranh ----
+   Chi hien thumb khi di chuot vao vung cuon (hover) -> giao dien gon,
+   cot cau hinh khong bi thanh cuon xam chiem cho. Rong 10px nhung track
+   trong suot nen nhin nhu khong co gutter.
+   !! Ap cho tung vung cuon, KHONG dung `*:hover` (moi to tien deu :hover ->
+   lo ca thanh cuon vung ngoai). Dung selector cu the ben duoi. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: transparent; /* an mac dinh */
+  border: 3px solid transparent; /* vien trong -> thumb thon lai giua rong */
+  border-radius: 999px;
+  background-clip: padding-box;
+  transition: background-color 0.2s;
+}
+/* Rung chuot vao vung cuon -> lo thumb ra */
+.cot-cauhinh:hover::-webkit-scrollbar-thumb,
+.cot-ketqua:hover::-webkit-scrollbar-thumb,
+.lam-viec:hover::-webkit-scrollbar-thumb,
+.downloader:hover::-webkit-scrollbar-thumb,
+.modal-list:hover::-webkit-scrollbar-thumb,
+.modal-body:hover::-webkit-scrollbar-thumb,
+.logs-list:hover::-webkit-scrollbar-thumb,
+.license-page:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  background-clip: padding-box;
+}
+/* Ke ca khi di thang len thanh cuon -> dam hon, biet dang keo duoc */
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.34) !important;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  user-select: none;
+}
+
+input,
+select {
+  user-select: text;
+  accent-color: var(--primary);
+}
+input:not([type='checkbox']):not([type='radio']):not([type='range']),
+select,
+textarea {
+  border-color: var(--control-border);
+}
+
+/* Man hinh khoi dong (kiem tra / setup) */
+.boot {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ---- Layout sidebar + noi dung ---- */
+.shell {
+  --primary: var(--signal-blue);
+  --primary-hover: var(--signal-blue-hover);
+  --progress-gradient: linear-gradient(90deg, #5f97ff 0%, #55c7f5 100%);
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+.shell.journey-render {
+  --primary: var(--render-violet);
+  --primary-hover: var(--render-violet-hover);
+  --progress-gradient: linear-gradient(90deg, #9476ff 0%, #b178ff 58%, #43d7b2 100%);
+}
+.shell.journey-neutral {
+  --progress-gradient: var(--journey-gradient);
+}
+
+.sidebar {
+  width: 210px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(circle at 16% 4%, rgba(95, 151, 255, 0.11), transparent 27%),
+    radial-gradient(circle at 88% 72%, rgba(161, 120, 255, 0.07), transparent 32%),
+    linear-gradient(180deg, #111925, #0b111a);
+  border-right: 1px solid var(--border);
+  padding: 18px 12px;
+}
+.side-brand {
+  padding: 6px 10px 18px;
+}
+.side-logo {
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: transparent;
+  background: var(--journey-gradient);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.side-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+.side-item:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.side-item.active {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--primary) 18%, transparent),
+    color-mix(in srgb, var(--primary) 5%, transparent)
+  );
+  color: var(--primary);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--primary);
+}
+.side-ico {
+  font-size: 15px;
+  width: 18px;
+  text-align: center;
+}
+.side-hint {
+  padding: 10px 12px 4px;
+}
+.side-bottom {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.side-version {
+  padding: 2px 12px 4px;
+  font-size: 11.5px;
+  color: var(--muted-2, var(--muted));
+  font-variant-numeric: tabular-nums;
+}
+.side-update {
+  margin: 4px 10px 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+.side-update.ready {
+  cursor: pointer;
+  color: var(--ok);
+  font-weight: 600;
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+  width: calc(100% - 20px);
+}
+.side-update.ready:hover {
+  background: color-mix(in srgb, var(--ok) 20%, transparent);
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--primary) 7%, transparent), transparent 31%),
+    var(--bg);
+}
+.content-head {
+  position: relative;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.content-head::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: var(--journey-gradient);
+  opacity: 0.72;
+}
+.content-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.content-sub {
+  margin: 3px 0 0;
+  font-size: 13px;
+}
+.content-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* Moi tab tai la 1 pane fill het chieu cao (giu chuoi flex de .downloader cuon duoc) */
+.tab-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.tab-pane.hidden {
+  display: none;
+}
+
+.center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 40px;
+  color: var(--muted);
+}
+.small-pad {
+  padding: 16px;
+  flex: none;
+}
+
+.spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+
+.btn {
+  border: 1px solid var(--control-border);
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn:hover:not(:disabled) {
+  background: var(--panel-hover);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn.primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--action-ink);
+  font-weight: 600;
+}
+.btn.primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+.btn.danger {
+  color: var(--fail);
+  border-color: color-mix(in srgb, var(--fail) 42%, var(--border));
+}
+.btn.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--fail) 14%, var(--panel-2));
+  border-color: color-mix(in srgb, var(--fail) 64%, var(--border));
+}
+/* Nhom nut dieu khien hang doi: Tam dung/Tiep tuc/Dung */
+.run-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.muted {
+  color: var(--muted);
+  margin: 4px 0;
+}
+.small {
+  font-size: 12px;
+}
+
+/* ---- Setup ---- */
+.setup-card {
+  max-width: 440px;
+  text-align: center;
+}
+.setup-card h2 {
+  margin: 0 0 8px;
+}
+.setup-progress {
+  margin-top: 18px;
+}
+
+/* ---- Downloader ---- */
+.downloader {
+  flex: 1;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+/* ---- Khu lam viec 2 cot: GIUA = cau hinh, PHAI = ket qua ----
+   (cot thu 3 la sidebar ben ngoai). Dung chung cho ca 5 tab chinh. */
+.lam-viec {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(300px, 32%) 1fr;
+  /* !! grid-template-rows la CHO CHET, khong phai min-height cua o.
+     Mac dinh hang luoi la `auto` = cao bang noi dung, nen luoi cu phinh dai ra
+     chu KHONG o nao bi tran -> khong dau moc thanh cuon, lan chuot cung dung im.
+     minmax(0, 1fr) ep hang dung bang chieu cao khung -> luc do o moi tran va cuon. */
+  grid-template-rows: minmax(0, 1fr);
+  gap: 16px;
+  padding: 20px 24px;
+}
+.cot-cauhinh,
+.cot-ketqua {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+}
+/* !! flex-shrink:0 la BAT BUOC cho MOI the trong cot.
+   Mac dinh the con trong cot flex TU CO LAI cho vua khung -> khong co gi tran ra
+   nen khong moc thanh cuon (lan chuot chet), dong thoi the bi bop thap hon noi
+   dung ben trong -> chu trao ra de len the duoi. Do that: 6 the x160px = 960px
+   bi bop con 596px. Giu nguyen chieu cao that thi moi tran va cuon duoc. */
+.cot-cauhinh > *,
+.cot-ketqua > * {
+  flex-shrink: 0;
+}
+/* Rieng san video thi VAN duoc gian/co de an het cho trong cot phai */
+.cot-ketqua.cot-video .ocr-sanh {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* Chi gop lai 1 cot khi that su qua hep. Nguong phai THAP hon be rong cua so
+   thuc te cua user (~1000px) — de cao qua thi 3 cot khong bao gio hien ra. */
+@media (max-width: 800px) {
+  /* Bo han LUOI, xep doc tu nhien. Do that: giu grid roi doi grid-template-rows
+     sang auto van hong — hang bi ep con 290px trong khi noi dung 1060px, chu
+     trao ra de len cot duoi. Cot doc + flex:none thi the giu dung chieu cao
+     that, ca khu tu cuon. */
+  .lam-viec {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .cot-cauhinh,
+  .cot-ketqua,
+  .cot-ketqua.cot-video {
+    overflow: visible;
+    flex: none;
+  }
+  /* Gop cot roi thi video khong con "an het cho" nua — cho lai chieu cao co dinh */
+  .cot-ketqua.cot-video .ocr-sanh {
+    flex: none;
+    height: 52vh;
+  }
+}
+
+/* Tieu de nho dat dau moi cot */
+.cot-tieude {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0 2px;
+}
+
+/* Cot ket qua cua tab Dich man hinh: video an het cho, KHONG cuon */
+.cot-ketqua.cot-video {
+  overflow: hidden;
+}
+
+/* Cot phai tab Tai xuong = hang doi. Thanh dieu khien (so luong + Tai tat ca)
+   ghim tren dau khi cuon danh sach dai, luon voi tay toi duoc. */
+.cot-hangdoi .queue-bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg);
+  padding: 2px 0 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.url-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.link-entry-row {
+  flex-direction: column;
+  align-items: stretch;
+}
+.link-entry-row .url-textarea {
+  width: 100%;
+}
+.link-add-btn {
+  width: 100%;
+  min-height: 40px;
+}
+.url-textarea {
+  resize: none;
+  overflow-y: auto;
+  min-height: 44px;
+  max-height: 140px;
+  line-height: 1.4;
+  font-family: inherit;
+  display: block;
+}
+.url-input {
+  flex: 1;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--control-border);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 14px;
+}
+.url-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.info-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.info-head {
+  display: flex;
+  gap: 16px;
+}
+.thumb {
+  width: 160px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.info-meta {
+  min-width: 0;
+}
+.title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+/* O nhap API key dich phu de */
+.gk {
+  padding: 0;
+  /* !! KHONG dat `overflow: hidden` o day. Cha (.downloader) la flex COT:
+     flex item mac dinh co min-height:auto (khong co nho hon noi dung), nhung
+     `overflow:hidden` NGAM doi thanh min-height:0 -> the nay mat san chong co,
+     cac the khac con -> khi noi dung dai hon khung thi CHI MINH NO bi ep bep
+     xuong 0, chi con duong vien. Bo goc thi dung clip-path/border-radius tren
+     con, dung dung overflow. */
+  flex-shrink: 0;
+}
+.gk-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  background: none;
+  border: 0;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.gk-title {
+  font-weight: 600;
+  flex: 1;
+}
+.gk-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.gk-badge.ok {
+  border-color: color-mix(in srgb, var(--ok) 45%, var(--border));
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+  color: var(--ok);
+}
+.gk-caret {
+  color: var(--muted);
+}
+.gk-body {
+  padding: 0 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.gk-providers {
+  display: flex;
+  gap: 6px;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  width: fit-content;
+}
+.gk-prov {
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+.gk-prov.active {
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.gk-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.gk-row input {
+  flex: 1 1 260px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--control-border);
+  background: var(--panel-2);
+  color: var(--text);
+}
+.gk-kq.ok {
+  color: var(--ok);
+}
+.gk-kq.err {
+  color: var(--fail);
+}
+/* Dong nay LUON hien duoi nut kiem tra */
+.gk-note {
+  padding: 7px 10px;
+  border-left: 2px solid var(--border);
+  background: var(--panel-2);
+  border-radius: 0 6px 6px 0;
+}
+.gk-field {
+  max-width: 240px;
+  margin-top: 2px;
+}
+.gk-row2 {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Tab Dich man hinh: trinh phat + khung khoanh vung */
+/* San chua video — an het chieu cao con lai cua cot phai.
+   container-type:size de .ocr-video tinh contain bang cqi/cqh. */
+.ocr-sanh {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #080d14;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  container-type: size;
+}
+/* Khung bao video: position:relative de khung khoanh (absolute) bam theo.
+   Bo bao PHAI om KHIT dung ti le video (khong letterbox trong hop overlay).
+   --ocr-ar = videoW/videoH (so thap phan, gan tu React).
+   width = min(full container width, height * ar) -> contain trong san. */
+.ocr-video {
+  position: relative;
+  display: block;
+  line-height: 0;
+  aspect-ratio: var(--ocr-ar, 16 / 9);
+  width: min(100cqi, calc(100cqh * var(--ocr-ar, 1.777778)));
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+}
+.ocr-video video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  border-radius: 4px;
+}
+.ocr-toado {
+  font-variant-numeric: tabular-nums;
+}
+/* Ten tep dai -> cat bot, dung de no day rong ca cot cau hinh */
+.ocr-ten {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ocr-dong {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: var(--panel-2);
+  border-radius: 6px;
+  min-height: 20px;
+}
+
+/* Khung khoanh vung chu — de len video, keo/co gian duoc */
+.rbox-lop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none; /* chi cac phan tu con moi bat chuot */
+}
+/* Phu mo phan NGOAI vung -> mat tu nhin vao dung cho can nhin */
+.rbox-mo {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+.rbox {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: auto;
+  cursor: move;
+  border: 2px solid var(--primary);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  box-sizing: border-box;
+}
+/* Vung se bi lam mo khi ghep video: lam mo THAT video ben duoi (backdrop-filter)
+   -> user xem truoc chinh xac vung + hieu ung. Ranh gioi = VIEN CAM (crisp).
+   2 dai xanh gay roi truoc day la tay-nam-keo (da cho trong suot), khong phai
+   mep cua vung mo. */
+.rbox-lammo {
+  border-color: var(--warn);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.rbox-lammo .rbox-nhan {
+  background: var(--warn);
+  color: var(--action-ink);
+}
+.rbox-nhan {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--action-ink);
+  background: var(--primary);
+  padding: 0 6px;
+  border-radius: 3px;
+  pointer-events: none;
+}
+.rbox-del {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 11px;
+  font-weight: bold;
+  line-height: 1;
+  color: var(--action-ink);
+  background: color-mix(in srgb, var(--fail) 86%, transparent);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background 0.15s;
+}
+.rbox-del:hover {
+  background: var(--fail);
+}
+.rbox.active {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4), 0 0 12px rgba(0, 0, 0, 0.6);
+  z-index: 10;
+}
+/* Tay nam co gian: cao 12px, de o mep — de trung chuot. TRONG SUOT san (khong
+   tao 2 dai xanh gay roi); chi hien nhe khi ro chuot vao de biet cho keo. */
+.rbox-tay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 12px;
+  cursor: ns-resize;
+  background: transparent;
+}
+.rbox-tay:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+.rbox-tren {
+  top: -6px;
+}
+.rbox-duoi {
+  bottom: -6px;
+}
+.rbox-trai {
+  left: -6px;
+  width: 12px;
+  height: 100%;
+  top: 0;
+  cursor: ew-resize;
+  background: transparent;
+}
+.rbox-phai {
+  right: -6px;
+  width: 12px;
+  height: 100%;
+  top: 0;
+  cursor: ew-resize;
+  background: transparent;
+}
+.rbox-goc-tl {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  z-index: 30;
+}
+.rbox-goc-tr {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 14px;
+  height: 14px;
+  cursor: nesw-resize;
+  z-index: 30;
+}
+.rbox-goc-bl {
+  position: absolute;
+  bottom: -6px;
+  left: -6px;
+  width: 14px;
+  height: 14px;
+  cursor: nesw-resize;
+  z-index: 30;
+}
+.rbox-goc-br {
+  position: absolute;
+  bottom: -6px;
+  right: -6px;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  z-index: 30;
+}
+.rbox-sub {
+  border: 2px dashed var(--render-violet) !important;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--render-violet) 45%, transparent);
+  background: color-mix(in srgb, var(--render-violet) 12%, transparent);
+  z-index: 20;
+}
+/* Slot mau: fill khung tim, chu CAN GIUA (de chinh khung) */
+.sub-sample-slot {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 6px;
+  box-sizing: border-box;
+  pointer-events: none;
+  overflow: hidden;
+}
+.sub-sample-text {
+  font-weight: bold;
+  pointer-events: none;
+  text-align: center;
+  line-height: 1.2;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+/* Nen om sat chu — van nam trong slot (khong bottom:8% / translate) */
+.sub-sample-text.sub-sample-hug {
+  width: max-content;
+  max-width: 100%;
+  height: auto;
+  white-space: pre-line;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.sub-style-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+  margin-top: 10px;
+}
+.sub-style-grid input[type='color'] {
+  width: 100%;
+  height: 32px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+.sub-style-grid input[type='range'] {
+  width: 100%;
+}
+
+/* Bang huong dan lay key */
+.modal-nen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.modal {
+  width: min(560px, 100%);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-title {
+  font-weight: 600;
+  flex: 1;
+}
+.modal-x {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.modal-x:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.modal-body {
+  padding: 16px;
+  overflow-y: auto; /* chi CON nay cuon — modal la fixed nen khong dinh bay flex */
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.hd-step {
+  display: flex;
+  gap: 12px;
+}
+.hd-step p {
+  margin: 4px 0 8px;
+}
+.hd-num {
+  flex: 0 0 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+.hd-canh-bao {
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--warn) 38%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  color: var(--warn);
+}
+.hd-canh-bao p {
+  margin: 6px 0 0;
+}
+
+/* Trang Giay phep: gom thanh phan theo nhom cho de doc */
+.lic-group {
+  margin-top: 14px;
+}
+.lic-group-title {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+
+.seg {
+  display: flex;
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.seg-btn {
+  border: none;
+  background: var(--panel-2);
+  color: var(--muted);
+  padding: 9px 14px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.seg-btn.active {
+  background: var(--primary);
+  color: var(--action-ink);
+  font-weight: 600;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+/* Hang checkbox (vd: lam mo phu de goc) */
+.gk-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+.gk-check input {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+.field select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--control-border);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 14px;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.folder-row {
+  display: flex;
+  gap: 10px;
+}
+.folder-input {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--control-border);
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.folder-mode-row {
+  margin-top: 12px;
+}
+.adv-tools {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.adv-tool-msg {
+  flex-basis: 100%;
+}
+.cookie-tip {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.folder-mode-hint {
+  margin-top: 4px;
+}
+
+/* ---- Progress ---- */
+.bar {
+  width: 100%;
+  height: 10px;
+  background: var(--panel-2);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  background: var(--progress-gradient);
+  border-radius: 6px;
+  transition: width 0.2s ease;
+}
+.bar-fill.indeterminate {
+  width: 40%;
+  animation: slide 1.1s ease-in-out infinite;
+}
+@keyframes slide {
+  0% {
+    margin-left: -40%;
+  }
+  100% {
+    margin-left: 100%;
+  }
+}
+.progress-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+.progress-stats {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+/* ---- Result ---- */
+.result-card.ok {
+  border-color: var(--ok);
+}
+.result-card.fail {
+  border-color: var(--fail);
+}
+.result-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+.err-detail {
+  white-space: pre-wrap;
+  font-size: 12px;
+  color: var(--fail);
+  max-height: 140px;
+  overflow: auto;
+  background: #080d14;
+  padding: 10px;
+  border-radius: 8px;
+  user-select: text;
+}
+
+.error-box {
+  background: color-mix(in srgb, var(--fail) 10%, transparent);
+  border: 1px solid var(--fail);
+  color: color-mix(in srgb, var(--fail) 72%, white);
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+/* ---- Hang doi ---- */
+.options-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ---- Tuy chon nang cao ---- */
+.adv-card {
+  padding: 0;
+}
+.adv-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 15px 18px;
+  cursor: pointer;
+}
+.adv-toggle:hover {
+  color: var(--primary);
+}
+.adv-arrow {
+  color: var(--muted);
+  font-size: 12px;
+}
+.adv-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 18px 18px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+.adv-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.field.grow {
+  flex: 1;
+  min-width: 220px;
+}
+.mini-input {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--control-border);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 13px;
+  width: 120px;
+}
+.adv-subs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.adv-subs-detail {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding-left: 24px;
+}
+.adv-checks {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+.name-preview {
+  margin-top: -4px;
+}
+.name-preview b {
+  color: var(--text);
+  font-weight: 600;
+}
+.adv-body code {
+  font-family: ui-monospace, Consolas, monospace;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.queue-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.queue-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.empty {
+  text-align: center;
+  padding: 40px 20px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  font-size: 14px;
+}
+.empty-title {
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.hint {
+  margin: -6px 2px 0;
+  line-height: 1.6;
+}
+
+.queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.qrow {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  transition: border-color 0.15s;
+}
+.qrow.downloading {
+  border-color: var(--primary);
+}
+.qrow.done {
+  border-color: color-mix(in srgb, var(--ok) 55%, var(--border));
+}
+.qrow.error {
+  border-color: color-mix(in srgb, var(--fail) 55%, var(--border));
+}
+
+.qthumb {
+  width: 96px;
+  height: 54px;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--panel-2);
+}
+.qthumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.qthumb-ph {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 20px;
+}
+
+.qmain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.qtitle {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.qstats {
+  display: flex;
+  gap: 14px;
+}
+.qerr {
+  color: var(--fail);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.qwarn {
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warn) 32%, transparent);
+  padding: 5px 9px;
+  border-radius: 7px;
+  line-height: 1.4;
+}
+
+.bar.mini {
+  height: 6px;
+}
+
+.qside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.qbadge {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+  color: var(--muted);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+}
+.qbadge.downloading {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+}
+.qbadge.done {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+}
+.qbadge.skipped {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 45%, transparent);
+}
+.qbadge.error {
+  color: var(--fail);
+  border-color: color-mix(in srgb, var(--fail) 45%, transparent);
+}
+.qbtns {
+  display: flex;
+  gap: 4px;
+}
+.ibtn {
+  border: 1px solid var(--control-border);
+  background: var(--panel-2);
+  color: var(--text);
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.ibtn:hover {
+  background: var(--panel-hover);
+}
+
+@media (max-width: 620px) {
+  .qthumb {
+    display: none;
+  }
+}
+
+/* ---- Trang License ---- */
+.license-page {
+  flex: 1;
+  overflow-y: auto;
+  padding: 22px 24px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  max-width: 780px;
+}
+.lic-disclaimer {
+  background: color-mix(in srgb, var(--fail) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--fail) 40%, transparent);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.lic-disclaimer-tag {
+  font-weight: 700;
+  color: var(--fail);
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.lic-disclaimer p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.lic-section h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+.license-text {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted);
+  white-space: pre-wrap;
+  overflow-x: auto;
+  margin: 10px 0 0;
+}
+.lic-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+.lic-item {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.lic-copyright {
+  margin-top: 4px;
+  font-weight: 600;
+  color: var(--text);
+}
+.lic-notice {
+  margin-top: 8px;
+  background: var(--panel-2);
+}
+
+/* Accordion giay phep */
+.lic-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.lic-card + .lic-card {
+  margin-top: 8px;
+}
+.lic-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  font-size: 14px;
+}
+.lic-card-head:hover {
+  background: var(--panel-2);
+}
+.lic-card.open .lic-card-head {
+  border-bottom: 1px solid var(--border);
+}
+.lic-card-head .lic-name {
+  font-weight: 600;
+  flex: 1; /* day dau xo ve sat mep phai */
+}
+.lic-caret {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.lic-card-body {
+  padding: 12px 14px;
+}
+.lic-item-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.lic-name {
+  font-weight: 700;
+  font-size: 14.5px;
+}
+.lic-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+.lic-link {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 0 0;
+  text-decoration: underline;
+  font-family: ui-monospace, Consolas, monospace;
+}
+.lic-foot {
+  margin-top: 4px;
+}
+
+/* ---- Cookie panel ---- */
+.cookie-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cookie-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.cookie-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+.cookie-status {
+  white-space: nowrap;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  color: var(--muted);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+}
+.cookie-status.ok {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+}
+.cookie-status.warn {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 45%, transparent);
+}
+.cookie-actions {
+  display: flex;
+  gap: 10px;
+}
+.small-input {
+  font-size: 13px;
+  padding: 10px 12px;
+}
+.cookie-foot {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.check.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 12.5px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+.link-btn:hover {
+  color: var(--fail);
+}
+.cookie-msg {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  padding: 9px 12px;
+  border-radius: 8px;
+}
+.site-cookie-list {
+  display: grid;
+  gap: 9px;
+}
+.site-cookie-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--panel-2);
+}
+.site-cookie-info,
+.site-cookie-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.site-cookie-actions {
+  justify-content: flex-end;
+}
+.site-cookie-info > b {
+  min-width: 62px;
+  font-size: 13px;
+}
+.generic-cookie {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.generic-cookie summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.generic-cookie-body {
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+}
+.capability-note {
+  flex-basis: 100%;
+  padding-top: 2px;
+}
+.capability-note.ok {
+  color: var(--ok);
+}
+.capability-note.warn {
+  color: var(--warn);
+}
+@media (max-width: 760px) {
+  .site-cookie-row,
+  .site-cookie-info,
+  .site-cookie-actions {
+    align-items: flex-start;
+  }
+  .site-cookie-row {
+    flex-direction: column;
+  }
+}
+
+/* ---- Modal chon playlist ---- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 100;
+}
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 620px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.modal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 12px;
+}
+.modal-head h3 {
+  margin: 0;
+  font-size: 17px;
+}
+.modal-tools {
+  display: flex;
+  gap: 8px;
+  padding: 0 20px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+.pl-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pl-tool-btns {
+  display: flex;
+  gap: 8px;
+}
+.pl-num {
+  width: 72px;
+  text-align: center;
+}
+.pl-more {
+  padding: 10px;
+  text-align: center;
+  border-top: 1px dashed var(--border);
+  margin-top: 4px;
+}
+
+/* ---- Bang chon danh sach con ---- */
+.sub-note {
+  padding: 0 20px 12px;
+}
+.sub-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+.sub-item:hover {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--panel-2));
+}
+.sub-ico {
+  font-size: 18px;
+}
+.sub-title {
+  flex: 1;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sub-count {
+  white-space: nowrap;
+}
+.probing-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: var(--panel);
+  padding: 28px 40px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+/* ---- Proxy ---- */
+.proxy-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.proxy-title {
+  font-weight: 600;
+}
+.proxy-guide-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.proxy-guide-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.proxy-actions {
+  display: flex;
+  gap: 10px;
+}
+.proxy-msg {
+  margin-top: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+}
+.proxy-msg.ok {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ok) 35%, transparent);
+}
+.proxy-msg.err {
+  color: var(--fail);
+  background: color-mix(in srgb, var(--fail) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--fail) 35%, transparent);
+}
+.proxy-guide-body {
+  padding: 4px 20px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.proxy-fmt {
+  font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+.proxy-ex-title {
+  font-weight: 600;
+  margin-top: 2px;
+}
+.proxy-ex {
+  width: 100%;
+  border-collapse: collapse;
+}
+.proxy-ex td {
+  padding: 5px 8px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+.proxy-ex code,
+.proxy-note code,
+.proxy-guide-body code {
+  background: var(--panel-2);
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 12.5px;
+}
+.proxy-note {
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+/* ---- Douyin ---- */
+.dy-setup {
+  display: flex;
+  justify-content: center;
+  padding-top: 30px;
+}
+.dy-install-card {
+  max-width: 480px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+}
+.dy-install-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+.dy-err {
+  color: var(--fail);
+}
+.dy-mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dy-mode-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.dy-mode-opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  line-height: 1.5;
+}
+.dy-mode-opt input[type='radio'] {
+  margin-top: 3px;
+}
+.dy-batch {
+  width: 64px;
+  margin: 0 6px;
+  text-align: center;
+}
+.dy-library {
+  margin-top: 6px;
+}
+.dy-lib-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.dy-lib-title {
+  font-weight: 600;
+}
+.dy-chan-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dy-chan {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+.dy-chan-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 360px;
+}
+.dy-chan-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ---- Nhat ky hoat dong ---- */
+.logs-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+}
+.logs-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.logs-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.logs-err-count {
+  color: var(--fail);
+  font-weight: 600;
+}
+.logs-list {
+  flex: 1;
+  min-height: 320px;
+  max-height: calc(100vh - 260px);
+  overflow-y: auto;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.logs-empty {
+  padding: 24px;
+  text-align: center;
+}
+.log-line {
+  display: flex;
+  gap: 10px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.log-line.error {
+  background: color-mix(in srgb, var(--fail) 12%, transparent);
+}
+.log-line.warn {
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+}
+.log-time {
+  color: var(--muted);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.log-level {
+  flex-shrink: 0;
+  width: 44px;
+  font-weight: 700;
+}
+.log-level.info {
+  color: var(--primary);
+}
+.log-level.warn {
+  color: var(--warn);
+}
+.log-level.error {
+  color: var(--fail);
+}
+.log-msg {
+  flex: 1;
+}
+.logs-hint {
+  padding-top: 2px;
+}
+.small-btn {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+.modal-list {
+  overflow-y: auto;
+  padding: 8px 12px;
+  flex: 1;
+}
+.pl-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13.5px;
+}
+.pl-entry:hover {
+  background: var(--panel-2);
+}
+.pl-idx {
+  color: var(--muted-2, var(--muted));
+  font-size: 12px;
+  min-width: 22px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.pl-title {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pl-dur {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+}
+.modal.wide {
+  max-width: 680px;
+}
+
+/* Bang format */
+.fmt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.fmt-table th {
+  text-align: left;
+  color: var(--muted-2, var(--muted));
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  padding: 6px 10px;
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+}
+.fmt-table td {
+  padding: 8px 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+.fmt-table tbody tr {
+  cursor: pointer;
+}
+.fmt-table tbody tr:hover {
+  background: var(--panel-2);
+}
+.fmt-kind {
+  width: 24px;
+  text-align: center;
+}
+.fmt-codec {
+  color: var(--muted);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11.5px;
+}
+.fmt-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Badge dinh dang tren item */
+.qfmt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.fmt-badge {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.qfolder {
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Tay nam keo ngang */
+.rbox-trai {
+  left: -6px;
+  width: 12px;
+  height: 100%;
+  cursor: ew-resize;
+  top: 0;
+  right: auto;
+}
+.rbox-phai {
+  right: -6px;
+  width: 12px;
+  height: 100%;
+  cursor: ew-resize;
+  top: 0;
+  left: auto;
+}
+
+/* Danh sach cac vung lam mo */
+.blur-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.blur-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.blur-item:hover {
+  background: var(--panel-hover);
+}
+.blur-item.active {
+  border-color: var(--primary);
+}
+.blur-color-badge {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.blur-toado {
+  flex: 1;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.blur-del-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+.blur-del-btn:hover {
+  color: var(--fail);
+  background: color-mix(in srgb, var(--fail) 15%, transparent);
+}
+
+.rbox-ocr {
+  border: 2px dashed var(--warn) !important;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--warn) 45%, transparent);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  z-index: 21;
+}
+
+.rbox-nhan-ocr {
+  background: var(--warn) !important;
+  color: var(--action-ink) !important;
+  font-weight: 600;
+}
+
+
+/* Video2X / enhance tab */
+.v2x-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  flex: 1;
+}
+.v2x-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.v2x-toolbar-spacer {
+  flex: 1;
+}
+.v2x-outdir {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2x-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: 12px;
+  min-height: 0;
+  flex: 1;
+  align-items: stretch;
+}
+.v2x-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+}
+.v2x-table-wrap {
+  flex: 1;
+  min-height: 180px;
+  overflow: auto;
+  padding: 0;
+}
+.v2x-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.v2x-table th,
+.v2x-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.v2x-table th {
+  position: sticky;
+  top: 0;
+  background: var(--panel-2);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  z-index: 1;
+}
+.v2x-table tr:last-child td {
+  border-bottom: none;
+}
+.v2x-table tr.selected {
+  background: color-mix(in srgb, var(--primary) 11%, transparent);
+}
+.v2x-table tr {
+  cursor: pointer;
+}
+.v2x-prog {
+  position: relative;
+  min-width: 140px;
+  height: 22px;
+  border-radius: 4px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+.v2x-prog-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--progress-gradient);
+  opacity: 0.35;
+  transition: width 0.2s ease;
+}
+.v2x-prog-bar.done {
+  background: var(--ok);
+  opacity: 0.45;
+}
+.v2x-prog-bar.err {
+  background: var(--fail);
+  opacity: 0.45;
+}
+.v2x-prog-txt {
+  position: relative;
+  z-index: 1;
+  display: block;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.v2x-actions {
+  display: flex;
+  gap: 2px;
+  justify-content: flex-end;
+}
+.v2x-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.v2x-cfg {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 12px;
+  overflow: hidden;
+}
+.v2x-cfg-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.v2x-cfg-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.v2x-help-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  font-weight: 700;
+  line-height: 1;
+}
+.v2x-help-modal {
+  max-width: 520px;
+  width: 92vw;
+}
+.v2x-help-body {
+  font-size: 13px;
+  line-height: 1.55;
+}
+.v2x-help-body h4 {
+  margin: 14px 0 6px;
+  font-size: 13px;
+}
+.v2x-help-body ul,
+.v2x-help-body ol {
+  margin: 0 0 8px;
+  padding-left: 18px;
+}
+.v2x-help-body li {
+  margin-bottom: 4px;
+}
+.v2x-help-body code {
+  font-size: 12px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--panel-2);
+}
+.v2x-cfg-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+.v2x-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.v2x-footer-prog {
+  position: relative;
+  flex: 1;
+  min-width: 140px;
+  height: 22px;
+  border-radius: 4px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.v2x-footer-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--progress-gradient);
+  opacity: 0.3;
+}
+.v2x-footer-prog > span {
+  position: relative;
+  z-index: 1;
+  display: block;
+  padding: 3px 8px;
+  color: var(--text);
+}
+.v2x-active-path {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-basis: 100%;
+}
+.v2x-edit-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.v2x-edit-tabs button {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+}
+.v2x-edit-tabs button.active {
+  background: var(--panel-2);
+  color: var(--text);
+  border-color: var(--primary);
+}
+.v2x-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.v2x-row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+@media (max-width: 900px) {
+  .v2x-main {
+    grid-template-columns: 1fr;
+  }
+  .v2x-cfg {
+    max-height: 360px;
+  }
+}
+
+/* ---- Phan tang noi dung: tac vu chinh truoc, ky thuat khi nguoi dung mo ---- */
+.side-about {
+  margin: 2px 8px 4px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.side-about summary {
+  padding: 4px;
+  cursor: pointer;
+  list-style: none;
+}
+.side-about summary::before {
+  content: '›';
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform 0.15s ease;
+}
+.side-about[open] summary::before {
+  transform: rotate(90deg);
+}
+.side-about .side-version {
+  padding-left: 14px;
+}
+
+.tech-details {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.tech-details > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--muted);
+}
+.tech-details[open] > summary {
+  color: var(--text);
+  margin-bottom: 9px;
+}
+.tech-details.compact {
+  margin-top: 7px;
+  font-size: 12px;
+}
+.tech-details.compact > .gk-check {
+  margin-top: 8px;
+}
+
+.tech-card {
+  padding: 0;
+  overflow: hidden;
+}
+.tech-card-summary {
+  display: block;
+  cursor: pointer;
+  padding: 13px 14px;
+  list-style-position: inside;
+}
+.tech-card[open] .tech-card-summary {
+  border-bottom: 1px solid var(--border);
+}
+.tech-card-body {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px 14px;
+}
+.tech-card-body .proxy-head {
+  justify-content: flex-end;
+}
+
+.format-detail-toggle {
+  margin: 0 16px 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.fmt-table:not(.show-technical) .fmt-technical {
+  display: none;
+}
+.blur-coords {
+  display: none;
+}
+
+.support-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+  padding: 15px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-2);
+}
+.support-summary.has-errors {
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--border));
+}
+.support-summary-title {
+  margin-bottom: 4px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+}
+.support-details-toggle {
+  margin-bottom: 12px;
+}
+.support-technical {
+  margin-bottom: 12px;
+}
+
+@media (max-width: 720px) {
+  .support-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+/* The "goal cards" are the one signature interaction of the video enhancer. */
+.v2x-goal-grid {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+.v2x-goal {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  width: 100%;
+  padding: 11px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--panel-2);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+.v2x-goal:hover {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+}
+.v2x-goal.active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--panel-2));
+}
+.v2x-goal-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--primary) 15%, transparent);
+  color: var(--primary);
+  font-size: 18px;
+  font-weight: 800;
+}
+.v2x-goal b,
+.v2x-goal small {
+  display: block;
+}
+.v2x-goal b {
+  margin-bottom: 3px;
+  font-size: 13px;
+}
+.v2x-goal small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+.v2x-basic-form {
+  display: grid;
+  gap: 10px;
+}
+.v2x-expert-toggle {
+  margin: 12px 0 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+}
+.v2x-expert {
+  min-height: 0;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  overflow: hidden;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 85%, white);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

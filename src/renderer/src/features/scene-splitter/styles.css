@@ -1,0 +1,323 @@
+.scene-splitter-workspace {
+  width: 100%;
+}
+
+.scene-splitter-card {
+  padding: 12px;
+}
+
+.scene-splitter-card > strong,
+.scene-splitter-label {
+  display: block;
+  margin-bottom: 9px;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.scene-splitter-card-head,
+.scene-splitter-result-head,
+.scene-splitter-progress-head,
+.scene-splitter-engine-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.scene-splitter-card-head > div:first-child,
+.scene-splitter-result-head > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.scene-splitter-actions,
+.scene-splitter-run-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.scene-splitter-files {
+  display: flex;
+  max-height: 128px;
+  margin-top: 9px;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.scene-splitter-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--panel-2);
+  font-size: 12px;
+}
+
+.scene-splitter-file span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scene-splitter-remove,
+.scene-splitter-link {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.scene-splitter-remove {
+  padding: 0 3px;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.scene-splitter-remove:hover,
+.scene-splitter-link:hover {
+  color: var(--text);
+}
+
+.scene-splitter-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.scene-splitter-mode {
+  padding: 10px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.scene-splitter-mode:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.scene-splitter-mode.active.content {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.scene-splitter-mode.active.hybrid {
+  border-color: #a78bfa;
+  background: rgba(167, 139, 250, 0.1);
+}
+
+.scene-splitter-mode-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.scene-splitter-mode-title em {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 9px;
+  font-style: normal;
+}
+
+.scene-splitter-mode.hybrid .scene-splitter-mode-title em {
+  background: #7c3aed;
+}
+
+.scene-splitter-mode small,
+.scene-splitter-parameters small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.scene-splitter-folder-row {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.scene-splitter-parameters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.scene-splitter-parameters label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.scene-splitter-parameters input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.scene-splitter-run-card {
+  padding: 12px;
+}
+
+.scene-splitter-engine-line {
+  justify-content: flex-start;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.scene-splitter-engine-line > span:nth-child(2) {
+  flex: 1;
+}
+
+.scene-splitter-engine-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 7px var(--ok);
+}
+
+.scene-splitter-engine-dot.warning {
+  background: #f59e0b;
+  box-shadow: 0 0 7px #f59e0b;
+}
+
+.scene-splitter-update-progress {
+  display: flex;
+  margin-bottom: 10px;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.scene-splitter-run-actions .btn.primary {
+  flex: 1;
+}
+
+.scene-splitter-run-actions .btn {
+  padding: 10px 15px;
+}
+
+.scene-splitter-progress {
+  padding: 13px;
+}
+
+.scene-splitter-progress.done {
+  border-color: var(--ok);
+}
+
+.scene-splitter-progress-head {
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.scene-splitter-result-card {
+  display: flex;
+  min-height: 0;
+  padding: 0;
+  flex: 1 1 auto !important;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.scene-splitter-result-head {
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.scene-splitter-table-wrap {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+.scene-splitter-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.scene-splitter-table th,
+.scene-splitter-table td {
+  max-width: 220px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scene-splitter-table th {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  background: var(--panel);
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.scene-splitter-link {
+  color: var(--primary);
+  font-size: 12px;
+}
+
+.scene-splitter-empty {
+  margin: auto 0;
+}
+
+.scene-splitter-setup {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+  place-items: center;
+}
+
+.scene-splitter-install-card {
+  width: min(520px, 100%);
+  text-align: center;
+}
+
+.scene-splitter-install-card h2 {
+  margin: 6px 0 8px;
+}
+
+.scene-splitter-install-icon {
+  font-size: 38px;
+}
+
+.scene-splitter-install-progress,
+.scene-splitter-install-card .error-box {
+  margin-top: 14px;
+}
+
+@media (max-width: 1050px) {
+  .scene-splitter-modes,
+  .scene-splitter-parameters {
+    grid-template-columns: 1fr;
+  }
+}

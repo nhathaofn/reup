@@ -1,0 +1,89 @@
+# T-blao
+
+Trình tải video & audio đa nền tảng — chạy trên **Windows** và **macOS**.
+
+Xây bằng **Electron + React + TypeScript** (electron-vite).
+
+Repo chính thức của dự án này: <https://github.com/nhathaofn/reup>.
+
+## Tính năng (MVP)
+
+- Dán URL → xem tiêu đề, thumbnail, thời lượng
+- Tải **Video (mp4)** với chọn độ phân giải, hoặc **Audio** (mp3/m4a/opus/flac/wav)
+- Nhúng ảnh bìa + metadata
+- Chọn thư mục lưu (mặc định: Downloads)
+- **Progress bar** thời gian thực (tốc độ, ETA)
+- **Tự kiểm tra & tải** các thành phần cần thiết khi thiếu (màn hình Setup lúc khởi động)
+
+## Yêu cầu môi trường
+
+- **Node.js** ≥ 18 (khuyến nghị 20+)
+- Khi build bản **macOS** (`.dmg`) cần chạy trên máy Mac hoặc GitHub Actions.
+
+## Lệnh
+
+```bash
+npm install       # cài dependencies
+npm run dev       # chạy chế độ phát triển (hot reload)
+npm start         # chạy bản build production (preview)
+npm run build     # build ra out/
+npm run typecheck # kiểm tra kiểu TypeScript
+npm run check:architecture # kiểm tra IPC và feature registry
+npm run verify    # typecheck + architecture check + production build
+npm run package:win   # đóng gói .exe (NSIS installer) -> dist/
+npm run package:mac   # đóng gói .dmg (cần macOS)
+```
+
+> ⚠️ **Lưu ý môi trường:** Nếu Electron khởi động mà báo `Cannot read properties of undefined (reading 'whenReady')`,
+> nghĩa là biến `ELECTRON_RUN_AS_NODE=1` đang bật (làm Electron chạy như Node thuần).
+> Khắc phục: xoá biến đó trước khi chạy — PowerShell: `Remove-Item Env:\ELECTRON_RUN_AS_NODE`.
+
+## Cấu trúc
+
+```
+src/
+  main/        # tiến trình chính: cửa sổ, IPC, kiểm tra/tải thành phần, gọi công cụ tải
+  preload/     # cầu nối an toàn (contextBridge) main <-> renderer
+  renderer/    # giao diện React
+  shared/      # kiểu dữ liệu dùng chung
+```
+
+## Phát triển feature mới
+
+Tạo một vertical slice Shared/Main/Preload/Renderer và tự đăng ký an toàn:
+
+    npm.cmd run feature:create -- media-inspector "Kiểm tra media"
+
+- [Bản đồ kiến trúc và chức năng](docs/PROJECT_ARCHITECTURE.md)
+- [Quy trình thêm feature](docs/ADDING_A_FEATURE.md)
+
+## Hướng phát triển tiếp
+
+- Phụ đề (tải + nhúng), SponsorBlock, cắt theo thời gian
+- Đổi định dạng đầu ra, mẫu tên file, tiếp tục tải dở
+- Hỗ trợ Douyin (engine riêng)
+
+## Font phụ đề
+
+Binary font **không** nằm trên GitHub (bản quyền). Khi build App trên máy bạn: đặt nguồn trong `font/` → `npm run fonts:copy` → xem [resources/fonts/README.md](resources/fonts/README.md).
+
+## Giấy phép
+
+T-blao phát hành theo **PolyForm Noncommercial License 1.0.0** (source-available, **phi thương mại** + bắt buộc ghi công).
+
+- Toàn văn: [LICENSE](LICENSE)
+- Ghi công / NOTICE: [NOTICE](NOTICE)
+- Dùng cá nhân, học tập, nghiên cứu, tổ chức phi thương mại: được phép theo license.
+- **Dùng thương mại** (bán, SaaS, tích hợp sản phẩm thương mại…): cần thỏa thuận riêng với **NeeyuBL**.
+
+Đây **không** phải giấy phép OSI “Open Source” (vì cấm thương mại).
+
+### Ghi công (bên thứ ba)
+
+T-blao dùng các công cụ/thư viện bên thứ ba (tải khi cần hoặc đóng gói riêng), mỗi thành phần giữ giấy phép gốc — xem [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) và tab **Giấy phép** trong app. Ví dụ:
+
+- **ffmpeg** — LGPL/GPL: <https://ffmpeg.org/legal.html>
+- **Video2X** — AGPL-3.0: <https://github.com/k4yt3x/video2x>
+- Bộ tải xuống mã nguồn mở (Unlicense / phạm vi công cộng).
+
+> Người dùng chịu trách nhiệm tuân thủ điều khoản của các nền tảng và luật bản quyền khi tải nội dung.
