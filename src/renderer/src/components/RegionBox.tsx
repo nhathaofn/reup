@@ -50,12 +50,19 @@ interface Props {
   xemMo?: boolean
   /** CSS font-family cho chu mau trong khung phu de (sau khi @font-face load). */
   previewFontFamily?: string
+  /** Cue SRT dang duoc xem truoc; bo trong thi dung cau mau. */
+  previewText?: string
   textColor?: string
   outlineColor?: string
   outlinePx?: number
+  fontScale?: number
+  bold?: boolean
+  italic?: boolean
+  shadowPx?: number
   bgEnabled?: boolean
   bgColor?: string
   bgOpacity?: number
+  bgPaddingPx?: number
 }
 
 type DragType = 'move' | 'top' | 'bot' | 'left' | 'right' | 'top-left' | 'top-right' | 'bot-left' | 'bot-right'
@@ -78,12 +85,18 @@ export default function RegionBox({
   boxW,
   xemMo = false,
   previewFontFamily,
+  previewText,
   textColor = '#ffffff',
   outlineColor = '#000000',
   outlinePx = 2,
+  fontScale = 100,
+  bold = true,
+  italic = false,
+  shadowPx = 0,
   bgEnabled = false,
   bgColor = '#000000',
-  bgOpacity = 60
+  bgOpacity = 60,
+  bgPaddingPx = 10
 }: Props): JSX.Element {
   const keo = useRef<{
     target: 'blur' | 'sub' | 'ocr'
@@ -187,23 +200,28 @@ export default function RegionBox({
 
   // Cỡ chữ mẫu = burn (bh * 0.7), quy về pixel preview qua sy
   const previewFontSize = subRegion && videoH > 0
-    ? Math.max(12, Math.round(fontSizeFromSubBox(subRegion.y1 - subRegion.y0) / sy))
+    ? Math.max(
+        12,
+        Math.round((fontSizeFromSubBox(subRegion.y1 - subRegion.y0) * fontScale) / 100 / sy)
+      )
     : 16
 
   // Xuong dong mau: do px that (canvas) vs chieu ngang khung (video px)
   const sampleAssLines = ((): string[] => {
-    const sample = 'Mẫu chữ xuất ra'
+    const rawSample = previewText === undefined ? 'Mẫu chữ xuất ra' : previewText.trim()
+    if (!rawSample) return []
+    const sample = rawSample.replace(/\r?\n/g, '\\N')
     if (!subRegion || videoW <= 0) return [sample]
     const bw = Math.max(1, subRegion.x1 - subRegion.x0)
     const bh = Math.max(1, subRegion.y1 - subRegion.y0)
-    const fs = fontSizeFromSubBox(bh)
-    const pad = bgEnabled ? Math.max(8, Math.round(fs * 0.26)) : 0
+    const fs = Math.max(14, Math.round((fontSizeFromSubBox(bh) * fontScale) / 100))
+    const pad = bgEnabled ? Math.max(4, Math.min(32, Math.round(bgPaddingPx))) : 0
     const maxW = wrapWidthFromBox(bw, pad)
     const family = previewFontFamily
       ? `"${previewFontFamily}", Arial, sans-serif`
       : 'Arial, sans-serif'
     // Do theo co chu ASS (video px) de khop burn, khong theo previewFontSize man hinh
-    const fontCss = `bold ${fs}px ${family}`
+    const fontCss = `${italic ? 'italic ' : ''}${bold ? '700' : '400'} ${fs}px ${family}`
     const measure = (t: string): number => {
       const w = measureCanvasText(fontCss, t)
       return w > 0 ? w : estimateTextWidthPx(t, fs)
@@ -212,13 +230,13 @@ export default function RegionBox({
     return wrapped.split('\\N').filter(Boolean)
   })()
 
-  const boxPadPreview = Math.max(4, Math.round(previewFontSize * 0.26))
+  const boxPadPreview = Math.max(2, Math.min(32, Math.round(bgPaddingPx / sy)))
   // Phuong an A: gan vuong nhu ASS (blur), khong pill
   const boxRadiusPreview = Math.max(2, Math.round(previewFontSize * 0.06))
-
   const outlineShadow = (() => {
-    const px = Math.max(0, Math.min(8, Math.round(outlinePx * 2) / 2))
-    if (px <= 0) return 'none'
+    const px = Math.max(0, Math.min(8, Math.round((outlinePx / sy) * 2) / 2))
+    const shadow = Math.max(0, Math.min(8, Math.round((shadowPx / sy) * 2) / 2))
+    if (px <= 0 && shadow <= 0) return 'none'
     const parts: string[] = []
     const step = 0.5
     for (let x = -px; x <= px + 1e-9; x += step) {
@@ -229,6 +247,9 @@ export default function RegionBox({
         const yr = Math.round(y * 2) / 2
         parts.push(`${xr}px ${yr}px 0 ${outlineColor}`)
       }
+    }
+    if (shadow > 0) {
+      parts.push(`${shadow}px ${shadow}px ${Math.max(1, shadow)}px ${outlineColor}`)
     }
     return parts.join(', ')
   })()
@@ -348,29 +369,36 @@ export default function RegionBox({
           <div className="rbox-tay rbox-trai" onMouseDown={batSub('left')} />
           <div className="rbox-tay rbox-phai" onMouseDown={batSub('right')} />
 
-          {/* Chu mau: can day khung (\\an2), nam trong vien tim */}
+          {/* Chu mau: luon can giua ngang + doc trong khung */}
           <div className="sub-sample-slot">
-            <div
-              className={`sub-sample-text${bgEnabled ? ' sub-sample-hug' : ''}`}
-              style={{
-                fontSize: `${previewFontSize}px`,
-                fontFamily: previewFontFamily
-                  ? `"${previewFontFamily}", Arial, sans-serif`
-                  : 'Arial, sans-serif',
-                color: textColor,
-                textShadow: outlineShadow,
-                whiteSpace: 'pre-line',
-                ...(bgEnabled
-                  ? {
-                      background: bgRgba,
-                      borderRadius: boxRadiusPreview,
-                      padding: `${Math.max(3, Math.round(boxPadPreview * 0.55))}px ${boxPadPreview}px`
-                    }
-                  : {})
-              }}
-            >
-              {sampleAssLines.join('\n')}
-            </div>
+            {sampleAssLines.length > 0 && (
+              <div
+                className={`sub-sample-text${bgEnabled ? ' sub-sample-hug' : ''}`}
+                style={{
+                  fontSize: `${previewFontSize}px`,
+                  fontFamily: previewFontFamily
+                    ? `"${previewFontFamily}", Arial, sans-serif`
+                    : 'Arial, sans-serif',
+                  fontWeight: bold ? 700 : 400,
+                  fontStyle: italic ? 'italic' : 'normal',
+                  color: textColor,
+                  textShadow: outlineShadow,
+                  textAlign: 'center',
+                  alignSelf: 'center',
+                  width: bgEnabled ? 'max-content' : '100%',
+                  whiteSpace: 'pre-line',
+                  ...(bgEnabled
+                    ? {
+                        background: bgRgba,
+                        borderRadius: boxRadiusPreview,
+                        padding: `${boxPadPreview}px`
+                      }
+                    : {})
+                }}
+              >
+                {sampleAssLines.join('\n')}
+              </div>
+            )}
           </div>
         </div>
       )}

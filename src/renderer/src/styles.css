@@ -900,6 +900,47 @@ textarea {
 .sub-style-grid input[type='range'] {
   width: 100%;
 }
+.sub-preview-panel {
+  margin: 10px 0 12px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--render-violet) 42%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--render-violet) 8%, var(--panel-2));
+}
+.sub-preview-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.sub-preview-text {
+  min-height: 38px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.22);
+  white-space: pre-line;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.sub-preview-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.sub-preview-actions .btn {
+  flex: 1;
+  justify-content: center;
+  padding: 6px 8px;
+}
+.sub-preview-scrub {
+  width: 100%;
+  margin-top: 8px;
+}
+.sub-preview-help {
+  margin-top: 5px;
+  line-height: 1.35;
+}
 
 /* Bang huong dan lay key */
 .modal-nen {

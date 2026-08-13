@@ -284,7 +284,7 @@ export interface BurnReq {
   video: string
   srt?: string | null
   outputDir: string
-  mode: 'burn' | 'soft' // dot chet (dang lai) | ghep mem (ranh sub, xem may)
+  mode: 'burn' | 'soft' // dot chu vao hinh | nhung SRT mem, khong doi hinh video
   // VUNG DAT CHU (pixel video, chi khi dot chet): chu se can giua quanh tam
   // vung nay. null -> khong co vung, chu ve vi tri phu de tieu chuan (sat day).
   // LUU Y: gui vung NAY KE CA khi khong lam mo — keo khung = chon cho dat chu.
@@ -302,8 +302,13 @@ export interface BurnReq {
   // can: het khung hinh la chu tu dung, khong co gi de cat.
   catSrt?: boolean
   batAmThanh?: boolean
+  /** 'single' giu luong am thanh cu; 'voice-per-cue' ghep 1 file voice cho moi cue SRT. */
+  amThanhMode?: 'single' | 'voice-per-cue'
   amThanhFile?: string | null
+  voiceSyncSrt?: string | null
+  voiceDir?: string | null
   amLuongGoc?: number
+  amLuongVoice?: number
   /** null / 'auto' / undefined = tu dong theo ngon ngu; else id trong catalog. */
   fontId?: string | null
   /** Mau chu #RRGGBB (mac dinh trang). */
@@ -318,6 +323,58 @@ export interface BurnReq {
   bgColor?: string
   /** Do dam nen 0–100. */
   bgOpacity?: number
+  /** Ty le co chu so voi co tu dong/khung keo (60–160%). */
+  fontScale?: number
+  /** Chu dam trong ASS/preview. */
+  bold?: boolean
+  /** Chu nghieng trong ASS/preview. */
+  italic?: boolean
+  /** Do day bong do sau (px), 0 = tat. */
+  shadowPx?: number
+  /** Khoang dem ngang/dung cua nen hop (px). */
+  bgPaddingPx?: number
+}
+
+/** Cue phu de da duoc main doc de renderer xem truoc theo thoi gian video. */
+export interface SubtitlePreviewCue {
+  index: number
+  startSeconds: number
+  endSeconds: number
+  text: string
+}
+
+export interface SubtitlePreviewResult {
+  ok: boolean
+  cues: SubtitlePreviewCue[]
+  error?: string
+}
+
+export interface VoiceSyncEntry {
+  index: number
+  startSeconds: number
+  endSeconds: number
+  text: string
+  fileName?: string
+  filePath?: string
+  durationSeconds?: number
+  /** Thoi luong file / thoi luong cue truoc khi atempo. */
+  fitRatio?: number
+  status: 'ok' | 'missing' | 'invalid'
+  error?: string
+}
+
+export interface VoiceSyncScanResult {
+  ok: boolean
+  srtPath: string
+  voiceDir: string
+  cueCount: number
+  audioCount: number
+  matchedCount: number
+  missingIndices: number[]
+  invalidIndices: number[]
+  extraFiles: string[]
+  entries: VoiceSyncEntry[]
+  error?: string
 }
 export interface BurnProgress {
   percent: number // -1 = chua tinh duoc

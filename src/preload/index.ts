@@ -37,6 +37,8 @@ import {
   Video2xProgress,
   Video2xRunRequest,
   Video2xRunResult,
+  VoiceSyncScanResult,
+  SubtitlePreviewResult,
   WhisperCudaStatus,
   WhisperEngineStatus,
   WhisperProgress,
@@ -183,6 +185,10 @@ const coreApi = {
   listBurnFonts: (): Promise<BurnFontEntry[]> => ipcRenderer.invoke('fonts:list'),
   /** Do dai file .srt (giay) — de canh bao khi lech han so voi video. */
   srtGiay: (duong: string): Promise<number> => ipcRenderer.invoke('burn:srtGiay', duong),
+  srtPreview: (duong: string): Promise<SubtitlePreviewResult> =>
+    ipcRenderer.invoke('burn:srt-preview', duong),
+  scanVoiceSync: (srtPath: string, voiceDir: string): Promise<VoiceSyncScanResult> =>
+    ipcRenderer.invoke('burn:voice-sync-scan', srtPath, voiceDir),
   onBurnProgress: (cb: (p: BurnProgress) => void): (() => void) => {
     const listener = (_e: unknown, p: BurnProgress): void => cb(p)
     ipcRenderer.on('burn:progress', listener)

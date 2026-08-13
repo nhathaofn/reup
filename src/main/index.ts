@@ -73,7 +73,8 @@ import {
   translateSrt as openaiTranslateSrt
 } from './openai'
 import { cancelOcr, installOcrEngine, ocrEngineStatus, ocrVideo } from './ocr'
-import { burnSubtitle, cancelBurn, srtGiay } from './burn'
+import { burnSubtitle, cancelBurn, previewSrtFile, srtGiay } from './burn'
+import { scanVoiceSync } from './services/voiceSync'
 import { listBurnFonts } from './fonts'
 import {
   cancelVideo2x,
@@ -512,6 +513,10 @@ function registerIpc(): void {
   ipcMain.handle('burn:cancel', async () => cancelBurn())
   // Do do dai file .srt -> renderer canh bao khi lech han so voi video
   ipcMain.handle('burn:srtGiay', async (_e, duong: string) => srtGiay(duong))
+  ipcMain.handle('burn:srt-preview', async (_e, duong: string) => previewSrtFile(duong))
+  ipcMain.handle('burn:voice-sync-scan', async (_e, srtPath: string, voiceDir: string) =>
+    scanVoiceSync(srtPath, voiceDir)
+  )
   ipcMain.handle('fonts:list', async () => listBurnFonts())
 
   // ---- Video2X (nang cap video) ----

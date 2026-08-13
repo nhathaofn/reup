@@ -1,12 +1,21 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { basename, dirname, join } from 'node:path'
-import { mkdir, copyFile, readFile, writeFile, stat, rm } from 'node:fs/promises'
+import { mkdir, copyFile, writeFile, stat, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolveFfmpeg } from './deps'
 import { escapeFfmpegFilterPath, findBurnFont, resolveFontsDir } from './fonts'
 import { createTextMeasurer } from './fontMeasure'
 import { debugRaw, logInfo } from './logger'
-import type { BlurRegion, BurnFontEntry, BurnReq, BurnProgress, BurnResult } from '../shared/types'
+import type {
+  BlurRegion,
+  BurnFontEntry,
+  BurnReq,
+  BurnProgress,
+  BurnResult,
+  SubtitlePreviewResult
+} from '../shared/types'
+import { parseSrt, readSrtFile, srtTimeToSeconds, type ParsedSrtCue } from './services/srt'
+import { buildVoiceTimeline, cancelVoiceTimeline } from './services/voiceSync'
 import {
   cueUsesCjkWrap,
   ngatDongTheoPx,
@@ -52,6 +61,11 @@ interface SubStyle {
   bgEnabled: boolean
   bgColor: string
   bgOpacity: number
+  fontScale: number
+  bold: boolean
+  italic: boolean
+  shadowPx: number
+  bgPaddingPx: number
 }
 
 function styleFromReq(req: BurnReq, fallbackVien: number): SubStyle {
@@ -70,7 +84,15 @@ function styleFromReq(req: BurnReq, fallbackVien: number): SubStyle {
     outlinePx,
     bgEnabled: Boolean(req.bgEnabled),
     bgColor: parseHexColor(req.bgColor) ? req.bgColor! : '#000000',
-    bgOpacity: Math.max(0, Math.min(100, req.bgOpacity ?? 60))
+    bgOpacity: Math.max(0, Math.min(100, req.bgOpacity ?? 60)),
+    fontScale: Math.max(60, Math.min(160, req.fontScale ?? 100)),
+    bold: req.bold ?? true,
+    italic: Boolean(req.italic),
+    shadowPx: Math.max(0, Math.min(8, req.shadowPx ?? 0)),
+    bgPaddingPx: Math.max(
+      4,
+      Math.min(32, req.bgPaddingPx ?? Math.max(6, Math.round((fallbackVien / 0.12) * 0.16)))
+    )
   }
 }
 
@@ -80,6 +102,7 @@ let daHuy = false
 /** Huy giua chung: giet ffmpeg. child.kill() thoat ma null -> hieu la huy, khong loi. */
 export function cancelBurn(): void {
   daHuy = true
+  cancelVoiceTimeline()
   if (!child) return
   try {
     child.kill()
@@ -237,73 +260,29 @@ export function boCuc(
   }
 }
 
-/** Mot cau phu de da tach khoi .srt. */
-interface Cue {
-  a: string // moc bat dau
-  b: string // moc ket thuc
-  chu: string // noi dung (nhieu dong noi bang \N)
-}
+type Cue = ParsedSrtCue
 
-/**
- * Tach .srt thanh danh sach cau. Tach RIENG (khong nam trong taoAss) vi phan
- * tinh bo cuc cung can dem so ky tu de biet chu se xuong may dong.
- */
-export function docSrt(srtRaw: string): Cue[] {
-  const out: Cue[] = []
-  const cleanText = srtRaw.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-  const lines = cleanText.split('\n')
+// Giu export cu de cac luong burn/kiem thu hien tai khong doi API.
+export const docSrt = parseSrt
+export const docFileSrt = readSrtFile
 
-  let currentCue: { a: string; b: string; textLines: string[] } | null = null
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (line.includes('-->')) {
-      if (currentCue && currentCue.textLines.length > 0) {
-        // Loai bo dong so thu tu SRT bi dinh nham vao cuoi cue truoc
-        while (
-          currentCue.textLines.length > 1 &&
-          /^\d+$/.test(currentCue.textLines[currentCue.textLines.length - 1])
-        ) {
-          currentCue.textLines.pop()
-        }
-        out.push({
-          a: currentCue.a,
-          b: currentCue.b,
-          chu: currentCue.textLines.join('\\N').replace(/[{}]/g, '')
-        })
-      }
-      const parts = line.split('-->')
-      currentCue = {
-        a: parts[0].trim(),
-        b: parts[1].trim(),
-        textLines: []
-      }
-    } else if (currentCue) {
-      if (/^\d+$/.test(line) && currentCue.textLines.length === 0) {
-        continue
-      }
-      if (line.length > 0) {
-        currentCue.textLines.push(line)
-      }
+/** Doc cue phu de an toan cho renderer xem truoc theo timeline video. */
+export function previewSrtFile(duong: string): SubtitlePreviewResult {
+  try {
+    const cues = docSrt(docFileSrt(duong))
+    return {
+      ok: cues.length > 0,
+      cues: cues.map((cue, index) => ({
+        index: index + 1,
+        startSeconds: srtTimeToSeconds(cue.a),
+        endSeconds: srtTimeToSeconds(cue.b),
+        text: cue.chu.replace(/\\N/g, '\n')
+      })),
+      ...(cues.length > 0 ? {} : { error: 'File SRT không có câu phụ đề hợp lệ.' })
     }
+  } catch {
+    return { ok: false, cues: [], error: 'Không đọc được file SRT.' }
   }
-
-  if (currentCue && currentCue.textLines.length > 0) {
-    out.push({
-      a: currentCue.a,
-      b: currentCue.b,
-      chu: currentCue.textLines.join('\\N').replace(/[{}]/g, '')
-    })
-  }
-
-  return out
-}
-
-/** Moc thoi gian .srt "HH:MM:SS,mmm" -> so giay. Hong thi tra 0. */
-function giay(t: string): number {
-  const m = /(\d+):(\d+):(\d+)[,.](\d+)/.exec(t.trim())
-  if (!m) return 0
-  return Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) + Number(m[4]) / 1000
 }
 
 /**
@@ -312,9 +291,9 @@ function giay(t: string): number {
  */
 export async function srtGiay(duong: string): Promise<number> {
   try {
-    const cues = docSrt(await readFile(duong, 'utf8'))
+    const cues = docSrt(docFileSrt(duong))
     let max = 0
-    for (const c of cues) max = Math.max(max, giay(c.b))
+    for (const c of cues) max = Math.max(max, srtTimeToSeconds(c.b))
     return max
   } catch {
     return 0
@@ -342,9 +321,9 @@ function mocSrt(s: number): string {
 export function catSrtTheoVideo(cues: Cue[], giayVideo: number): string {
   const ra: string[] = []
   for (const c of cues) {
-    const batDau = giay(c.a)
+    const batDau = srtTimeToSeconds(c.a)
     if (batDau >= giayVideo) continue // cau khong bao gio hien -> bo
-    const ketThuc = Math.min(giay(c.b), giayVideo) // cau vat ngang -> keo ve cuoi video
+    const ketThuc = Math.min(srtTimeToSeconds(c.b), giayVideo) // cau vat ngang -> keo ve cuoi video
     if (ketThuc <= batDau) continue
     ra.push(
       `${ra.length + 1}\n${mocSrt(batDau)} --> ${mocSrt(ketThuc)}\n` +
@@ -362,48 +341,6 @@ function gioAss(t: string): string {
   return `${Number(m[1])}:${m[2]}:${m[3]}.${String(cs).padStart(2, '0')}`
 }
 
-/**
- * .srt -> .ass, ĐẶT PlayResX/Y = KICH THUOC VIDEO. Vi sao KHONG dung filter
- * `subtitles=...:force_style`: no doc .srt voi PlayResY mac dinh (~288) nen
- * FontSize/MarginV (tinh theo pixel video) bi phong ~2.5x va DAT SAI CHO -> chu
- * khong nam trong dai mo. Da do that. Voi PlayRes = video thi moi so la pixel that.
- */
-import { readFileSync } from 'node:fs'
-
-/**
- * Doc file srt tu dong nhan dien encoding (UTF-8, UTF-16LE/BE, EUC-KR cho chu Han)
- */
-export function docFileSrt(duong: string): string {
-  const buf = readFileSync(duong)
-  if (buf.length >= 2 && buf[0] === 0xFF && buf[1] === 0xFE) {
-    return buf.toString('utf16le')
-  }
-  if (buf.length >= 2 && buf[0] === 0xFE && buf[1] === 0xFF) {
-    try {
-      return new TextDecoder('utf-16be').decode(buf)
-    } catch {
-      return buf.toString('utf16le')
-    }
-  }
-  if (buf.length >= 3 && buf[0] === 0xEF && buf[1] === 0xBB && buf[2] === 0xBF) {
-    return buf.toString('utf8').slice(1)
-  }
-
-  const utf8Str = buf.toString('utf8')
-  if (utf8Str.includes('\uFFFD')) {
-    try {
-      return new TextDecoder('euc-kr').decode(buf)
-    } catch {
-      return buf.toString('latin1')
-    }
-  }
-  return utf8Str
-}
-
-
-
-
-
 export function taoAss(
   cues: Cue[],
   meta: Meta,
@@ -414,15 +351,24 @@ export function taoAss(
 ): string {
   const w = meta.w > 0 ? meta.w : 1280
   const h = meta.h > 0 ? meta.h : 720
+  const fontScale = style?.fontScale ?? 100
+  const fontSize = Math.max(14, Math.round(bc.fontSize * fontScale / 100))
 
   const marginL = bc.x > 0 ? bc.x : Math.round(w * 0.08)
   const marginR = bc.x > 0 && bc.bw > 0 ? Math.max(0, w - (bc.x + bc.bw)) : Math.round(w * 0.08)
   const boxWidth = w - marginL - marginR
 
-  // MarginV tinh tu day video len day duoi khung phu de
-  // \an2 = bottom-center: libass dat dong cuoi cung cach day video marginV pixel
-  // => chu se nam SAT day khung sub va duoc phep tran len tren neu nhieu dong
+  // MarginV chi con dung cho truong hop khong co khung phu de cu the.
+  // Neu co khung, positionTag ben duoi se neo tam chu bang toa do that.
   const marginV = bc.tamY != null ? Math.max(0, h - (bc.y + bc.bh)) : bc.marginV
+  // Khi co khung phu de, chu luon nam tai tam khung (ASS: \\an5 + \\pos).
+  // Khong dung MarginV/\\an2 vi cach do se neo chu vao day khung va lech khi
+  // doi co chu hoac so dong.
+  const centeredInRegion = bc.tamY != null
+  const alignment = centeredInRegion ? 5 : 2
+  const positionTag = centeredInRegion
+    ? `{\\an5\\pos(${Math.round(bc.x + bc.bw / 2)},${Math.round(bc.y + bc.bh / 2)})}`
+    : ''
 
   // Tu dong phat hien font theo ngon ngu (mau ca file). Wrap xuong dong: theo TUNG cue.
   const textSample = cues.map((c) => c.chu).join('')
@@ -454,9 +400,9 @@ export function taoAss(
 
   // Wrap theo px chieu ngang khung (tru pad neu co nen)
   const bgOn = Boolean(style?.bgEnabled)
-  const boxPad = Math.max(8, Math.round(bc.fontSize * 0.26))
+  const boxPad = style?.bgPaddingPx ?? Math.max(8, Math.round(fontSize * 0.16))
   const maxWidthPx = wrapWidthFromBox(boxWidth, bgOn ? boxPad : 0)
-  const measure = createTextMeasurer(bc.fontSize, fontName, pickedFont)
+  const measure = createTextMeasurer(fontSize, fontName, pickedFont)
 
   const primary = hexToAssColour(style?.textColor ?? '#ffffff', 100)
   const outline = hexToAssColour(style?.outlineColor ?? '#000000', 100)
@@ -464,17 +410,20 @@ export function taoAss(
   const back = bgOn
     ? hexToAssColour(style!.bgColor, style!.bgOpacity)
     : '&H00000000&'
+  const bold = style?.bold ?? true
+  const italic = style?.italic ?? false
+  const shadowW = style?.shadowPx ?? 0
   // blur nhe de mem goc hop (ASS khong co border-radius that)
-  const boxBlur = Math.max(2, Math.min(5, bc.fontSize * 0.055))
+  const boxBlur = Math.max(2, Math.min(5, fontSize * 0.055))
 
   // D = chu + vien; Box = chi hop nen (chu trong suot), ôm sát khi xuống dòng
   const styleText =
-    `Style: D,${fontName},${bc.fontSize},${primary},&H00000000&,${outline},&H00000000&,` +
-    `0,0,0,0,100,100,0,0,1,${outlineW},0,2,${marginL},${marginR},${marginV},1`
+    `Style: D,${fontName},${fontSize},${primary},&H00000000&,${outline},&H00000000&,` +
+    `${bold ? -1 : 0},${italic ? -1 : 0},0,0,100,100,0,0,1,${outlineW},${shadowW},${alignment},${marginL},${marginR},${marginV},1`
   // BorderStyle=3: mau hop = OutlineColour (khong phai BackColour)
   const styleBox =
-    `Style: Box,${fontName},${bc.fontSize},&HFF000000&,&H00000000&,${back},&H00000000&,` +
-    `0,0,0,0,100,100,0,0,3,${boxPad},0,2,${marginL},${marginR},${marginV},1`
+    `Style: Box,${fontName},${fontSize},&HFF000000&,&H00000000&,${back},&H00000000&,` +
+    `0,0,0,0,100,100,0,0,3,${boxPad},0,${alignment},${marginL},${marginR},${marginV},1`
 
   const events = cues.flatMap((c) => {
     const textFormatted = ngatDongTheoPx(c.chu, maxWidthPx, measure, cueUsesCjkWrap(c.chu))
@@ -482,11 +431,11 @@ export function taoAss(
     const b = gioAss(c.b)
     if (bgOn) {
       return [
-        `Dialogue: 0,${a},${b},Box,,0,0,0,,{\\blur${boxBlur.toFixed(1)}}${textFormatted}`,
-        `Dialogue: 1,${a},${b},D,,0,0,0,,${textFormatted}`
+        `Dialogue: 0,${a},${b},Box,,0,0,0,,{\\blur${boxBlur.toFixed(1)}}${positionTag}${textFormatted}`,
+        `Dialogue: 1,${a},${b},D,,0,0,0,,${positionTag}${textFormatted}`
       ]
     }
-    return [`Dialogue: 0,${a},${b},D,,0,0,0,,${textFormatted}`]
+    return [`Dialogue: 0,${a},${b},D,,0,0,0,,${positionTag}${textFormatted}`]
   })
 
   const styleLines = bgOn ? [styleBox, styleText] : [styleText]
@@ -521,6 +470,7 @@ function taoFilterComplex(
   batAmThanh = false,
   hasAudioFile = false,
   audioVolume = 100,
+  externalAudioVolume = 100,
   fontsDir: string | null = null
 ): string[] {
   const sigma = Math.max(8, Math.round((meta.h > 0 ? meta.h : 720) * 0.03))
@@ -592,10 +542,11 @@ function taoFilterComplex(
   if (batAmThanh) {
     if (meta.hasAudio) {
       const volRatio = Math.pow(audioVolume / 100, 2)
+      const externalVolRatio = Math.pow(externalAudioVolume / 100, 2)
       let audioFilter = ''
       if (hasAudioFile) {
         // Có nhạc nền + có âm thanh gốc -> Trộn
-        audioFilter = `[0:a]volume=${volRatio}[a0];[1:a]volume=1.0[a1];[a0][a1]amix=inputs=2:duration=first[a_mix]`
+        audioFilter = `[0:a]volume=${volRatio}[a0];[1:a]volume=${externalVolRatio}[a1];[a0][a1]amix=inputs=2:duration=first[a_mix]`
       } else {
         // Không nhạc nền + có âm thanh gốc -> Chỉ chỉnh âm lượng gốc
         audioFilter = `[0:a]volume=${volRatio}[a_mix]`
@@ -612,9 +563,19 @@ function taoFilterComplex(
       if (hasAudioFile) {
         // Có nhạc nền -> Map trực tiếp nhạc nền vào đầu ra
         if (hasVideoFilters) {
-          return ['-filter_complex', lines.join(';'), '-map', '[out]', '-map', '1:a']
+          const externalVolRatio = Math.pow(externalAudioVolume / 100, 2)
+          lines.push(`[1:a]volume=${externalVolRatio}[a_mix]`)
+          return ['-filter_complex', lines.join(';'), '-map', '[out]', '-map', '[a_mix]']
         } else {
-          return ['-map', '0:v', '-map', '1:a']
+          const externalVolRatio = Math.pow(externalAudioVolume / 100, 2)
+          return [
+            '-filter_complex',
+            `[1:a]volume=${externalVolRatio}[a_mix]`,
+            '-map',
+            '0:v',
+            '-map',
+            '[a_mix]'
+          ]
         }
       } else {
         // Không nhạc nền -> Không cần âm thanh
@@ -711,7 +672,15 @@ export async function burnSubtitle(
   const hasSrt = Boolean(req.srt && req.srt.trim())
   const regions = req.blurRegions || []
   const hasBlur = Boolean(req.lamMo && regions.length > 0)
-  const hasAudioFile = Boolean(req.batAmThanh && req.amThanhFile)
+  const voiceSyncRequested = Boolean(req.batAmThanh && req.amThanhMode === 'voice-per-cue')
+  if (voiceSyncRequested && !req.voiceSyncSrt?.trim()) {
+    return { ok: false, error: 'Voice theo từng câu cần file SRT để lấy mốc thời gian.' }
+  }
+  if (voiceSyncRequested && !req.voiceDir?.trim()) {
+    return { ok: false, error: 'Voice theo từng câu cần thư mục chứa các file voice.' }
+  }
+  let hasAudioFile = Boolean(req.batAmThanh && !voiceSyncRequested && req.amThanhFile)
+  let externalAudioPath: string | null = hasAudioFile ? req.amThanhFile! : null
 
   if (!hasSrt && !hasBlur && !req.batAmThanh) {
     return { ok: false, error: 'Vui lòng chọn ít nhất 1 vùng làm mờ, tải lên tệp phụ đề hoặc bật cấu hình âm thanh.' }
@@ -728,65 +697,68 @@ export async function burnSubtitle(
     await copyFile(req.srt, srtTam)
   }
 
+  const meta = await doVideo(duongFfprobe(ff), req.video)
+  let voiceTimelinePath: string | null = null
+  if (voiceSyncRequested) {
+    const timeline = await buildVoiceTimeline({
+      srtPath: req.voiceSyncSrt!,
+      voiceDir: req.voiceDir!,
+      workDir: tam,
+      maxDuration: meta.giay
+    })
+    if (!timeline.ok || !timeline.outputPath) {
+      if (hasSrt) await rm(srtTam, { force: true })
+      return { ok: false, error: timeline.error ?? 'Không tạo được timeline voice.' }
+    }
+    voiceTimelinePath = timeline.outputPath
+    externalAudioPath = voiceTimelinePath
+    hasAudioFile = true
+    logInfo(`Dịch màn hình: đã tạo timeline voice từ ${timeline.scan?.matchedCount ?? 0} câu.`)
+  }
+  const cleanupVoiceTimeline = async (): Promise<void> => {
+    if (voiceTimelinePath) await rm(voiceTimelinePath, { force: true })
+  }
+
   if (hasSrt && req.mode === 'soft') {
     logInfo(`Dịch màn hình: gắn phụ đề rời vào ${basename(req.video)}…`)
-    
-    const args = ['-y', '-i', req.video, '-i', 'sub.srt']
-    if (hasAudioFile) {
-      args.push('-i', req.amThanhFile!)
-    }
 
-    const meta = await doVideo(duongFfprobe(ff), req.video)
     if (req.catSrt && meta.giay > 0) {
       const cues = docSrt(docFileSrt(srtTam))
       await writeFile(srtTam, catSrtTheoVideo(cues, meta.giay), 'utf8')
       logInfo('Dịch màn hình: đã cắt phụ đề cho vừa độ dài video.')
     }
 
-    if (req.batAmThanh) {
-      if (meta.hasAudio) {
-        const vol = Math.pow((req.amLuongGoc ?? 100) / 100, 2)
-        if (hasAudioFile) {
-          args.push(
-            '-filter_complex', `[0:a]volume=${vol}[a0];[2:a]volume=1.0[a1];[a0][a1]amix=inputs=2:duration=first[a_mix]`,
-            '-map', '0:v', '-map', '1:s', '-map', '[a_mix]',
-            '-c:v', 'copy', '-c:s', 'mov_text', '-metadata:s:s:0', 'language=vie',
-            '-c:a', 'aac'
-          )
-        } else {
-          // Chỉ chỉnh âm lượng gốc
-          args.push(
-            '-filter_complex', `[0:a]volume=${vol}[a_mix]`,
-            '-map', '0:v', '-map', '1:s', '-map', '[a_mix]',
-            '-c:v', 'copy', '-c:s', 'mov_text', '-metadata:s:s:0', 'language=vie',
-            '-c:a', 'aac'
-          )
-        }
+    const args = ['-y', '-i', req.video, '-i', 'sub.srt']
+    if (hasAudioFile && externalAudioPath) args.push('-i', externalAudioPath)
+    args.push('-map', '0:v:0', '-map', '1:0')
+
+    if (req.batAmThanh && meta.hasAudio) {
+      const originalVol = Math.pow((req.amLuongGoc ?? 100) / 100, 2)
+      if (hasAudioFile) {
+        const externalVol = Math.pow((req.amLuongVoice ?? 100) / 100, 2)
+        args.push(
+          '-filter_complex',
+          `[0:a:0]volume=${originalVol}[a0];[2:a:0]volume=${externalVol}[a1];[a0][a1]amix=inputs=2:duration=first[a_mix]`,
+          '-map', '[a_mix]'
+        )
       } else {
-        // Video gốc câm
-        if (hasAudioFile) {
-          args.push(
-            '-map', '0:v', '-map', '1:s', '-map', '2:a',
-            '-c:v', 'copy', '-c:s', 'mov_text', '-metadata:s:s:0', 'language=vie',
-            '-c:a', 'aac'
-          )
-        } else {
-          args.push(
-            '-map', '0:v', '-map', '1:s',
-            '-c:v', 'copy', '-c:s', 'mov_text', '-metadata:s:s:0', 'language=vie'
-          )
-        }
+        args.push('-filter_complex', `[0:a:0]volume=${originalVol}[a_mix]`, '-map', '[a_mix]')
       }
-    } else {
-      args.push(
-        '-c', 'copy', '-c:s', 'mov_text', '-metadata:s:s:0', 'language=vie'
-      )
+    } else if (req.batAmThanh && hasAudioFile) {
+      const externalVol = Math.pow((req.amLuongVoice ?? 100) / 100, 2)
+      args.push('-filter_complex', `[2:a:0]volume=${externalVol}[a_mix]`, '-map', '[a_mix]')
+    } else if (!req.batAmThanh && meta.hasAudio) {
+      args.push('-map', '0:a:0')
     }
 
-    args.push(output)
+    args.push('-c:v', 'copy', '-c:s', 'mov_text', '-metadata:s:s:0', 'language=vie')
+    if (req.batAmThanh && (meta.hasAudio || hasAudioFile)) args.push('-c:a', 'aac')
+    else if (!req.batAmThanh && meta.hasAudio) args.push('-c:a', 'copy')
+    args.push('-shortest', output)
 
     const code = await chay(ff, args, tam, meta, onProgress)
     if (hasSrt) await rm(srtTam, { force: true })
+    await cleanupVoiceTimeline()
     if (daHuy) return { ok: false, error: 'Đã huỷ.' }
     if (code === 0 && (await duLon(output))) {
       logInfo('Dịch màn hình: gắn phụ đề rời xong.')
@@ -796,7 +768,6 @@ export async function burnSubtitle(
   }
 
   // ---- Dot chet (Render lai video) ----
-  const meta = await doVideo(duongFfprobe(ff), req.video)
   let bc: BoCuc | null = null
   const duongAss = join(tam, 'sub.ass')
   const picked = findBurnFont(req.fontId)
@@ -825,6 +796,7 @@ export async function burnSubtitle(
     req.batAmThanh ?? false,
     hasAudioFile,
     req.amLuongGoc ?? 100,
+    req.amLuongVoice ?? 100,
     fontsDir
   )
   logInfo(`Dịch màn hình: đang xử lý video ${basename(req.video)}…`)
@@ -842,8 +814,8 @@ export async function burnSubtitle(
   for (const enc of encoders) {
     if (daHuy) break
 
-    const inputArgs = hasAudioFile
-      ? ['-y', '-i', req.video, '-i', req.amThanhFile!]
+    const inputArgs = hasAudioFile && externalAudioPath
+      ? ['-y', '-i', req.video, '-i', externalAudioPath]
       : ['-y', '-i', req.video]
 
     const dungFilterAudio = req.batAmThanh && (meta.hasAudio || hasAudioFile)
@@ -856,15 +828,18 @@ export async function burnSubtitle(
     const code = await chay(ff, args, tam, meta, onProgress)
     if (daHuy) {
       if (hasSrt) await rm(srtTam, { force: true })
+      await cleanupVoiceTimeline()
       return { ok: false, error: 'Đã huỷ.' }
     }
     if (code === 0 && (await duLon(output))) {
       if (hasSrt) await rm(srtTam, { force: true })
+      await cleanupVoiceTimeline()
       logInfo(`Dịch màn hình: xử lý video xong${enc.gpu ? ' (tăng tốc GPU)' : ''}.`)
       return { ok: true, output }
     }
   }
 
   if (hasSrt) await rm(srtTam, { force: true })
+  await cleanupVoiceTimeline()
   return { ok: false, error: 'Xử lý video thất bại.' }
 }

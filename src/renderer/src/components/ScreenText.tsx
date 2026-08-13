@@ -1,6 +1,12 @@
 import type { CSSProperties, JSX } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import type { BlurRegion, BurnFontEntry } from '../../../shared/types'
+import type {
+  BlurRegion,
+  BurnFontEntry,
+  SubtitlePreviewCue,
+  SubtitlePreviewResult,
+  VoiceSyncScanResult
+} from '../../../shared/types'
 import { useTabOutputDir } from '../lib/outputDir'
 import { usePersistedState } from '../lib/persist'
 import { readDichProvider } from '../lib/dichProvider'
@@ -30,6 +36,78 @@ const PALETTE = [
 ]
 
 type Buoc = 'idle' | 'doc' | 'dich' | 'xong' | 'loi'
+type SubtitleMode = 'burn' | 'soft'
+
+type SubtitlePreset = 'custom' | 'clean' | 'cinema' | 'tiktok' | 'highlight'
+
+interface SubtitlePresetValues {
+  textColor: string
+  outlineColor: string
+  outlinePx: number
+  bgEnabled: boolean
+  bgColor: string
+  bgOpacity: number
+  fontScale: number
+  bold: boolean
+  italic: boolean
+  shadowPx: number
+  bgPaddingPx: number
+}
+
+const SUBTITLE_PRESETS: Record<Exclude<SubtitlePreset, 'custom'>, SubtitlePresetValues> = {
+  clean: {
+    textColor: '#ffffff',
+    outlineColor: '#111827',
+    outlinePx: 2,
+    bgEnabled: false,
+    bgColor: '#111827',
+    bgOpacity: 82,
+    fontScale: 100,
+    bold: true,
+    italic: false,
+    shadowPx: 1,
+    bgPaddingPx: 10
+  },
+  cinema: {
+    textColor: '#fff7d6',
+    outlineColor: '#0f172a',
+    outlinePx: 2.5,
+    bgEnabled: false,
+    bgColor: '#0f172a',
+    bgOpacity: 78,
+    fontScale: 95,
+    bold: true,
+    italic: false,
+    shadowPx: 2,
+    bgPaddingPx: 10
+  },
+  tiktok: {
+    textColor: '#ffffff',
+    outlineColor: '#0f172a',
+    outlinePx: 0.5,
+    bgEnabled: true,
+    bgColor: '#0f172a',
+    bgOpacity: 84,
+    fontScale: 100,
+    bold: true,
+    italic: false,
+    shadowPx: 0,
+    bgPaddingPx: 10
+  },
+  highlight: {
+    textColor: '#fff7ed',
+    outlineColor: '#7c2d12',
+    outlinePx: 1.5,
+    bgEnabled: true,
+    bgColor: '#ea580c',
+    bgOpacity: 90,
+    fontScale: 100,
+    bold: true,
+    italic: false,
+    shadowPx: 0,
+    bgPaddingPx: 9
+  }
+}
 
 export default function ScreenText(): JSX.Element {
   const [outputDir, setOutputDir] = useTabOutputDir('tblao.outputDir.screen')
@@ -49,22 +127,39 @@ export default function ScreenText(): JSX.Element {
 
   const [batLamMo, setBatLamMo] = useState(true)
   const [batPhuDe, setBatPhuDe] = useState(false)
+  const [subtitleMode, setSubtitleMode] = usePersistedState<SubtitleMode>(
+    'tblao.burn.subtitleMode',
+    'burn'
+  )
   const [blurRegions, setBlurRegions] = useState<BlurRegion[]>([])
   const [activeBlurId, setActiveBlurId] = useState<string | null>(null)
 
   const [videoGiay, setVideoGiay] = useState(0)
   const [srtGiay, setSrtGiay] = useState(0)
   const [ghepSrt, setGhepSrt] = useState('')
+  const [subPreview, setSubPreview] = useState<SubtitlePreviewResult | null>(null)
+  const [previewCueIndex, setPreviewCueIndex] = useState(0)
+  const [previewTime, setPreviewTime] = useState(0)
+  const [previewPlaying, setPreviewPlaying] = useState(false)
   const [subRegion, setSubRegion] = useState<Region | undefined>(undefined)
   const [fontId, setFontId] = usePersistedState('tblao.burn.fontId', 'auto')
   const [burnFonts, setBurnFonts] = useState<BurnFontEntry[]>([])
   const [previewFontFamily, setPreviewFontFamily] = useState('')
+  const [subtitlePreset, setSubtitlePreset] = usePersistedState<SubtitlePreset>(
+    'tblao.burn.subtitlePreset',
+    'custom'
+  )
   const [textColor, setTextColor] = usePersistedState('tblao.burn.textColor', '#ffffff')
-  const [outlineColor, setOutlineColor] = usePersistedState('tblao.burn.outlineColor', '#000000')
+  const [outlineColor, setOutlineColor] = usePersistedState('tblao.burn.outlineColor', '#111827')
   const [outlinePx, setOutlinePx] = usePersistedState('tblao.burn.outlinePx', 2)
   const [bgEnabled, setBgEnabled] = usePersistedState('tblao.burn.bgEnabled', false)
-  const [bgColor, setBgColor] = usePersistedState('tblao.burn.bgColor', '#000000')
-  const [bgOpacity, setBgOpacity] = usePersistedState('tblao.burn.bgOpacity', 60)
+  const [bgColor, setBgColor] = usePersistedState('tblao.burn.bgColor', '#111827')
+  const [bgOpacity, setBgOpacity] = usePersistedState('tblao.burn.bgOpacity', 84)
+  const [fontScale, setFontScale] = usePersistedState('tblao.burn.fontScale', 100)
+  const [bold, setBold] = usePersistedState('tblao.burn.bold', true)
+  const [italic, setItalic] = usePersistedState('tblao.burn.italic', false)
+  const [shadowPx, setShadowPx] = usePersistedState('tblao.burn.shadowPx', 1)
+  const [bgPaddingPx, setBgPaddingPx] = usePersistedState('tblao.burn.bgPaddingPx', 10)
   const [ghep, setGhep] = useState<'idle' | 'chay' | 'xong' | 'loi'>('idle')
   const [ghepPct, setGhepPct] = useState(0)
   const [ghepOut, setGhepOut] = useState('')
@@ -78,8 +173,16 @@ export default function ScreenText(): JSX.Element {
   const [fmtJson, setFmtJson] = usePersistedState('tblao.ocr.fmt.json', false)
 
   const [batAmThanh, setBatAmThanh] = useState(false)
+  const [amThanhMode, setAmThanhMode] = usePersistedState<'single' | 'voice-per-cue'>(
+    'tblao.burn.audioMode',
+    'single'
+  )
   const [amThanhFile, setAmThanhFile] = useState('')
+  const [voiceDir, setVoiceDir] = useState('')
+  const [voiceScan, setVoiceScan] = useState<VoiceSyncScanResult | null>(null)
+  const [voiceScanBusy, setVoiceScanBusy] = useState(false)
   const [amLuongGoc, setAmLuongGoc] = useState(100)
+  const [amLuongVoice, setAmLuongVoice] = usePersistedState('tblao.burn.voiceVolume', 100)
 
   const [hasEngine, setHasEngine] = useState<boolean | null>(null)
   const [installing, setInstalling] = useState(false)
@@ -96,6 +199,23 @@ export default function ScreenText(): JSX.Element {
     setBoxH(el.clientHeight)
   }
   const unlocked = hasFeature('ocr')
+
+  const apDungPreset = (value: SubtitlePreset): void => {
+    setSubtitlePreset(value)
+    if (value === 'custom') return
+    const preset = SUBTITLE_PRESETS[value]
+    setTextColor(preset.textColor)
+    setOutlineColor(preset.outlineColor)
+    setOutlinePx(preset.outlinePx)
+    setBgEnabled(preset.bgEnabled)
+    setBgColor(preset.bgColor)
+    setBgOpacity(preset.bgOpacity)
+    setFontScale(preset.fontScale)
+    setBold(preset.bold)
+    setItalic(preset.italic)
+    setShadowPx(preset.shadowPx)
+    setBgPaddingPx(preset.bgPaddingPx)
+  }
 
   useEffect(() => {
     let huy = false
@@ -190,6 +310,74 @@ export default function ScreenText(): JSX.Element {
       huy = true
     }
   }, [ghepSrt])
+
+  useEffect(() => {
+    if (!ghepSrt) {
+      setSubPreview(null)
+      setPreviewCueIndex(0)
+      return
+    }
+    let huy = false
+    void window.api
+      .srtPreview(ghepSrt)
+      .then((result) => {
+        if (huy) return
+        setSubPreview(result)
+        setPreviewCueIndex(0)
+        setPreviewTime(vidRef.current?.currentTime ?? 0)
+      })
+      .catch((error: unknown) => {
+        if (huy) return
+        setSubPreview({
+          ok: false,
+          cues: [],
+          error: error instanceof Error ? error.message : 'Không đọc được file SRT.'
+        })
+      })
+    return () => {
+      huy = true
+    }
+  }, [ghepSrt])
+
+  useEffect(() => {
+    setGhepLoi(null)
+    setGhep((current) => (current === 'loi' ? 'idle' : current))
+    if (!batAmThanh || amThanhMode !== 'voice-per-cue' || !ghepSrt || !voiceDir) {
+      setVoiceScan(null)
+      setVoiceScanBusy(false)
+      return
+    }
+
+    let huy = false
+    setVoiceScanBusy(true)
+    void window.api
+      .scanVoiceSync(ghepSrt, voiceDir)
+      .then((result) => {
+        if (huy) return
+        setVoiceScan(result)
+        setVoiceScanBusy(false)
+      })
+      .catch((error: unknown) => {
+        if (huy) return
+        setVoiceScan({
+          ok: false,
+          srtPath: ghepSrt,
+          voiceDir,
+          cueCount: 0,
+          audioCount: 0,
+          matchedCount: 0,
+          missingIndices: [],
+          invalidIndices: [],
+          extraFiles: [],
+          entries: [],
+          error: error instanceof Error ? error.message : 'Không kiểm tra được thư mục voice.'
+        })
+        setVoiceScanBusy(false)
+      })
+    return () => {
+      huy = true
+    }
+  }, [amThanhMode, batAmThanh, ghepSrt, voiceDir])
 
   const caiCongCu = async (): Promise<void> => {
     setInstalling(true)
@@ -309,6 +497,11 @@ export default function ScreenText(): JSX.Element {
     }
   }
 
+  const chonVoiceDir = async (): Promise<void> => {
+    const folder = await window.api.chooseFolder()
+    if (folder) setVoiceDir(folder)
+  }
+
   const chay = async (): Promise<void> => {
     if (!video || !outputDir) return
 
@@ -404,6 +597,29 @@ export default function ScreenText(): JSX.Element {
 
 
 
+    if (batAmThanh && amThanhMode === 'voice-per-cue') {
+      if (!ghepSrt) {
+        setGhepLoi('Voice theo từng câu cần chọn file SRT làm mốc thời gian.')
+        setGhep('loi')
+        return
+      }
+      if (!voiceDir) {
+        setGhepLoi('Vui lòng chọn thư mục chứa các file voice.')
+        setGhep('loi')
+        return
+      }
+      if (voiceScanBusy) {
+        setGhepLoi('Đang kiểm tra thư mục voice, vui lòng chờ một chút.')
+        setGhep('loi')
+        return
+      }
+      if (!voiceScan?.ok) {
+        setGhepLoi(voiceScan?.error ?? 'Số file voice chưa khớp với số câu trong SRT.')
+        setGhep('loi')
+        return
+      }
+    }
+
     setGhep('chay')
     setGhepPct(0)
     setGhepLoi(null)
@@ -413,20 +629,30 @@ export default function ScreenText(): JSX.Element {
       video,
       srt: batPhuDe ? ghepSrt : null,
       outputDir,
-      mode: 'burn',
+      mode: batPhuDe ? subtitleMode : 'burn',
       blurRegions: batLamMo ? blurRegions : [],
       lamMo: batLamMo,
       subRegion: batPhuDe ? subRegion : undefined,
+      catSrt: batPhuDe && subtitleMode === 'soft',
       batAmThanh,
-      amThanhFile: batAmThanh ? amThanhFile : null,
+      amThanhMode,
+      amThanhFile: batAmThanh && amThanhMode === 'single' ? amThanhFile : null,
+      voiceSyncSrt: batAmThanh && amThanhMode === 'voice-per-cue' ? ghepSrt : null,
+      voiceDir: batAmThanh && amThanhMode === 'voice-per-cue' ? voiceDir : null,
       amLuongGoc,
+      amLuongVoice,
       fontId: fontId !== 'auto' ? fontId : 'auto',
       textColor,
       outlineColor,
       outlinePx,
       bgEnabled,
       bgColor,
-      bgOpacity
+      bgOpacity,
+      fontScale,
+      bold,
+      italic,
+      shadowPx,
+      bgPaddingPx
     })
     off()
 
@@ -441,6 +667,59 @@ export default function ScreenText(): JSX.Element {
     }
     setGhepOut(r.output!)
     setGhep('xong')
+  }
+
+  const previewCues = subPreview?.cues ?? []
+  const cueAtTimeIndex = previewCues.findIndex(
+    (cue) => previewTime >= cue.startSeconds && previewTime < cue.endSeconds
+  )
+  const previewCue: SubtitlePreviewCue | null =
+    previewCues.length === 0
+      ? null
+      : previewPlaying && cueAtTimeIndex >= 0
+        ? previewCues[cueAtTimeIndex]
+        : previewCues[previewCueIndex] ?? previewCues[0]
+  const videoPreviewText =
+    subPreview?.ok !== true
+      ? undefined
+      : previewPlaying
+        ? cueAtTimeIndex >= 0
+          ? previewCues[cueAtTimeIndex]?.text ?? ''
+          : ''
+        : previewCue?.text ?? ''
+
+  const formatPreviewTime = (seconds: number): string => {
+    const safe = Math.max(0, Math.round(seconds))
+    const h = Math.floor(safe / 3600)
+    const m = Math.floor((safe % 3600) / 60)
+    const s = safe % 60
+    return h > 0
+      ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+      : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  }
+
+  const capNhatPreviewTime = (): void => {
+    const current = vidRef.current
+    if (!current) return
+    const nextTime = Number.isFinite(current.currentTime) ? current.currentTime : 0
+    setPreviewTime(nextTime)
+    const index = previewCues.findIndex(
+      (cue) => nextTime >= cue.startSeconds && nextTime < cue.endSeconds
+    )
+    if (index >= 0) setPreviewCueIndex(index)
+  }
+
+  const chonPreviewCue = (index: number): void => {
+    const cue = previewCues[index]
+    if (!cue) return
+    setPreviewCueIndex(index)
+    setPreviewTime(cue.startSeconds)
+    setPreviewPlaying(false)
+    const current = vidRef.current
+    if (current) {
+      current.currentTime = cue.startSeconds
+      current.pause()
+    }
   }
 
   if (!unlocked) return <div className="card muted">Tính năng đang khoá.</div>
@@ -707,6 +986,33 @@ export default function ScreenText(): JSX.Element {
                     )}
                   </div>
 
+                  <div className="sub-mode-choice" style={{ marginBottom: 10 }}>
+                    <div className="muted small" style={{ marginBottom: 5 }}>Cách đưa phụ đề vào video:</div>
+                    <label className="gk-check">
+                      <input
+                        type="radio"
+                        name="tblao-subtitle-mode"
+                        checked={subtitleMode === 'burn'}
+                        onChange={() => setSubtitleMode('burn')}
+                      />
+                      <span>Hiển thị phụ đề trực tiếp trên video</span>
+                    </label>
+                    <label className="gk-check">
+                      <input
+                        type="radio"
+                        name="tblao-subtitle-mode"
+                        checked={subtitleMode === 'soft'}
+                        onChange={() => setSubtitleMode('soft')}
+                      />
+                      <span>Chỉ nhúng SRT, không đốt chữ lên hình</span>
+                    </label>
+                    {subtitleMode === 'soft' && (
+                      <div className="muted small" style={{ marginTop: 4 }}>
+                        Video giữ nguyên hình ảnh; SRT được thêm thành track phụ đề mềm để trình phát có thể bật khi cần.
+                      </div>
+                    )}
+                  </div>
+
                   {lechSrt && ghepSrt && (
                     <div className="qwarn small" style={{ marginBottom: 8 }}>
                       ⚠ File phụ đề dài <b>{phut(srtGiay)}</b>, video dài <b>{phut(videoGiay)}</b>
@@ -716,9 +1022,92 @@ export default function ScreenText(): JSX.Element {
                     </div>
                   )}
 
+                  {subPreview && (
+                    <div className="sub-preview-panel">
+                      <div className="sub-preview-head">
+                        <b>Xem trước phụ đề thật</b>
+                        {subPreview.ok && previewCue && (
+                          <span className="muted small">
+                            Câu {previewCue.index}/{previewCues.length} · {formatPreviewTime(previewCue.startSeconds)}
+                          </span>
+                        )}
+                      </div>
+                      {subPreview.ok && previewCue ? (
+                        <>
+                          <div className="sub-preview-text">{previewCue.text}</div>
+                          <div className="sub-preview-actions">
+                            <button
+                              className="btn"
+                              disabled={previewCueIndex <= 0}
+                              onClick={() => chonPreviewCue(previewCueIndex - 1)}
+                            >
+                              ← Câu trước
+                            </button>
+                            <button
+                              className="btn"
+                              disabled={previewCueIndex >= previewCues.length - 1}
+                              onClick={() => chonPreviewCue(previewCueIndex + 1)}
+                            >
+                              Câu sau →
+                            </button>
+                          </div>
+                          <input
+                            className="sub-preview-scrub"
+                            type="range"
+                            min={0}
+                            max={Math.max(1, videoGiay, srtGiay)}
+                            step={0.1}
+                            value={Math.min(previewTime, Math.max(1, videoGiay, srtGiay))}
+                            onChange={(e) => {
+                              const next = Number(e.target.value)
+                              setPreviewTime(next)
+                              const index = previewCues.findIndex(
+                                (cue) => next >= cue.startSeconds && next < cue.endSeconds
+                              )
+                              if (index >= 0) setPreviewCueIndex(index)
+                              if (vidRef.current) {
+                                vidRef.current.currentTime = next
+                                vidRef.current.pause()
+                              }
+                              setPreviewPlaying(false)
+                            }}
+                          />
+                          <div className="muted small sub-preview-help">
+                            Bấm Play trên video bên phải để xem phụ đề chạy đúng mốc thời gian; kéo thanh này để kiểm tra từng vị trí.
+                          </div>
+                        </>
+                      ) : (
+                        <div className="muted small">{subPreview.error ?? 'Không có cue hợp lệ để xem trước.'}</div>
+                      )}
+                    </div>
+                  )}
+
+                  {subtitleMode === 'burn' && (
+                    <>
+                      <label className="field">
+                        <span className="muted small">Preset kiểu phụ đề</span>
+                        <select
+                          value={subtitlePreset}
+                          onChange={(e) => apDungPreset(e.target.value as SubtitlePreset)}
+                        >
+                          <option value="custom">Tùy chỉnh</option>
+                          <option value="clean">Sạch — chữ trắng, viền rõ</option>
+                          <option value="cinema">Điện ảnh — chữ ấm, bóng nhẹ</option>
+                          <option value="tiktok">Nền gọn — dễ đọc trên video dọc</option>
+                          <option value="highlight">Nổi bật — nền màu</option>
+                        </select>
+                        <span className="muted small">Chọn preset trước, sau đó tinh chỉnh từng thông số bên dưới.</span>
+                      </label>
+
                   <label className="field">
                     <span className="muted small">Font chữ phụ đề</span>
-                    <select value={fontId} onChange={(e) => setFontId(e.target.value)}>
+                    <select
+                      value={fontId}
+                      onChange={(e) => {
+                        setFontId(e.target.value)
+                        setSubtitlePreset('custom')
+                      }}
+                    >
                       <option value="auto">Tự động (theo ngôn ngữ)</option>
                       {(['Latin', 'UTM', 'SVN', 'UVF', 'UVN', 'VNF', 'iCiel'] as const).map(
                         (group) => {
@@ -740,11 +1129,50 @@ export default function ScreenText(): JSX.Element {
 
                   <div className="sub-style-grid">
                     <label className="field">
+                      <span className="muted small">Cỡ chữ theo khung: {fontScale}%</span>
+                      <input
+                        type="range"
+                        min={70}
+                        max={140}
+                        step={5}
+                        value={fontScale}
+                        onChange={(e) => {
+                          setFontScale(Number(e.target.value))
+                          setSubtitlePreset('custom')
+                        }}
+                      />
+                    </label>
+                    <label className="gk-check">
+                      <input
+                        type="checkbox"
+                        checked={bold}
+                        onChange={(e) => {
+                          setBold(e.target.checked)
+                          setSubtitlePreset('custom')
+                        }}
+                      />
+                      <span>Chữ đậm</span>
+                    </label>
+                    <label className="gk-check">
+                      <input
+                        type="checkbox"
+                        checked={italic}
+                        onChange={(e) => {
+                          setItalic(e.target.checked)
+                          setSubtitlePreset('custom')
+                        }}
+                      />
+                      <span>Chữ nghiêng</span>
+                    </label>
+                    <label className="field">
                       <span className="muted small">Màu chữ</span>
                       <input
                         type="color"
                         value={textColor}
-                        onChange={(e) => setTextColor(e.target.value)}
+                        onChange={(e) => {
+                          setTextColor(e.target.value)
+                          setSubtitlePreset('custom')
+                        }}
                       />
                     </label>
                     <label className="field">
@@ -752,7 +1180,10 @@ export default function ScreenText(): JSX.Element {
                       <input
                         type="color"
                         value={outlineColor}
-                        onChange={(e) => setOutlineColor(e.target.value)}
+                        onChange={(e) => {
+                          setOutlineColor(e.target.value)
+                          setSubtitlePreset('custom')
+                        }}
                       />
                     </label>
                     <label className="field" style={{ gridColumn: '1 / -1' }}>
@@ -763,16 +1194,36 @@ export default function ScreenText(): JSX.Element {
                         max={8}
                         step={0.5}
                         value={outlinePx}
-                        onChange={(e) => setOutlinePx(Number(e.target.value))}
+                        onChange={(e) => {
+                          setOutlinePx(Number(e.target.value))
+                          setSubtitlePreset('custom')
+                        }}
+                      />
+                    </label>
+                    <label className="field" style={{ gridColumn: '1 / -1' }}>
+                      <span className="muted small">Bóng chữ: {shadowPx} px</span>
+                      <input
+                        type="range"
+                        min={0}
+                        max={6}
+                        step={0.5}
+                        value={shadowPx}
+                        onChange={(e) => {
+                          setShadowPx(Number(e.target.value))
+                          setSubtitlePreset('custom')
+                        }}
                       />
                     </label>
                     <label className="gk-check" style={{ gridColumn: '1 / -1' }}>
                       <input
                         type="checkbox"
                         checked={bgEnabled}
-                        onChange={(e) => setBgEnabled(e.target.checked)}
+                        onChange={(e) => {
+                          setBgEnabled(e.target.checked)
+                          setSubtitlePreset('custom')
+                        }}
                       />
-                      <span>Bật nền sau chữ</span>
+                      <span>Bật nền hộp sau chữ</span>
                     </label>
                     {bgEnabled && (
                       <>
@@ -781,7 +1232,10 @@ export default function ScreenText(): JSX.Element {
                           <input
                             type="color"
                             value={bgColor}
-                            onChange={(e) => setBgColor(e.target.value)}
+                            onChange={(e) => {
+                              setBgColor(e.target.value)
+                              setSubtitlePreset('custom')
+                            }}
                           />
                         </label>
                         <label className="field">
@@ -792,12 +1246,31 @@ export default function ScreenText(): JSX.Element {
                             max={100}
                             step={1}
                             value={bgOpacity}
-                            onChange={(e) => setBgOpacity(Number(e.target.value))}
+                            onChange={(e) => {
+                              setBgOpacity(Number(e.target.value))
+                              setSubtitlePreset('custom')
+                            }}
+                          />
+                        </label>
+                        <label className="field" style={{ gridColumn: '1 / -1' }}>
+                          <span className="muted small">Đệm nền: {bgPaddingPx} px</span>
+                          <input
+                            type="range"
+                            min={4}
+                            max={24}
+                            step={1}
+                            value={bgPaddingPx}
+                            onChange={(e) => {
+                              setBgPaddingPx(Number(e.target.value))
+                              setSubtitlePreset('custom')
+                            }}
                           />
                         </label>
                       </>
                     )}
-                  </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -816,6 +1289,133 @@ export default function ScreenText(): JSX.Element {
 
               {batAmThanh && (
                 <div style={{ paddingLeft: 22, marginTop: 8 }}>
+                  <div style={{ display: 'grid', gap: 6, marginBottom: 10 }}>
+                    <label className="gk-check">
+                      <input
+                        type="radio"
+                        name="tblao-audio-mode"
+                        checked={amThanhMode === 'single'}
+                        onChange={() => setAmThanhMode('single')}
+                      />
+                      <span>Âm thanh một file / nhạc nền</span>
+                    </label>
+                    <label className="gk-check">
+                      <input
+                        type="radio"
+                        name="tblao-audio-mode"
+                        checked={amThanhMode === 'voice-per-cue'}
+                        onChange={() => setAmThanhMode('voice-per-cue')}
+                      />
+                      <span>Voice theo từng câu SRT</span>
+                    </label>
+                  </div>
+
+                  {amThanhMode === 'voice-per-cue' && (
+                    <div style={{ marginBottom: 10 }}>
+                      <div className="muted small" style={{ marginBottom: 6 }}>
+                        Chọn thư mục chứa voice theo thứ tự tự nhiên: <b>001.mp3, 002.mp3, 003.mp3…</b>.
+                        MP3 được hỗ trợ trực tiếp.
+                      </div>
+                      <button className="btn" onClick={chonVoiceDir}>
+                        Chọn thư mục voice
+                      </button>
+                      {voiceDir ? (
+                        <div className="muted small" style={{ marginTop: 4 }}>
+                          Thư mục: <b>{baseName(voiceDir)}</b>
+                        </div>
+                      ) : (
+                        <div className="muted small" style={{ marginTop: 4, color: '#ff6b6b' }}>
+                          * Chưa chọn thư mục voice
+                        </div>
+                      )}
+                      {!ghepSrt && (
+                        <div className="muted small" style={{ marginTop: 4, color: '#f4b860' }}>
+                          Chọn file SRT ở phần “Thêm phụ đề” để lấy mốc thời gian cho voice.
+                        </div>
+                      )}
+                      {voiceScanBusy && (
+                        <div className="muted small" style={{ marginTop: 6 }}>
+                          Đang quét MP3 và đo thời lượng voice…
+                        </div>
+                      )}
+                      {voiceScan && !voiceScanBusy && (
+                        <div
+                          style={{
+                            marginTop: 8,
+                            padding: 8,
+                            border: `1px solid ${voiceScan.ok ? 'rgba(62,214,160,.45)' : 'rgba(244,184,96,.5)'}`,
+                            borderRadius: 8,
+                            background: 'rgba(0,0,0,.12)'
+                          }}
+                        >
+                          <div className="small" style={{ color: voiceScan.ok ? 'var(--ok)' : 'var(--warn)' }}>
+                            {voiceScan.ok
+                              ? `Đã khớp ${voiceScan.matchedCount}/${voiceScan.cueCount} câu SRT với file voice.`
+                              : voiceScan.error ?? 'Số file voice chưa khớp với SRT.'}
+                          </div>
+                          {(voiceScan.missingIndices.length > 0 ||
+                            voiceScan.invalidIndices.length > 0 ||
+                            voiceScan.extraFiles.length > 0) && (
+                            <div className="muted small" style={{ marginTop: 4 }}>
+                              {voiceScan.missingIndices.length > 0 &&
+                                `Thiếu câu: ${voiceScan.missingIndices.slice(0, 8).join(', ')}. `}
+                              {voiceScan.invalidIndices.length > 0 &&
+                                `File lỗi ở câu: ${voiceScan.invalidIndices.slice(0, 8).join(', ')}. `}
+                              {voiceScan.extraFiles.length > 0 &&
+                                `File dư: ${voiceScan.extraFiles.length}.`}
+                            </div>
+                          )}
+                          {voiceScan.entries.length > 0 && (
+                            <div style={{ maxHeight: 170, overflowY: 'auto', marginTop: 6 }}>
+                              {voiceScan.entries.slice(0, 8).map((entry) => (
+                                <div
+                                  key={entry.index}
+                                  className="small"
+                                  style={{
+                                    display: 'flex',
+                                    gap: 6,
+                                    alignItems: 'baseline',
+                                    padding: '3px 0',
+                                    borderTop: '1px solid rgba(255,255,255,.06)'
+                                  }}
+                                >
+                                  <b style={{ width: 24, color: 'var(--muted)' }}>{entry.index}</b>
+                                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {entry.fileName ?? 'Thiếu file'}
+                                  </span>
+                                  <span style={{ color: entry.status === 'ok' ? 'var(--ok)' : 'var(--warn)' }}>
+                                    {entry.durationSeconds ? phut(entry.durationSeconds) : entry.status}
+                                  </span>
+                                </div>
+                              ))}
+                              {voiceScan.entries.length > 8 && (
+                                <div className="muted small" style={{ marginTop: 4 }}>
+                                  … và {voiceScan.entries.length - 8} câu khác
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="field" style={{ marginTop: 10 }}>
+                        <span className="muted small" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Âm lượng voice:</span>
+                          <b style={{ color: 'var(--text)' }}>{amLuongVoice}%</b>
+                        </span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={amLuongVoice}
+                          onChange={(e) => setAmLuongVoice(Number(e.target.value))}
+                          style={{ width: '100%', height: 6, borderRadius: 3, outline: 'none', background: 'var(--border)', cursor: 'pointer' }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {amThanhMode === 'single' && (
                   <div style={{ marginBottom: 8 }}>
                     <button className="btn" onClick={chonAmThanh}>
                       🎵 Chọn tệp âm thanh
@@ -830,6 +1430,8 @@ export default function ScreenText(): JSX.Element {
                       </div>
                     )}
                   </div>
+
+                  )}
 
                   <div className="field" style={{ marginTop: 12 }}>
                     <span className="muted small" style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -894,7 +1496,7 @@ export default function ScreenText(): JSX.Element {
         {video ? (
           <>
             <div className="muted small">
-              Xem trước video và điều chỉnh vị trí các <b>vùng làm mờ</b>.
+              Xem trước video, phụ đề theo đúng timeline và điều chỉnh vị trí các <b>vùng làm mờ</b>.
             </div>
             <div className="ocr-sanh">
               <div
@@ -914,6 +1516,10 @@ export default function ScreenText(): JSX.Element {
                   src={srcVideo(video)}
                   onLoadedMetadata={onMeta}
                   onError={() => setLoi('T-blao không mở được video này. Hãy thử một video MP4 khác.')}
+                  onPlay={() => setPreviewPlaying(true)}
+                  onPause={() => setPreviewPlaying(false)}
+                  onTimeUpdate={capNhatPreviewTime}
+                  onSeeked={capNhatPreviewTime}
                   controls
                   muted
                 />
@@ -924,7 +1530,7 @@ export default function ScreenText(): JSX.Element {
                     setActiveId={setActiveBlurId}
                     updateRegion={updateBlurRegion}
                     removeRegion={removeBlurRegion}
-                    hienSubBox={batPhuDe}
+                    hienSubBox={batPhuDe && subtitleMode === 'burn'}
                     subRegion={subRegion}
                     setSubRegion={setSubRegion}
                     hienOcrBox={batOcrBox}
@@ -936,12 +1542,18 @@ export default function ScreenText(): JSX.Element {
                     boxW={boxW}
                     xemMo={batLamMo}
                     previewFontFamily={previewFontFamily || undefined}
+                    previewText={videoPreviewText}
                     textColor={textColor}
                     outlineColor={outlineColor}
                     outlinePx={outlinePx}
+                    fontScale={fontScale}
+                    bold={bold}
+                    italic={italic}
+                    shadowPx={shadowPx}
                     bgEnabled={bgEnabled}
                     bgColor={bgColor}
                     bgOpacity={bgOpacity}
+                    bgPaddingPx={bgPaddingPx}
                   />
                 )}
               </div>
