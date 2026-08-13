@@ -471,7 +471,8 @@ function taoFilterComplex(
   hasAudioFile = false,
   audioVolume = 100,
   externalAudioVolume = 100,
-  fontsDir: string | null = null
+  fontsDir: string | null = null,
+  externalAudioInputIndex = 1
 ): string[] {
   const sigma = Math.max(8, Math.round((meta.h > 0 ? meta.h : 720) * 0.03))
   const validRegions = lamMo ? regions.filter((r) => r.x1 > r.x0 && r.y1 > r.y0) : []
@@ -546,7 +547,7 @@ function taoFilterComplex(
       let audioFilter = ''
       if (hasAudioFile) {
         // Có nhạc nền + có âm thanh gốc -> Trộn
-        audioFilter = `[0:a]volume=${volRatio}[a0];[1:a]volume=${externalVolRatio}[a1];[a0][a1]amix=inputs=2:duration=first[a_mix]`
+        audioFilter = `[0:a]volume=${volRatio}[a0];[${externalAudioInputIndex}:a]volume=${externalVolRatio}[a1];[a0][a1]amix=inputs=2:duration=first[a_mix]`
       } else {
         // Không nhạc nền + có âm thanh gốc -> Chỉ chỉnh âm lượng gốc
         audioFilter = `[0:a]volume=${volRatio}[a_mix]`
@@ -564,13 +565,13 @@ function taoFilterComplex(
         // Có nhạc nền -> Map trực tiếp nhạc nền vào đầu ra
         if (hasVideoFilters) {
           const externalVolRatio = Math.pow(externalAudioVolume / 100, 2)
-          lines.push(`[1:a]volume=${externalVolRatio}[a_mix]`)
+          lines.push(`[${externalAudioInputIndex}:a]volume=${externalVolRatio}[a_mix]`)
           return ['-filter_complex', lines.join(';'), '-map', '[out]', '-map', '[a_mix]']
         } else {
           const externalVolRatio = Math.pow(externalAudioVolume / 100, 2)
           return [
             '-filter_complex',
-            `[1:a]volume=${externalVolRatio}[a_mix]`,
+            `[${externalAudioInputIndex}:a]volume=${externalVolRatio}[a_mix]`,
             '-map',
             '0:v',
             '-map',
@@ -671,7 +672,7 @@ export async function burnSubtitle(
 
   const hasSrt = Boolean(req.srt && req.srt.trim())
   const regions = req.blurRegions || []
-  const hasBlur = Boolean(req.lamMo && regions.length > 0)
+  const hasBlur = Boolean(req.lamMo && regions.some((region) => region.x1 > region.x0 && region.y1 > region.y0))
   const voiceSyncRequested = Boolean(req.batAmThanh && req.amThanhMode === 'voice-per-cue')
   if (voiceSyncRequested && !req.voiceSyncSrt?.trim()) {
     return { ok: false, error: 'Voice theo từng câu cần file SRT để lấy mốc thời gian.' }
@@ -728,42 +729,72 @@ export async function burnSubtitle(
       logInfo('Dịch màn hình: đã cắt phụ đề cho vừa độ dài video.')
     }
 
-    const args = ['-y', '-i', req.video, '-i', 'sub.srt']
-    if (hasAudioFile && externalAudioPath) args.push('-i', externalAudioPath)
-    args.push('-map', '0:v:0', '-map', '1:0')
-
-    if (req.batAmThanh && meta.hasAudio) {
-      const originalVol = Math.pow((req.amLuongGoc ?? 100) / 100, 2)
-      if (hasAudioFile) {
-        const externalVol = Math.pow((req.amLuongVoice ?? 100) / 100, 2)
-        args.push(
-          '-filter_complex',
-          `[0:a:0]volume=${originalVol}[a0];[2:a:0]volume=${externalVol}[a1];[a0][a1]amix=inputs=2:duration=first[a_mix]`,
-          '-map', '[a_mix]'
-        )
-      } else {
-        args.push('-filter_complex', `[0:a:0]volume=${originalVol}[a_mix]`, '-map', '[a_mix]')
-      }
-    } else if (req.batAmThanh && hasAudioFile) {
-      const externalVol = Math.pow((req.amLuongVoice ?? 100) / 100, 2)
-      args.push('-filter_complex', `[2:a:0]volume=${externalVol}[a_mix]`, '-map', '[a_mix]')
-    } else if (!req.batAmThanh && meta.hasAudio) {
-      args.push('-map', '0:a:0')
+    // SRT là input số 1; nếu có voice ngoài thì voice là input số 2.
+    // Khi có vùng làm mờ, phải chạy filter video và encode lại thay vì -c:v copy.
+    const softFilterArgs = taoFilterComplex(
+      meta,
+      regions,
+      req.lamMo ?? false,
+      false,
+      'sub.ass',
+      req.batAmThanh ?? false,
+      hasAudioFile,
+      req.amLuongGoc ?? 100,
+      req.amLuongVoice ?? 100,
+      null,
+      2
+    )
+    if (softFilterArgs.length > 0) {
+      debugRaw('soft subtitle filter_complex', softFilterArgs.join(' '))
     }
 
-    args.push('-c:v', 'copy', '-c:s', 'mov_text', '-metadata:s:s:0', 'language=vie')
-    if (req.batAmThanh && (meta.hasAudio || hasAudioFile)) args.push('-c:a', 'aac')
-    else if (!req.batAmThanh && meta.hasAudio) args.push('-c:a', 'copy')
-    args.push('-shortest', output)
+    const softMapArgs = softFilterArgs.length > 0
+      ? [...softFilterArgs, '-map', '1:0']
+      : ['-map', '0:v:0', '-map', '1:0', ...(meta.hasAudio ? ['-map', '0:a:0'] : [])]
+    const softEncoders: Array<{ ten: string; gpu: boolean; args: string[] }> = hasBlur
+      ? [
+          { ten: 'h264_nvenc', gpu: true, args: ['-c:v', 'h264_nvenc', '-preset', 'p4', '-cq', '23'] },
+          { ten: 'h264_amf', gpu: true, args: ['-c:v', 'h264_amf', '-quality', 'balanced', '-rc', 'cqp', '-qp_i', '23', '-qp_p', '23'] },
+          { ten: 'h264_qsv', gpu: true, args: ['-c:v', 'h264_qsv', '-global_quality', '23'] },
+          { ten: 'libx264', gpu: false, args: ['-c:v', 'libx264', '-preset', 'medium', '-crf', '20'] }
+        ]
+      : [{ ten: 'copy', gpu: false, args: ['-c:v', 'copy'] }]
+    const softAudioCodecArgs = req.batAmThanh && (meta.hasAudio || hasAudioFile)
+      ? ['-c:a', 'aac']
+      : !req.batAmThanh && meta.hasAudio
+        ? ['-c:a', 'copy']
+        : []
 
-    const code = await chay(ff, args, tam, meta, onProgress)
+    for (const enc of softEncoders) {
+      if (daHuy) break
+      const inputArgs = hasAudioFile && externalAudioPath
+        ? ['-y', '-i', req.video, '-i', 'sub.srt', '-i', externalAudioPath]
+        : ['-y', '-i', req.video, '-i', 'sub.srt']
+      const args = [
+        ...inputArgs,
+        ...softMapArgs,
+        ...enc.args,
+        '-c:s', 'mov_text',
+        '-metadata:s:s:0', 'language=vie',
+        ...softAudioCodecArgs,
+        '-shortest',
+        output
+      ]
+      const code = await chay(ff, args, tam, meta, onProgress)
+      if (daHuy) {
+        if (hasSrt) await rm(srtTam, { force: true })
+        await cleanupVoiceTimeline()
+        return { ok: false, error: 'Đã huỷ.' }
+      }
+      if (code === 0 && (await duLon(output))) {
+        if (hasSrt) await rm(srtTam, { force: true })
+        await cleanupVoiceTimeline()
+        logInfo(`Dịch màn hình: gắn SRT mềm${hasBlur ? ' và làm mờ' : ''} xong${enc.gpu ? ' (tăng tốc GPU)' : ''}.`)
+        return { ok: true, output }
+      }
+    }
     if (hasSrt) await rm(srtTam, { force: true })
     await cleanupVoiceTimeline()
-    if (daHuy) return { ok: false, error: 'Đã huỷ.' }
-    if (code === 0 && (await duLon(output))) {
-      logInfo('Dịch màn hình: gắn phụ đề rời xong.')
-      return { ok: true, output }
-    }
     return { ok: false, error: 'Ghép phụ đề thất bại.' }
   }
 
