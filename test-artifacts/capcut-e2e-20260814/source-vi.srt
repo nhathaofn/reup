@@ -1,0 +1,15 @@
+1
+00:00:00,000 --> 00:00:02,000
+Xin chào, đây là video thử nghiệm toàn bộ quy trình.
+
+2
+00:00:02,000 --> 00:00:04,000
+Cảnh đầu tiên cho thấy những đám mây sáng trên dãy núi.
+
+3
+00:00:04,000 --> 00:00:06,000
+Cảnh thứ hai chuyển sang một khu rừng xanh yên bình.
+
+4
+00:00:06,000 --> 00:00:08,000
+Cảnh cuối khép lại bằng ánh hoàng hôn ấm áp.

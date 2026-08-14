@@ -14,6 +14,7 @@ Repo chính thức của dự án này: <https://github.com/nhathaofn/reup>.
 - Chọn thư mục lưu (mặc định: Downloads)
 - **Progress bar** thời gian thực (tốc độ, ETA)
 - **Tự kiểm tra & tải** các thành phần cần thiết khi thiếu (màn hình Setup lúc khởi động)
+- Tạo hàng loạt **project CapCut đa ngôn ngữ** từ một video và số bộ SRT + voice tùy ý
 
 ## Yêu cầu môi trường
 
@@ -56,6 +57,7 @@ Tạo một vertical slice Shared/Main/Preload/Renderer và tự đăng ký an t
 
 - [Bản đồ kiến trúc và chức năng](docs/PROJECT_ARCHITECTURE.md)
 - [Quy trình thêm feature](docs/ADDING_A_FEATURE.md)
+- [Thiết kế và vận hành CapCut Factory](docs/CAPCUT_FACTORY.md)
 
 ## Hướng phát triển tiếp
 

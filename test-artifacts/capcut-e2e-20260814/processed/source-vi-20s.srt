@@ -1,0 +1,16 @@
+1
+00:00:00,000 --> 00:00:03,320
+Xin chào, đây là video thử nghiệm toàn mộ quý trình.
+
+2
+00:00:04,880 --> 00:00:07,880
+Cảnh đầu tiên cho thấy những đám may sáng trên dậy núi.
+
+3
+00:00:10,050 --> 00:00:12,590
+Cảnh thứ 2 chuyển sang một khu rừng xanh yên bình.
+
+4
+00:00:15,040 --> 00:00:17,500
+Cảnh cuối kép lại bằng ánh hoàng hôm ấm áp.
+

@@ -47,10 +47,24 @@ function walk(directory, results = []) {
 
 const packagedFiles = walk(resourcesDir).filter((path) => path !== asarPath)
 const asarFiles = listPackage(asarPath)
+const requiredCapCutAdapterFiles = [
+  '\\node_modules\\capcut-cli\\package.json',
+  '\\node_modules\\capcut-cli\\dist\\index.js',
+  '\\node_modules\\capcut-cli\\templates\\_init\\draft_content.json'
+]
+const missingCapCutAdapterFiles = requiredCapCutAdapterFiles.filter(
+  (requiredPath) => !asarFiles.includes(requiredPath)
+)
 const violations = [
   ...packagedFiles.filter(isForbidden),
   ...asarFiles.filter(isForbidden).map((path) => `app.asar:${path}`)
 ]
+
+if (missingCapCutAdapterFiles.length > 0) {
+  console.error('Goi cai dat thieu runtime CapCut adapter:')
+  for (const missing of missingCapCutAdapterFiles) console.error(`- app.asar:${missing}`)
+  process.exit(1)
+}
 
 if (violations.length > 0) {
   console.error('Goi cai dat dang chua runtime bi cam:')
@@ -61,6 +75,7 @@ if (violations.length > 0) {
 console.log(
   `OK: ${asarFiles.length} tep trong app.asar; khong co engine, ffmpeg executable, yt-dlp hoac ZIP.`
 )
+console.log('OK: capcut-cli runtime, command entry va template toi thieu da duoc dong goi.')
 console.log(
   'Luu y: ffmpeg.dll o thu muc goc la thanh phan media cua Electron/Chromium, khong phai FFmpeg runtime cua T-blao.'
 )

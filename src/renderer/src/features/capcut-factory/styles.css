@@ -1,0 +1,340 @@
+.capcut-factory-workspace {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.capcut-factory-card,
+.capcut-factory-run-card,
+.capcut-factory-summary,
+.capcut-factory-progress,
+.capcut-factory-results {
+  flex: 0 0 auto;
+  padding: 14px;
+}
+
+.capcut-factory-section-head,
+.capcut-factory-set-head,
+.capcut-factory-run-actions,
+.capcut-factory-progress > div:first-child,
+.capcut-factory-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.capcut-factory-section-head > div:first-child,
+.capcut-factory-progress > div:first-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.capcut-factory-path {
+  margin-top: 10px;
+  padding: 9px 11px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--panel-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.capcut-factory-path.selected {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--ok) 50%, var(--border));
+  color: var(--text);
+}
+
+.capcut-factory-check {
+  display: flex;
+  margin-top: 10px;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+}
+
+.capcut-factory-badge {
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--primary) 50%, transparent);
+  border-radius: 999px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.capcut-factory-config-grid {
+  display: grid;
+  margin-top: 12px;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.capcut-factory-config-grid > label,
+.capcut-factory-set label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.capcut-factory-config-grid input,
+.capcut-factory-set input {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--control-border);
+  border-radius: 7px;
+  outline: none;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.capcut-factory-config-grid input:focus,
+.capcut-factory-set input:focus {
+  border-color: var(--primary);
+}
+
+.capcut-factory-input-row {
+  display: flex;
+  min-width: 0;
+  gap: 6px;
+}
+
+.capcut-factory-input-row input {
+  flex: 1;
+}
+
+.capcut-factory-input-row .btn {
+  padding: 7px 10px;
+}
+
+.capcut-factory-set-list {
+  display: flex;
+  margin-top: 12px;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.capcut-factory-set {
+  padding: 11px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--panel-2) 65%, transparent);
+}
+
+.capcut-factory-set.valid {
+  border-color: color-mix(in srgb, var(--ok) 42%, var(--border));
+}
+
+.capcut-factory-set.invalid {
+  border-color: color-mix(in srgb, var(--fail) 55%, var(--border));
+}
+
+.capcut-factory-set-head label {
+  width: min(330px, calc(100% - 34px));
+}
+
+.capcut-factory-remove {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 22px;
+}
+
+.capcut-factory-remove:hover:not(:disabled) {
+  color: var(--fail);
+}
+
+.capcut-factory-set-grid {
+  display: grid;
+  margin-top: 10px;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.capcut-factory-label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.capcut-factory-picker {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  padding: 8px 9px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid var(--control-border);
+  border-radius: 7px;
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: pointer;
+  text-align: left;
+}
+
+.capcut-factory-picker span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.capcut-factory-picker b {
+  color: var(--primary);
+  font-size: 11px;
+}
+
+.capcut-factory-set-status {
+  display: flex;
+  margin-top: 9px;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+}
+
+.capcut-factory-set-status.ok,
+.ok-text {
+  color: var(--ok);
+}
+
+.capcut-factory-set-status.error {
+  color: var(--fail);
+}
+
+.capcut-factory-set-status small {
+  color: var(--warn);
+}
+
+.capcut-factory-empty {
+  padding: 16px;
+  text-align: center;
+}
+
+.capcut-factory-run-card {
+  position: sticky;
+  z-index: 3;
+  bottom: 0;
+  border-color: color-mix(in srgb, var(--primary) 36%, var(--border));
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.capcut-factory-run-actions .btn.primary {
+  flex: 1;
+}
+
+.capcut-factory-note {
+  margin: 8px 0 0;
+}
+
+.capcut-factory-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.capcut-factory-summary.ready {
+  border-color: color-mix(in srgb, var(--ok) 55%, var(--border));
+}
+
+.capcut-factory-summary.blocked {
+  border-color: color-mix(in srgb, var(--fail) 55%, var(--border));
+}
+
+.capcut-factory-summary p {
+  margin: 3px 0 0;
+  color: var(--warn);
+  font-size: 11px;
+}
+
+.capcut-factory-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.capcut-factory-progress > div:first-child {
+  flex-direction: row;
+}
+
+.progress-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--panel-2);
+}
+
+.progress-track > div {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--progress-gradient);
+  transition: width 0.2s ease;
+}
+
+.capcut-factory-result-list {
+  display: flex;
+  margin-top: 10px;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.capcut-factory-result {
+  justify-content: flex-start;
+  padding: 8px 9px;
+  border-radius: 7px;
+  background: var(--panel-2);
+}
+
+.capcut-factory-result > span {
+  color: var(--ok);
+  font-weight: 700;
+}
+
+.capcut-factory-result.error > span {
+  color: var(--fail);
+}
+
+.capcut-factory-result > div {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.capcut-factory-result small {
+  color: var(--muted);
+}
+
+.capcut-factory-result button {
+  border: 0;
+  background: none;
+  color: var(--primary);
+  cursor: pointer;
+}
+
+@media (max-width: 1050px) {
+  .capcut-factory-config-grid,
+  .capcut-factory-set-grid {
+    grid-template-columns: 1fr;
+  }
+}
