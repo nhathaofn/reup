@@ -52,8 +52,9 @@ mac:
   category: public.app-category.utilities
   artifactName: ${productName}-${version}.${ext}
 # Nguon phat hanh cho electron-updater (app tu cap nhat tu GitHub Releases).
-# LUU Y: owner/repo phai TRUNG repo that ma ban up Release len.
+# Release assets are published to a separate public repository. The source
+# repository can therefore remain private while electron-updater stays public.
 publish:
   provider: github
   owner: nhathaofn
-  repo: reup
+  repo: releases

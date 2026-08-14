@@ -1,3 +1,11 @@
+## T-blao v0.1.21
+
+### Phát hành không lộ mã nguồn
+
+- Repo mã nguồn có thể để private; các bản build được publish riêng tại `nhathaofn/releases`.
+- `electron-updater` tải metadata và installer từ repo release public.
+- GitHub Actions kiểm tra artifact Windows/macOS trước khi publish.
+
 ## T-blao v0.1.20
 
 ### Cập nhật ứng dụng

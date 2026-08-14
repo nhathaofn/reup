@@ -69,12 +69,12 @@ jobs:
           retention-days: 7
 
   release:
-    name: Create release
+    name: Publish release assets
     if: startsWith(github.ref, 'refs/tags/')
     needs: build
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
 
     steps:
       - name: Checkout code
@@ -96,13 +96,15 @@ jobs:
           test -n "$(find release-assets -maxdepth 1 -name '*.zip' -print -quit)"
           test -f release-assets/latest-mac.yml
 
-      - name: Create draft GitHub release
+      - name: Publish to public release repository
         uses: softprops/action-gh-release@v3
         with:
+          repository: nhathaofn/releases
+          token: ${{ secrets.RELEASE_REPO_TOKEN }}
+          tag_name: ${{ github.ref_name }}
+          target_commitish: main
           name: T-blao ${{ github.ref_name }}
           body_path: RELEASE_NOTES.md
           draft: false
           fail_on_unmatched_files: true
           files: release-assets/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
