@@ -109,6 +109,7 @@ export default function App(): JSX.Element {
   const [tab, setTab] = useState<TabKey>('download')
   const [version, setVersion] = useState('')
   const [update, setUpdate] = useState<UpdateStatus | null>(null)
+  const [devRuntimeBypass, setDevRuntimeBypass] = useState(false)
   // "Hop thu" gui file tu tab Tai xuong sang tab Audio->Text (nut "Lay sub")
   const [subInbox, setSubInbox] = useState<{ path: string; id: string } | null>(null)
   const sendToSub = (filePath: string): void => {
@@ -119,7 +120,9 @@ export default function App(): JSX.Element {
   const check = async (): Promise<void> => {
     setStage('checking')
     const status = await window.api.checkDeps()
-    setStage(status.ytdlp && status.ffmpeg && status.engines ? 'ready' : 'setup')
+    const bypass = status.devRuntimeBypass === true
+    setDevRuntimeBypass(bypass)
+    setStage(bypass || (status.ytdlp && status.ffmpeg && status.engines) ? 'ready' : 'setup')
   }
 
   useEffect(() => {
@@ -246,6 +249,12 @@ export default function App(): JSX.Element {
           </button>
         </header>
         <div className="content-body">
+          {devRuntimeBypass && (
+            <div className="dev-runtime-warning" role="status">
+              Dev mode: đang bỏ qua cài runtime. Các chức năng cần yt-dlp, FFmpeg hoặc engine chưa cài
+              vẫn sẽ báo thiếu công cụ.
+            </div>
+          )}
           {/* Giu 2 tab tai luon SONG (khong unmount) de chay song song, khong mat hang doi/tien do */}
           <div className={`tab-pane ${tab === 'download' ? '' : 'hidden'}`}>
             <Downloader onGetSub={sendToSub} />

@@ -261,6 +261,17 @@ textarea {
   display: flex;
   flex-direction: column;
 }
+.dev-runtime-warning {
+  flex: 0 0 auto;
+  margin: 0 18px 12px;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--warn) 55%, var(--border));
+  border-radius: 9px;
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 10%, var(--panel));
+  font-size: 12px;
+  line-height: 1.4;
+}
 /* Moi tab tai la 1 pane fill het chieu cao (giu chuoi flex de .downloader cuon duoc) */
 .tab-pane {
   flex: 1;

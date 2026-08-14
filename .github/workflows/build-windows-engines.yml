@@ -1,0 +1,119 @@
+name: Build Windows runtime assets & publish assets-v1
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'assets-v*'
+    paths:
+      - 'engines/**'
+      - '.github/workflows/build-windows-engines.yml'
+
+jobs:
+  build-windows-engines:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install build tooling
+        shell: pwsh
+        run: python -m pip install --upgrade pip setuptools wheel pyinstaller
+
+      - name: Build Douyin engine
+        shell: pwsh
+        run: |
+          Set-Location engines/douyin-engine
+          python -m pip install -r requirements.txt
+          pyinstaller --clean --noconfirm dy-engine.spec
+          if (-not (Test-Path dist/dy-engine.exe)) { throw 'dy-engine.exe was not produced.' }
+          & .\dist\dy-engine.exe --help | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'dy-engine.exe failed its startup smoke test.' }
+
+      - name: Build Whisper engine
+        shell: pwsh
+        run: |
+          Set-Location engines/whisper-engine
+          python -m pip install faster-whisper ctranslate2 onnxruntime sentencepiece tokenizers sherpa_onnx wtpsplit_lite av
+          pyinstaller --clean --noconfirm whisper-engine.spec
+          if (-not (Test-Path dist/whisper-engine/whisper-engine.exe)) { throw 'whisper-engine.exe was not produced.' }
+          & .\dist\whisper-engine\whisper-engine.exe --help | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'whisper-engine.exe failed its startup smoke test.' }
+          Compress-Archive -Path dist/whisper-engine/* -DestinationPath dist/whisper-engine-win.zip -CompressionLevel Optimal
+
+      - name: Build OCR engine
+        shell: pwsh
+        run: |
+          Set-Location engines/ocr-engine
+          python -m pip install rapidocr_onnxruntime opencv-python-headless numpy
+          pyinstaller --clean --noconfirm ocr-engine.spec
+          if (-not (Test-Path dist/ocr-engine/ocr-engine.exe)) { throw 'ocr-engine.exe was not produced.' }
+          & .\dist\ocr-engine\ocr-engine.exe --help | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'ocr-engine.exe failed its startup smoke test.' }
+          Compress-Archive -Path dist/ocr-engine/* -DestinationPath dist/ocr-engine-win.zip -CompressionLevel Optimal
+
+      - name: Build optional Whisper CUDA runtime bundle
+        shell: pwsh
+        run: |
+          python -m pip install nvidia-cublas-cu12 nvidia-cudnn-cu12
+          $site = python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])"
+          $source = Join-Path $site 'nvidia'
+          $bundle = Join-Path $env:RUNNER_TEMP 'tblao-whisper-cuda-bundle'
+          Remove-Item $bundle -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $bundle | Out-Null
+          $dlls = Get-ChildItem $source -Recurse -Filter '*.dll' -File
+          if ($dlls.Count -eq 0) { throw 'CUDA packages did not provide DLL files.' }
+          foreach ($dll in $dlls) { Copy-Item $dll.FullName (Join-Path $bundle $dll.Name) -Force }
+          Compress-Archive -Path (Join-Path $bundle '*') -DestinationPath whisper-cuda-win.zip -CompressionLevel Optimal
+
+      - name: Prepare pinned FFmpeg bundle
+        shell: pwsh
+        run: |
+          $work = Join-Path $env:RUNNER_TEMP 'tblao-ffmpeg'
+          Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $work | Out-Null
+          Invoke-WebRequest -Uri 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip' -OutFile (Join-Path $work 'ffmpeg.zip')
+          Expand-Archive -LiteralPath (Join-Path $work 'ffmpeg.zip') -DestinationPath (Join-Path $work 'expanded') -Force
+          $ffmpeg = Get-ChildItem (Join-Path $work 'expanded') -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          $ffprobe = Get-ChildItem (Join-Path $work 'expanded') -Recurse -Filter ffprobe.exe | Select-Object -First 1
+          if (-not $ffmpeg -or -not $ffprobe) { throw 'FFmpeg bundle is missing ffmpeg.exe or ffprobe.exe.' }
+          & $ffmpeg.FullName -version | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'ffmpeg.exe failed its startup smoke test.' }
+          & $ffprobe.FullName -version | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'ffprobe.exe failed its startup smoke test.' }
+          New-Item -ItemType Directory -Path (Join-Path $work 'bundle') | Out-Null
+          Copy-Item $ffmpeg.FullName (Join-Path $work 'bundle/ffmpeg.exe')
+          Copy-Item $ffprobe.FullName (Join-Path $work 'bundle/ffprobe.exe')
+          Compress-Archive -Path (Join-Path $work 'bundle/*') -DestinationPath ffmpeg-win.zip -CompressionLevel Optimal
+
+      - name: Write runtime manifest
+        shell: pwsh
+        run: |
+          @{ ocr = 2; whisper = 2; douyin = 2; whisperCuda = 1; video2x = 1 } | ConvertTo-Json | Set-Content -Encoding utf8 engines-manifest.json
+
+      - name: Publish Windows assets to public release repository
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: nhathaofn/releases
+          token: ${{ secrets.RELEASE_REPO_TOKEN }}
+          tag_name: assets-v1
+          target_commitish: main
+          name: Assets Release v1
+          prerelease: true
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          files: |
+            engines/douyin-engine/dist/dy-engine.exe
+            engines/whisper-engine/dist/whisper-engine-win.zip
+            engines/ocr-engine/dist/ocr-engine-win.zip
+            whisper-cuda-win.zip
+            ffmpeg-win.zip
+            engines-manifest.json

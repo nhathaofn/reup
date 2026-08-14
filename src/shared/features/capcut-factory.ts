@@ -17,6 +17,7 @@ export const FEATURE_CHANNELS = {
   pickPath: `${FEATURE_ID}:pick-path`,
   inspect: `${FEATURE_ID}:inspect`,
   run: `${FEATURE_ID}:run`,
+  repair: `${FEATURE_ID}:repair`,
   cancel: `${FEATURE_ID}:cancel`,
   progress: `${FEATURE_ID}:progress`
 } as const
@@ -109,6 +110,7 @@ export interface CapCutFactoryProjectResult {
   projectName: string
   projectPath?: string
   sceneLinkManifestPath?: string
+  portableManifestPath?: string
   ok: boolean
   warnings: string[]
   error?: string
@@ -119,6 +121,17 @@ export interface CapCutFactoryResult {
   cancelled?: boolean
   draftsDir?: string
   projects: CapCutFactoryProjectResult[]
+  error?: string
+}
+
+export interface CapCutFactoryPortabilityResult {
+  ok: boolean
+  projectPath: string
+  manifestPath?: string
+  updatedFiles: number
+  rewrittenPaths: number
+  missingAssets: string[]
+  warnings: string[]
   error?: string
 }
 

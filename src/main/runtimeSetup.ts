@@ -1,85 +1,19 @@
 import { checkDependencies, runSetup as runCoreSetup } from './deps'
-import { dyEngineStatus, installDyEngine } from './douyin'
-import { detectGpu } from './gpu'
-import { installOcrEngine, ocrEngineStatus } from './ocr'
-import {
-  installCudaPack,
-  installWhisperEngine,
-  whisperCudaStatus,
-  whisperEngineStatus
-} from './whisper'
-import { installVideo2xEngine, video2xEngineStatus } from './video2x'
-import type { DepStatus, SetupPhase, SetupProgress } from '../shared/types'
+import type { DepStatus, SetupProgress } from '../shared/types'
 
 type ProgressCb = (progress: SetupProgress) => void
-type BasicStatus = { has: boolean; needsUpdate?: boolean }
 
-interface RuntimeStep {
-  phase: SetupPhase
-  message: string
-  status: () => Promise<BasicStatus>
-  install: (onProgress: (percent: number) => void) => Promise<void>
-}
+// Optional feature engines are installed from their own feature tabs. Keeping
+// them out of the first-boot gate makes the core app usable on a fresh PC even
+// when an optional engine asset is unavailable or the PC has no GPU.
+const devRuntimeBypass = process.env.TBLAO_DEV_ALLOW_MISSING_RUNTIME === '1'
 
-async function runtimeSteps(): Promise<RuntimeStep[]> {
-  const steps: RuntimeStep[] = [
-    {
-      phase: 'downloading-douyin',
-      message: 'Đang tải công cụ Douyin…',
-      status: dyEngineStatus,
-      install: installDyEngine
-    },
-    {
-      phase: 'downloading-whisper',
-      message: 'Đang tải công cụ tạo phụ đề…',
-      status: whisperEngineStatus,
-      install: installWhisperEngine
-    },
-    {
-      phase: 'downloading-ocr',
-      message: 'Đang tải công cụ đọc chữ trong video…',
-      status: ocrEngineStatus,
-      install: installOcrEngine
-    }
-  ]
-
-  const video2x = await video2xEngineStatus()
-  if (video2x.supported) {
-    steps.push({
-      phase: 'downloading-video2x',
-      message: 'Đang tải công cụ nâng cấp video…',
-      status: video2xEngineStatus,
-      install: installVideo2xEngine
-    })
-  }
-
-  if (process.platform === 'win32') {
-    const gpu = await detectGpu()
-    if (gpu.canAccelerate) {
-      steps.push({
-        phase: 'downloading-cuda',
-        message: 'Đang tải gói tăng tốc NVIDIA…',
-        status: whisperCudaStatus,
-        install: installCudaPack
-      })
-    }
-  }
-
-  return steps
-}
-
-async function enginesReady(steps: RuntimeStep[]): Promise<boolean> {
-  const statuses = await Promise.all(steps.map((step) => step.status()))
-  return statuses.every((status) => status.has && !status.needsUpdate)
-}
-
-/**
- * Trang khoi dong chi vao app khi core tools va moi engine phu hop voi may da
- * nam trong userData/bin. Installer khong dong goi bat ky binary runtime nao.
- */
 export async function checkRuntimeDependencies(): Promise<DepStatus> {
-  const [core, steps] = await Promise.all([checkDependencies(), runtimeSteps()])
-  return { ...core, engines: await enginesReady(steps) }
+  const core = await checkDependencies()
+  if (devRuntimeBypass) {
+    return { ...core, engines: false, devRuntimeBypass: true }
+  }
+  return { ...core, engines: core.ytdlp && core.ffmpeg }
 }
 
 export async function runRuntimeSetup(onProgress: ProgressCb): Promise<void> {
@@ -88,22 +22,12 @@ export async function runRuntimeSetup(onProgress: ProgressCb): Promise<void> {
       if (progress.phase !== 'done') onProgress(progress)
     })
 
-    const steps = await runtimeSteps()
-    for (const step of steps) {
-      const status = await step.status()
-      if (status.has && !status.needsUpdate) continue
-      onProgress({ phase: step.phase, message: step.message, percent: 0 })
-      await step.install((percent) =>
-        onProgress({ phase: step.phase, message: step.message, percent })
-      )
+    const core = await checkDependencies()
+    if (!core.ytdlp || !core.ffmpeg) {
+      throw new Error('Core downloader or FFmpeg is still missing. Please retry setup.')
     }
 
-    const [core, finalSteps] = await Promise.all([checkDependencies(), runtimeSteps()])
-    if (!core.ytdlp || !core.ffmpeg || !(await enginesReady(finalSteps))) {
-      throw new Error('Một hoặc nhiều thành phần chưa được cài đặt đầy đủ. Vui lòng thử lại.')
-    }
-
-    onProgress({ phase: 'done', message: 'Hoàn tất! T-blao đã sẵn sàng.', percent: 100 })
+    onProgress({ phase: 'done', message: 'Core runtime is ready. Feature engines install on demand.', percent: 100 })
   } catch (error) {
     onProgress({
       phase: 'error',

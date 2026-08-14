@@ -4,6 +4,7 @@ import {
   FEATURE_ID,
   type CapCutFactoryCancelResult,
   type CapCutFactoryEnvironment,
+  type CapCutFactoryPortabilityResult,
   type CapCutFactoryPickKind,
   type CapCutFactoryPreflightResult,
   type CapCutFactoryProgress,
@@ -21,6 +22,8 @@ const api = {
     ipcRenderer.invoke(FEATURE_CHANNELS.inspect, request),
   runCapCutFactory: (request: CapCutFactoryRequest): Promise<CapCutFactoryResult> =>
     ipcRenderer.invoke(FEATURE_CHANNELS.run, request),
+  repairCapCutProject: (projectPath: string): Promise<CapCutFactoryPortabilityResult> =>
+    ipcRenderer.invoke(FEATURE_CHANNELS.repair, projectPath),
   cancelCapCutFactory: (): Promise<CapCutFactoryCancelResult> =>
     ipcRenderer.invoke(FEATURE_CHANNELS.cancel),
   onCapCutFactoryProgress: (

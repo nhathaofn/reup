@@ -1,3 +1,12 @@
+## T-blao v0.1.22
+
+### Windows release
+
+- Bản cài Windows chỉ chứa ứng dụng; yt-dlp, FFmpeg và các engine được tải theo đúng bản Windows khi chạy lần đầu.
+- Sửa đường dẫn và asset CapCut khi mở project trên máy Windows khác.
+- Cải thiện thay thế engine theo kiểu an toàn: bản đang chạy không bị xóa nếu tải hoặc kiểm tra bản mới thất bại.
+- Bổ sung pipeline phát hành installer và runtime asset Windows riêng.
+
 ## T-blao v0.1.21
 
 ### CapCut Factory

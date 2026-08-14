@@ -4,6 +4,7 @@ import {
   FEATURE_ID,
   type CapCutFactoryCancelResult,
   type CapCutFactoryEnvironment,
+  type CapCutFactoryPortabilityResult,
   type CapCutFactoryPickKind,
   type CapCutFactoryPreflightResult,
   type CapCutFactoryProgress,
@@ -16,6 +17,7 @@ import {
   inspectCapCutFactory,
   runCapCutFactory
 } from '../services/capCutFactory'
+import { repairPortableCapCutProject } from '../services/capcutPortability'
 import type { MainFeatureModule } from './contracts'
 
 function dialogOptions(kind: CapCutFactoryPickKind): OpenDialogOptions {
@@ -65,6 +67,10 @@ export const capcutFactoryMainFeature = {
         runCapCutFactory(request, (progress: CapCutFactoryProgress) =>
           emit(FEATURE_CHANNELS.progress, progress)
         )
+    )
+    handle<[projectPath: string], CapCutFactoryPortabilityResult>(
+      FEATURE_CHANNELS.repair,
+      (_event, projectPath) => repairPortableCapCutProject(projectPath)
     )
     handle<[], CapCutFactoryCancelResult>(FEATURE_CHANNELS.cancel, () => cancelCapCutFactory())
   }

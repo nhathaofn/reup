@@ -1,9 +1,9 @@
 import { app } from 'electron'
 import { spawn } from 'node:child_process'
-import { access, chmod, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { access, chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { join } from 'node:path'
-import { ASSET_BASE, binDir, downloadFile } from './deps'
+import { ASSET_BASE, binDir, downloadFile, replaceManagedBinary } from './deps'
 import { engineNeedsUpdate, markEngineInstalled } from './engines-update'
 import { readDyCookies } from './douyinCookies'
 import { debugRaw, errLabel, logError, logInfo } from './logger'
@@ -55,8 +55,15 @@ export async function dyEngineStatus(): Promise<DyEngineStatus> {
 export async function installDyEngine(onProgress: (percent: number) => void): Promise<void> {
   await mkdir(binDir(), { recursive: true })
   logInfo('Douyin: đang tải bộ tải Douyin…')
-  await downloadFile(engineUrl(), enginePath(), onProgress)
-  if (!isWin) await chmod(enginePath(), 0o755)
+  const candidate = `${enginePath()}.download`
+  await rm(candidate, { force: true })
+  try {
+    await downloadFile(engineUrl(), candidate, onProgress)
+    if (!isWin) await chmod(candidate, 0o755)
+    await replaceManagedBinary(candidate, enginePath(), ['--help'])
+  } finally {
+    await rm(candidate, { force: true }).catch(() => undefined)
+  }
   await markEngineInstalled('douyin')
   logInfo('Douyin: đã tải xong bộ tải Douyin.')
 }

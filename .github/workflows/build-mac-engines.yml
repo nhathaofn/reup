@@ -71,7 +71,10 @@ jobs:
       - name: Publish Binaries to Release assets-v1
         uses: softprops/action-gh-release@v2
         with:
+          repository: nhathaofn/releases
+          token: ${{ secrets.RELEASE_REPO_TOKEN }}
           tag_name: assets-v1
+          target_commitish: main
           name: "Assets Release v1"
           prerelease: true
           overwrite_files: true
@@ -80,6 +83,4 @@ jobs:
             engines/douyin-engine/dist/dy-engine-macos
             engines/whisper-engine/dist/whisper-engine-macos.zip
             engines/ocr-engine/dist/ocr-engine-macos.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

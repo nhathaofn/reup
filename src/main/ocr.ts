@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { access, chmod, mkdir, readdir, readFile, writeFile, rm } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { basename, join } from 'node:path'
-import { ASSET_BASE, binDir, downloadFile, extractZip, resolveFfmpeg } from './deps'
+import { ASSET_BASE, binDir, downloadFile, replaceDirectoryFromZip, resolveFfmpeg } from './deps'
 import { engineNeedsUpdate, markEngineInstalled } from './engines-update'
 import { debugRaw, errLabel, logError, logInfo } from './logger'
 import type { OcrEngineStatus, OcrProgress, OcrResult } from '../shared/types'
@@ -41,15 +41,15 @@ export async function ocrEngineStatus(): Promise<OcrEngineStatus> {
 
 export async function installOcrEngine(onProgress: (p: number) => void): Promise<void> {
   await mkdir(binDir(), { recursive: true })
-  const zip = join(binDir(), 'ocr-engine.zip')
+  const zip = join(binDir(), `ocr-engine-${process.pid}.download.zip`)
   logInfo('Dịch màn hình: đang tải công cụ (~230MB)…')
   await downloadFile(`${BASE}/${asset()}`, zip, onProgress)
+  try {
   logInfo('Dịch màn hình: đang giải nén…')
-  await rm(engineDir(), { recursive: true, force: true })
-  await extractZip(zip, binDir())
-  await rm(zip, { force: true })
-  if (!isWin && (await exists(enginePath()))) {
-    await chmod(enginePath(), 0o755)
+  await replaceDirectoryFromZip(zip, engineDir(), isWin ? 'ocr-engine.exe' : 'ocr-engine')
+  if (!isWin && (await exists(enginePath()))) await chmod(enginePath(), 0o755)
+  } finally {
+    await rm(zip, { force: true }).catch(() => undefined)
   }
   await markEngineInstalled('ocr')
   logInfo('Dịch màn hình: đã cài xong công cụ.')

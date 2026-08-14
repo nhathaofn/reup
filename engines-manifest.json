@@ -1,4 +1,7 @@
 {
   "ocr": 2,
+  "whisper": 2,
+  "douyin": 2,
+  "whisperCuda": 1,
   "video2x": 1
 }

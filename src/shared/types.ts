@@ -17,6 +17,8 @@ export interface DepStatus {
   ffmpeg: boolean
   engines: boolean
   platform: NodeJS.Platform
+  /** Chi co khi dev bat TBLAO_DEV_ALLOW_MISSING_RUNTIME=1 de test UI. */
+  devRuntimeBypass?: boolean
 }
 
 export interface YtDlpCapabilityStatus {

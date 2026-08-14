@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto'
 import { createReadStream, createWriteStream } from 'node:fs'
 import { mkdir, access, rm, readdir, copyFile, chmod, rename } from 'node:fs/promises'
 import { constants } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { DepStatus, SetupProgress } from '../shared/types'
@@ -48,10 +48,14 @@ interface YtDlpReleaseAsset {
  * Voi tag co dinh: ban va app chi can setup.exe + blockmap + latest.yml.
  *
  * Khi nao doi engine -> tao release moi `assets-v2` roi sua DUY NHAT dong duoi.
- * Release asset nen de dang PRERELEASE cho khoi tranh "latest" cua auto-update.
+ * Runtime assets nam tren repo release public, khong nam tren repo source private.
+ * Co the dung TBLAO_ASSET_BASE trong dev de tro vao mirror asset da xac minh.
  */
 export const ASSET_TAG = 'assets-v1'
-export const ASSET_BASE = `https://github.com/nhathaofn/reup/releases/download/${ASSET_TAG}`
+const DEFAULT_ASSET_BASE = `https://github.com/nhathaofn/releases/releases/download/${ASSET_TAG}`
+const configuredAssetBase = process.env.TBLAO_ASSET_BASE?.trim().replace(/\/+$/, '')
+export const ASSET_BASE = configuredAssetBase || DEFAULT_ASSET_BASE
+const WINDOWS_FFMPEG_FALLBACK_URL = 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip'
 
 /** Thu muc luu binaries tai ve, nam trong userData (khong can quyen admin). */
 export function binDir(): string {
@@ -204,8 +208,14 @@ export async function probeYtDlpCapabilities(): Promise<YtDlpCapabilities> {
 /** Tra ve duong dan ffmpeg dung duoc: bundled -> PATH. Null neu khong co. */
 export async function resolveFfmpeg(): Promise<string | null> {
   const local = join(binDir(), exe('ffmpeg'))
-  if (await fileExists(local)) return local
-  if (await canRun('ffmpeg', ['-version'])) return 'ffmpeg'
+  const localProbe = join(binDir(), exe('ffprobe'))
+  if (
+    (await fileExists(local)) &&
+    (await fileExists(localProbe)) &&
+    (await canRun(local, ['-version'])) &&
+    (await canRun(localProbe, ['-version']))
+  ) return local
+  if (await canRun('ffmpeg', ['-version']) && await canRun('ffprobe', ['-version'])) return 'ffmpeg'
   return null
 }
 
@@ -215,7 +225,10 @@ export async function checkDependencies(): Promise<DepStatus> {
   // binary da khoa tren release runtime cua du an.
   const [managedYtDlp, managedFfmpeg] = await Promise.all([
     canRun(managedYtDlpPath()),
-    canRun(join(binDir(), exe('ffmpeg')), ['-version'])
+    Promise.all([
+      canRun(join(binDir(), exe('ffmpeg')), ['-version']),
+      canRun(join(binDir(), exe('ffprobe')), ['-version'])
+    ]).then(([ffmpeg, ffprobe]) => ffmpeg && ffprobe)
   ])
   return {
     ytdlp: managedYtDlp,
@@ -260,6 +273,7 @@ export async function downloadFile(
     })
     await pipeline(nodeStream, out)
   } catch (reason) {
+    await rm(dest, { force: true }).catch(() => undefined)
     if (controller.signal.aborted) {
       throw new Error(`Tai bi gian doan qua ${Math.round(inactivityTimeoutMs / 1000)} giay: ${url}`)
     }
@@ -298,7 +312,7 @@ export function extractZip(zipPath: string, destDir: string): Promise<void> {
 }
 
 /** Tim de quy 1 file ten cho truoc trong thu muc. */
-async function findFile(dir: string, name: string): Promise<string | null> {
+export async function findFile(dir: string, name: string): Promise<string | null> {
   const entries = await readdir(dir, { withFileTypes: true })
   for (const e of entries) {
     const full = join(dir, e.name)
@@ -310,6 +324,51 @@ async function findFile(dir: string, name: string): Promise<string | null> {
     }
   }
   return null
+}
+
+/** Kich hoat mot thu muc da giai nen ma khong lam mat ban dang chay. */
+export async function activateStagedDirectory(stagedDir: string, targetDir: string): Promise<void> {
+  const backupDir = `${targetDir}.previous`
+  const hadTarget = await fileExists(targetDir)
+  await rm(backupDir, { recursive: true, force: true })
+
+  if (hadTarget) await rename(targetDir, backupDir)
+  try {
+    await rename(stagedDir, targetDir)
+    await rm(backupDir, { recursive: true, force: true }).catch(() => undefined)
+  } catch (error) {
+    if (!(await fileExists(targetDir)) && (await fileExists(backupDir))) {
+      await rename(backupDir, targetDir).catch(() => undefined)
+    }
+    throw error
+  }
+}
+
+/** Giai nen vao staging, kiem tra executable, roi moi thay the thu muc dich. */
+export async function replaceDirectoryFromZip(
+  zipPath: string,
+  targetDir: string,
+  executableName: string,
+  verifyArgs = ['--help']
+): Promise<string> {
+  const installRoot = `${targetDir}.tblao-install-${process.pid}-${Date.now()}`
+  const extractDir = join(installRoot, 'extracted')
+  const stagedDir = `${targetDir}.tblao-staged-${process.pid}-${Date.now()}`
+  await mkdir(extractDir, { recursive: true })
+  try {
+    await extractZip(zipPath, extractDir)
+    const executable = await findFile(extractDir, executableName)
+    if (!executable) throw new Error(`Asset khong chua ${executableName}.`)
+    const check = await runCapture(executable, verifyArgs)
+    if (check.code !== 0) throw new Error(`Executable ${executableName} vua tai khong khoi dong duoc.`)
+    await rm(stagedDir, { recursive: true, force: true })
+    await rename(dirname(executable), stagedDir)
+    await activateStagedDirectory(stagedDir, targetDir)
+    return join(targetDir, executableName)
+  } finally {
+    await rm(stagedDir, { recursive: true, force: true }).catch(() => undefined)
+    await rm(installRoot, { recursive: true, force: true }).catch(() => undefined)
+  }
 }
 
 function isMuslLinux(): boolean {
@@ -403,8 +462,11 @@ async function sha256File(path: string): Promise<string> {
   return hash.digest('hex')
 }
 
-async function replaceManagedYtDlp(candidate: string, dest: string): Promise<void> {
+export async function replaceManagedBinary(candidate: string, dest: string, verifyArgs: string[]): Promise<void> {
   const previous = `${dest}.previous`
+
+  const candidateCheck = await runCapture(candidate, verifyArgs)
+  if (candidateCheck.code !== 0) throw new Error('Binary moi khong khoi dong duoc.')
 
   // Phuc hoi neu app da bi tat dung luc Windows dang doi ten binary cu.
   if (!(await fileExists(dest)) && (await fileExists(previous))) {
@@ -430,8 +492,8 @@ async function replaceManagedYtDlp(candidate: string, dest: string): Promise<voi
   await rename(dest, previous)
   try {
     await rename(candidate, dest)
-    const verified = await runCapture(dest, ['--version'])
-    if (verified.code !== 0) throw new Error('Binary yt-dlp moi khong khoi dong duoc.')
+    const verified = await runCapture(dest, verifyArgs)
+    if (verified.code !== 0) throw new Error('Binary moi khong khoi dong duoc.')
     // Binary cu co the van dang duoc mot process download giu handle. Ban moi
     // da xac minh thanh cong, nen cleanup backup that bai khong duoc rollback.
     await rm(previous, { force: true }).catch(() => {})
@@ -478,7 +540,7 @@ async function doInstallYtDlp(onProgress: ProgressCb): Promise<void> {
       throw new Error('Binary yt-dlp vua tai khong hop le; da giu nguyen binary cu.')
     }
 
-    await replaceManagedYtDlp(candidate, dest)
+    await replaceManagedBinary(candidate, dest, ['--version'])
   } finally {
     await rm(candidate, { force: true }).catch(() => {})
   }
@@ -494,11 +556,27 @@ async function installYtDlp(onProgress: ProgressCb): Promise<void> {
   }
 }
 
+async function downloadFfmpegArchive(
+  primaryUrl: string,
+  dest: string,
+  onProgress: (percent: number) => void
+): Promise<void> {
+  try {
+    await downloadFile(primaryUrl, dest, onProgress)
+  } catch (primaryError) {
+    try {
+      await downloadFile(WINDOWS_FFMPEG_FALLBACK_URL, dest, onProgress)
+    } catch {
+      throw primaryError
+    }
+  }
+}
+
 async function installFfmpeg(onProgress: ProgressCb): Promise<void> {
   onProgress({ phase: 'downloading-ffmpeg', message: 'Đang tải ffmpeg…', percent: 0 })
 
   if (isWin) {
-    const tmpZip = join(binDir(), 'ffmpeg.zip')
+    const tmpZip = join(binDir(), `ffmpeg-${process.pid}.download.zip`)
     // KHONG dung yt-dlp/FFmpeg-Builds "latest" (master): no doi nv-codec-headers
     // MOI NHAT -> nvenc yeu cau driver rat moi (vd 610) ma DA SO may chua co ->
     // nvenc chet, ghep phu de chi chay CPU. Da do that: ban 2026-05-18 (gyan,
@@ -506,18 +584,27 @@ async function installFfmpeg(onProgress: ProgressCb): Promise<void> {
     // Host tren release rieng (github nhathaofn/reup) de KHOA phien ban ffmpeg
     // tuong thich rong, khong bi day len bleeding-edge. -> PHAI upload ffmpeg-win.zip.
     const url = `${ASSET_BASE}/ffmpeg-win.zip`
-    await downloadFile(url, tmpZip, (p) =>
+    await downloadFfmpegArchive(url, tmpZip, (p) =>
       onProgress({ phase: 'downloading-ffmpeg', message: `Đang tải ffmpeg… ${p}%`, percent: p })
     )
     onProgress({ phase: 'extracting', message: 'Đang giải nén ffmpeg…', percent: -1 })
-    const extractDir = join(binDir(), 'ffmpeg_tmp')
+    const extractDir = join(binDir(), `ffmpeg_tmp-${process.pid}-${Date.now()}`)
     await rm(extractDir, { recursive: true, force: true })
     await extractZip(tmpZip, extractDir)
 
-    for (const bin of ['ffmpeg.exe', 'ffprobe.exe']) {
-      const src = await findFile(extractDir, bin)
-      if (src) await copyFile(src, join(binDir(), bin))
+    const ffmpegCandidate = await findFile(extractDir, 'ffmpeg.exe')
+    const ffprobeCandidate = await findFile(extractDir, 'ffprobe.exe')
+    if (!ffmpegCandidate || !ffprobeCandidate) {
+      throw new Error('Goi ffmpeg khong chua du ffmpeg.exe va ffprobe.exe.')
     }
+    if ((await runCapture(ffmpegCandidate, ['-version'])).code !== 0) {
+      throw new Error('ffmpeg.exe vua tai khong khoi dong duoc.')
+    }
+    if ((await runCapture(ffprobeCandidate, ['-version'])).code !== 0) {
+      throw new Error('ffprobe.exe vua tai khong khoi dong duoc.')
+    }
+    await replaceManagedBinary(ffmpegCandidate, join(binDir(), 'ffmpeg.exe'), ['-version'])
+    await replaceManagedBinary(ffprobeCandidate, join(binDir(), 'ffprobe.exe'), ['-version'])
     await rm(extractDir, { recursive: true, force: true })
     await rm(tmpZip, { force: true })
   } else if (isMac) {

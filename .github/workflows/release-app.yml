@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build (${{ matrix.name }})
+    name: Build Windows
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -26,22 +26,13 @@ jobs:
               dist/*.exe
               dist/*.blockmap
               dist/latest.yml
-          - name: macOS
-            os: macos-latest
-            package_script: package:mac
-            artifact_name: release-macos
-            artifact_paths: |
-              dist/*.dmg
-              dist/*.zip
-              dist/*.blockmap
-              dist/latest-mac.yml
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
@@ -57,11 +48,10 @@ jobs:
         run: npm run ${{ matrix.package_script }}
 
       - name: Verify Windows package is runtime-free
-        if: matrix.name == 'Windows'
         run: npm run verify:package:win
 
       - name: Upload release artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_paths }}
@@ -78,10 +68,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Download release artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           pattern: release-*
           path: release-assets
@@ -92,12 +82,10 @@ jobs:
         run: |
           test -n "$(find release-assets -maxdepth 1 -name '*.exe' -print -quit)"
           test -f release-assets/latest.yml
-          test -n "$(find release-assets -maxdepth 1 -name '*.dmg' -print -quit)"
-          test -n "$(find release-assets -maxdepth 1 -name '*.zip' -print -quit)"
-          test -f release-assets/latest-mac.yml
+          test -n "$(find release-assets -maxdepth 1 -name '*.blockmap' -print -quit)"
 
       - name: Publish to public release repository
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@v2
         with:
           repository: nhathaofn/releases
           token: ${{ secrets.RELEASE_REPO_TOKEN }}

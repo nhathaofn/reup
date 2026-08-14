@@ -1,9 +1,16 @@
 import { app } from 'electron'
 import { spawn } from 'node:child_process'
-import { access, chmod, mkdir, readdir, rm } from 'node:fs/promises'
+import { access, chmod, mkdir, readdir, rename, rm } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { basename, join } from 'node:path'
-import { ASSET_BASE, binDir, downloadFile, extractZip } from './deps'
+import {
+  ASSET_BASE,
+  activateStagedDirectory,
+  binDir,
+  downloadFile,
+  extractZip,
+  replaceDirectoryFromZip
+} from './deps'
 import { engineNeedsUpdate, markEngineInstalled } from './engines-update'
 import { debugRaw, errLabel, logError, logInfo } from './logger'
 import {
@@ -100,14 +107,26 @@ export async function whisperCudaStatus(): Promise<WhisperCudaStatus> {
 
 export async function installCudaPack(onProgress: (percent: number) => void): Promise<void> {
   await mkdir(binDir(), { recursive: true })
-  const zip = join(binDir(), 'whisper-cuda.zip')
+  const zip = join(binDir(), `whisper-cuda-${process.pid}.download.zip`)
+  const installRoot = join(binDir(), `.whisper-cuda-install-${process.pid}-${Date.now()}`)
+  const extractDir = join(installRoot, 'extracted')
+  const stagedDir = join(binDir(), `.whisper-cuda-staged-${process.pid}-${Date.now()}`)
   logInfo('Audio→Text: đang tải gói tăng tốc GPU (~1GB)…')
   await downloadFile(cudaUrl(), zip, onProgress)
+  try {
   logInfo('Audio→Text: đang giải nén gói GPU…')
-  await rm(cudaDir(), { recursive: true, force: true })
-  await mkdir(cudaDir(), { recursive: true })
-  await extractZip(zip, cudaDir())
-  await rm(zip, { force: true })
+  await mkdir(extractDir, { recursive: true })
+  await extractZip(zip, extractDir)
+  const sourceDir = await findLibraryDirectory(extractDir)
+  if (!sourceDir) throw new Error('Goi CUDA khong chua DLL/thu vien native.')
+  await rm(stagedDir, { recursive: true, force: true })
+  await rename(sourceDir, stagedDir)
+  await activateStagedDirectory(stagedDir, cudaDir())
+  } finally {
+    await rm(stagedDir, { recursive: true, force: true }).catch(() => undefined)
+    await rm(installRoot, { recursive: true, force: true }).catch(() => undefined)
+    await rm(zip, { force: true }).catch(() => undefined)
+  }
   await markEngineInstalled('whisperCuda')
   logInfo('Audio→Text: đã cài gói tăng tốc GPU.')
 }
@@ -121,6 +140,18 @@ async function fileExists(p: string): Promise<boolean> {
   }
 }
 
+async function findLibraryDirectory(root: string): Promise<string | null> {
+  for (const entry of await readdir(root, { withFileTypes: true })) {
+    const full = join(root, entry.name)
+    if (entry.isFile() && /\.(dll|so|dylib)$/i.test(entry.name)) return root
+    if (entry.isDirectory()) {
+      const found = await findLibraryDirectory(full)
+      if (found) return found
+    }
+  }
+  return null
+}
+
 export async function whisperEngineStatus(): Promise<WhisperEngineStatus> {
   const has = await fileExists(enginePath())
   return { has, needsUpdate: await engineNeedsUpdate('whisper', has) }
@@ -128,13 +159,15 @@ export async function whisperEngineStatus(): Promise<WhisperEngineStatus> {
 
 export async function installWhisperEngine(onProgress: (percent: number) => void): Promise<void> {
   await mkdir(binDir(), { recursive: true })
-  const zip = join(binDir(), 'whisper-engine.zip')
+  const zip = join(binDir(), `whisper-engine-${process.pid}.download.zip`)
   logInfo('Audio→Text: đang tải bộ chuyển giọng nói…')
   await downloadFile(engineUrl(), zip, onProgress)
+  try {
   logInfo('Audio→Text: đang giải nén…')
-  await rm(engineDir(), { recursive: true, force: true })
-  await extractZip(zip, binDir())
-  await rm(zip, { force: true })
+  await replaceDirectoryFromZip(zip, engineDir(), engineExe())
+  } finally {
+    await rm(zip, { force: true }).catch(() => undefined)
+  }
   if (!isWin) await chmod(enginePath(), 0o755)
   qualityArgumentSupport = null
   await markEngineInstalled('whisper')

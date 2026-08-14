@@ -38,6 +38,10 @@ win:
   target:
     - nsis
   icon: build/icon.ico
+  # The project has no code-signing certificate. Skipping executable resource
+  # editing also keeps local Windows builds compatible with standard user
+  # accounts that cannot create symlinks while unpacking winCodeSign.
+  signAndEditExecutable: false
   artifactName: ${productName}-${version}-setup.${ext}
 nsis:
   oneClick: false

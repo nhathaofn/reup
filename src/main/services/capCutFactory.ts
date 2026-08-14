@@ -34,6 +34,7 @@ import {
 import type { SceneSplitterScene } from '../../shared/features/scene-splitter'
 import type { VoiceSyncEntry } from '../../shared/types'
 import { resolveFfmpeg } from '../deps'
+import { writePortableCapCutManifest } from './capcutPortability'
 import { scanVoiceSync } from './voiceSync'
 
 interface ActiveJob {
@@ -1277,6 +1278,7 @@ export async function runCapCutFactory(
         : await runCli(['lint', projectPath], ffprobe, job)
       const projectWarnings = [...preparedWarnings]
       let sceneLinkManifestPath: string | undefined
+      let portableManifestPath: string | undefined
       if (sync.status !== 0) projectWarnings.push(cliError('Đồng bộ mirror timeline', sync))
       projectWarnings.push(...lintWarnings(lint))
       if (sceneLinkPlan) {
@@ -1299,6 +1301,14 @@ export async function runCapCutFactory(
           )
         }
       }
+      try {
+        portableManifestPath = await writePortableCapCutManifest(projectPath, prepared.projectName)
+        projectWarnings.push('Da ghi tblao-portable.json de co the di chuyen project sang may Windows khac.')
+      } catch (error) {
+        projectWarnings.push(
+          `Khong ghi duoc manifest portable; project van duoc tao nhung can relink thu cong: ${error instanceof Error ? error.message : String(error)}`
+        )
+      }
       const lintFailed = lint.status === null || lint.status >= 2
       const registrationFailed = registration.status !== 0
       const verificationError = registrationFailed
@@ -1312,6 +1322,7 @@ export async function runCapCutFactory(
         projectName: prepared.projectName,
         projectPath,
         sceneLinkManifestPath,
+        portableManifestPath,
         ok: !registrationFailed && !lintFailed && !job.cancelled,
         warnings: projectWarnings,
         error: job.cancelled ? 'Đã hủy.' : verificationError

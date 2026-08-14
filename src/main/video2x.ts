@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { access, chmod, mkdir, rm } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
-import { ASSET_BASE, binDir, downloadFile, extractZip } from './deps'
+import { ASSET_BASE, binDir, downloadFile, replaceDirectoryFromZip } from './deps'
 import { engineNeedsUpdate, markEngineInstalled } from './engines-update'
 import { debugRaw, errLabel, logInfo } from './logger'
 import type {
@@ -17,9 +17,18 @@ import type {
 const isWin = process.platform === 'win32'
 const isMac = process.platform === 'darwin'
 const BASE = ASSET_BASE
+// Pinned upstream Windows bundle. The source repository does not contain
+// Video2X, so Windows installs use the official release directly instead of a
+// missing project-owned asset.
+const WINDOWS_VIDEO2X_URL =
+  'https://github.com/k4yt3x/video2x/releases/download/6.4.0/video2x-windows-amd64.zip'
 
 function asset(): string {
   return isWin ? 'video2x-win.zip' : 'video2x-linux.zip'
+}
+
+function assetUrl(): string {
+  return isWin ? WINDOWS_VIDEO2X_URL : `${BASE}/${asset()}`
 }
 
 function engineDir(): string {
@@ -67,13 +76,15 @@ export async function installVideo2xEngine(onProgress: (p: number) => void): Pro
     throw new Error('Video2X chưa hỗ trợ macOS (không có bản native).')
   }
   await mkdir(binDir(), { recursive: true })
-  const zip = join(binDir(), 'video2x.zip')
+  const zip = join(binDir(), `video2x-${process.pid}.download.zip`)
   logInfo('Nâng cấp video: đang tải công cụ Video2X…')
-  await downloadFile(`${BASE}/${asset()}`, zip, onProgress)
+  await downloadFile(assetUrl(), zip, onProgress)
+  try {
   logInfo('Nâng cấp video: đang giải nén…')
-  await rm(engineDir(), { recursive: true, force: true })
-  await extractZip(zip, binDir())
-  await rm(zip, { force: true })
+  await replaceDirectoryFromZip(zip, engineDir(), isWin ? 'video2x.exe' : 'video2x')
+  } finally {
+    await rm(zip, { force: true }).catch(() => undefined)
+  }
   const path = await resolveEnginePath()
   if (!path) throw new Error('Không tìm thấy video2x sau khi giải nén.')
   if (!isWin) await chmod(path, 0o755)
