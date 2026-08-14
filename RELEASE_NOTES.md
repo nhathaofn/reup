@@ -1,3 +1,15 @@
+## T-blao v0.1.20
+
+### Cập nhật ứng dụng
+
+- Tự kiểm tra bản phát hành mới trên GitHub khi khởi động và định kỳ trong lúc sử dụng.
+- Hiển thị trạng thái cập nhật ở góc trên bên phải; người dùng có thể bấm để cài bản đã tải hoặc kiểm tra lại.
+- Bản phát hành GitHub được xuất bản tự động để `electron-updater` có thể nhận diện.
+
+### CapCut Factory
+
+- Giữ liên kết cue/scene không phá huỷ khi neo subtitle và voice theo mốc scene.
+
 ## T-blao v0.1.17
 
 ### Bản cài đặt gọn

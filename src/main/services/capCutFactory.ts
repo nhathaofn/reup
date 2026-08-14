@@ -34,7 +34,6 @@ import {
 import type { SceneSplitterScene } from '../../shared/features/scene-splitter'
 import type { VoiceSyncEntry } from '../../shared/types'
 import { resolveFfmpeg } from '../deps'
-import { readSrtFile } from './srt'
 import { scanVoiceSync } from './voiceSync'
 
 interface ActiveJob {
@@ -76,11 +75,27 @@ interface CapCutSceneClip {
   durationSeconds: number
 }
 
+/**
+ * Timeline entry after scene anchoring. The original SRT range is kept in the
+ * manifest for auditability, while start/end are the ranges used by both the
+ * CapCut subtitle track and the voice track.
+ */
+interface SceneAlignedVoiceEntry extends VoiceSyncEntry {
+  originalStartSeconds: number
+  originalEndSeconds: number
+  assignedSceneId?: string
+  alignmentDeltaSeconds: number
+}
+
 interface SceneCueLink {
   cueId: string
   index: number
   startSeconds: number
   endSeconds: number
+  originalStartSeconds?: number
+  originalEndSeconds?: number
+  alignmentDeltaSeconds?: number
+  assignedSceneId?: string
   durationSeconds: number
   text: string
   voiceFileName?: string
@@ -108,6 +123,11 @@ interface SceneGroupLink {
 
 interface SceneLinkPlan {
   mode: 'non-destructive'
+  alignment: {
+    mode: 'scene-start-overlap'
+    shiftedCueCount: number
+    maxShiftSeconds: number
+  }
   scenes: Array<{
     sceneId: string
     index: number
@@ -273,6 +293,87 @@ function rangesOverlap(
 }
 
 /**
+ * Anchor a cue to the scene that contains most of its original SRT range.
+ *
+ * A cue is never split or trimmed. If its original start is before the chosen
+ * scene start, only the start moves forward; the original end and voice file
+ * are preserved, and the caller fits the voice to the resulting window by
+ * changing speed. This prevents the next scene's subtitle/voice from showing
+ * over the tail of the previous scene.
+ */
+function alignEntriesToScenes(
+  sceneClips: CapCutSceneClip[],
+  entries: VoiceSyncEntry[],
+  videoDurationSeconds: number
+): SceneAlignedVoiceEntry[] {
+  return entries.map((entry) => {
+    const originalStartSeconds = Math.max(0, entry.startSeconds)
+    const originalEndSeconds = Math.min(videoDurationSeconds, entry.endSeconds)
+    const overlaps = sceneClips
+      .map((scene) => ({
+        scene,
+        duration: Math.max(
+          0,
+          Math.min(originalEndSeconds, scene.endSeconds) -
+            Math.max(originalStartSeconds, scene.startSeconds)
+        )
+      }))
+      .filter((candidate) => candidate.duration > 0.001)
+
+    // On equal overlap, prefer the later scene. This is the safe choice for a
+    // cue that crosses a cut: it cannot appear before the later scene starts.
+    const assigned = overlaps.reduce<{ scene: CapCutSceneClip; duration: number } | null>(
+      (best, candidate) => {
+        if (!best || candidate.duration >= best.duration - 0.001) return candidate
+        return best
+      },
+      null
+    )
+    const alignedStartSeconds = assigned
+      ? Math.max(originalStartSeconds, assigned.scene.startSeconds)
+      : originalStartSeconds
+    const safeStartSeconds = alignedStartSeconds < originalEndSeconds - 0.001
+      ? alignedStartSeconds
+      : originalStartSeconds
+    const cueDuration = Math.max(0, originalEndSeconds - safeStartSeconds)
+
+    return {
+      ...entry,
+      startSeconds: safeStartSeconds,
+      endSeconds: originalEndSeconds,
+      fitRatio: entry.durationSeconds && cueDuration > 0
+        ? entry.durationSeconds / cueDuration
+        : entry.fitRatio,
+      originalStartSeconds,
+      originalEndSeconds,
+      assignedSceneId: assigned?.scene.sceneId,
+      alignmentDeltaSeconds: Math.max(0, safeStartSeconds - originalStartSeconds)
+    }
+  })
+}
+
+function formatSrtTimestamp(seconds: number): string {
+  const milliseconds = Math.max(0, Math.round(seconds * 1000))
+  const hours = Math.floor(milliseconds / 3_600_000)
+  const minutes = Math.floor((milliseconds % 3_600_000) / 60_000)
+  const secondsPart = Math.floor((milliseconds % 60_000) / 1000)
+  const millisPart = milliseconds % 1000
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secondsPart).padStart(2, '0')},${String(millisPart).padStart(3, '0')}`
+}
+
+function buildSrtFromEntries(entries: VoiceSyncEntry[]): string {
+  return entries
+    .filter((entry) => entry.endSeconds > entry.startSeconds)
+    .map((entry, index) => [
+      String(index + 1),
+      `${formatSrtTimestamp(entry.startSeconds)} --> ${formatSrtTimestamp(entry.endSeconds)}`,
+      entry.text,
+      ''
+    ].join('\n'))
+    .join('\n')
+}
+
+/**
  * Build non-destructive scene/cue links. Visual scene files stay independent,
  * while a cue that crosses a visual cut keeps its single subtitle and voice
  * item. Adjacent scenes are coalesced into one logical group at such a cut so
@@ -280,7 +381,7 @@ function rangesOverlap(
  */
 function buildSceneLinkPlan(
   sceneClips: CapCutSceneClip[],
-  entries: VoiceSyncEntry[]
+  entries: SceneAlignedVoiceEntry[]
 ): SceneLinkPlan {
   const validEntries = entries.filter((entry) => entry.endSeconds > entry.startSeconds)
   const sceneIdsByCue = new Map<number, string[]>()
@@ -337,6 +438,10 @@ function buildSceneLinkPlan(
       index: entry.index,
       startSeconds: entry.startSeconds,
       endSeconds: entry.endSeconds,
+      originalStartSeconds: entry.originalStartSeconds,
+      originalEndSeconds: entry.originalEndSeconds,
+      alignmentDeltaSeconds: entry.alignmentDeltaSeconds,
+      assignedSceneId: entry.assignedSceneId,
       durationSeconds,
       text: entry.text,
       voiceFileName: entry.fileName,
@@ -376,6 +481,11 @@ function buildSceneLinkPlan(
 
   return {
     mode: 'non-destructive',
+    alignment: {
+      mode: 'scene-start-overlap',
+      shiftedCueCount: cues.filter((cue) => (cue.alignmentDeltaSeconds ?? 0) > 0.001).length,
+      maxShiftSeconds: Number(Math.max(...cues.map((cue) => cue.alignmentDeltaSeconds ?? 0), 0).toFixed(6))
+    },
     scenes: sceneLinks,
     groups,
     cues,
@@ -440,7 +550,7 @@ async function writeSceneLinkManifest(
   projectPath: string,
   projectName: string,
   sceneClips: CapCutSceneClip[],
-  entries: VoiceSyncEntry[]
+  entries: SceneAlignedVoiceEntry[]
 ): Promise<{ path: string; warnings: string[] }> {
   const plan = buildSceneLinkPlan(sceneClips, entries)
   const warnings: string[] = []
@@ -874,12 +984,22 @@ export async function inspectCapCutFactory(
       result.matchedCount = scan.matchedCount
       if (!scan.ok) result.error = scan.error || 'Số voice chưa khớp 1:1 với SRT.'
       else if (video) {
-        if (sceneClips) {
-          const scenePlan = buildSceneLinkPlan(sceneClips, scan.entries)
+        const alignedEntries = sceneClips
+          ? alignEntriesToScenes(sceneClips, scan.entries, video.durationSeconds)
+          : null
+        const timelineEntries = alignedEntries ?? scan.entries
+        if (sceneClips && alignedEntries) {
+          const scenePlan = buildSceneLinkPlan(sceneClips, alignedEntries)
           result.sceneGroupCount = scenePlan.groups.length
           result.crossSceneCueCount = scenePlan.crossSceneCueCount
+          if (scenePlan.alignment.shiftedCueCount > 0) {
+            itemWarnings.push(
+              `${scenePlan.alignment.shiftedCueCount} cue được neo vào đầu scene; ` +
+                `dịch tối đa ${scenePlan.alignment.maxShiftSeconds.toFixed(3)}s; voice không bị cắt.`
+            )
+          }
           itemWarnings.push(
-            `${scenePlan.groups.length} nhóm scene logic; subtitle và voice giữ nguyên, không cắt voice.`
+            `${scenePlan.groups.length} nhóm scene logic; subtitle và voice dùng chung mốc scene, không cắt voice.`
           )
           if (scenePlan.crossSceneCueCount > 0) {
             itemWarnings.push(
@@ -887,7 +1007,7 @@ export async function inspectCapCutFactory(
             )
           }
         }
-        const lastCueEnd = Math.max(...scan.entries.map((entry) => entry.endSeconds), 0)
+        const lastCueEnd = Math.max(...timelineEntries.map((entry) => entry.endSeconds), 0)
         if (lastCueEnd > video.durationSeconds + 0.1) {
           result.error = `SRT dài ${lastCueEnd.toFixed(2)}s, vượt video ${video.durationSeconds.toFixed(2)}s.`
         }
@@ -896,7 +1016,7 @@ export async function inspectCapCutFactory(
         let nonMp3Count = 0
         let speedUpCount = 0
         let slowDownCount = 0
-        for (const entry of scan.entries) {
+        for (const entry of timelineEntries) {
           if (entry.status !== 'ok' || !entry.durationSeconds) continue
           if (entry.startSeconds < previousVoiceEnd - 0.01) overlapCount++
           // Overlap is a property of the SRT cues, not of the unadjusted
@@ -1047,14 +1167,20 @@ export async function runCapCutFactory(
         continue
       }
 
+      const alignedEntries = sceneClips
+        ? alignEntriesToScenes(sceneClips, scan.entries, preflight.video.durationSeconds)
+        : null
+      const timelineEntries = alignedEntries ?? scan.entries
       const normalizedSrt = join(temporaryRoot, `subtitles-${index + 1}.srt`)
       const specPath = join(temporaryRoot, `project-${index + 1}.json`)
-      await writeFile(normalizedSrt, readSrtFile(input.srtPath), 'utf8')
-      const audioItems = scan.entries.flatMap((entry) => {
+      await writeFile(normalizedSrt, buildSrtFromEntries(timelineEntries), 'utf8')
+      const audioItems = timelineEntries.flatMap((entry) => {
         const item = buildCapCutVoiceItem(entry, preflight.video!.durationSeconds)
         return item ? [item] : []
       })
-      const sceneLinkPlan = sceneClips ? buildSceneLinkPlan(sceneClips, scan.entries) : null
+      const sceneLinkPlan = sceneClips && alignedEntries
+        ? buildSceneLinkPlan(sceneClips, alignedEntries)
+        : null
       const videoItems = sceneClips
         ? sceneClips.map((scene) => ({
             path: scene.filePath,
@@ -1159,7 +1285,7 @@ export async function runCapCutFactory(
             projectPath,
             prepared.projectName,
             sceneClips!,
-            scan.entries
+            alignedEntries!
           )
           sceneLinkManifestPath = sceneLinkResult.path
           projectWarnings.push(

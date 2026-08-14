@@ -50,7 +50,7 @@ import {
 } from './cookies'
 import { invalidateYtDlpCapabilities, ytdlpCapabilityStatus } from './sitePolicy'
 import { testProxy } from './proxy'
-import { initAutoUpdate, checkForUpdates, quitAndInstall } from './updater'
+import { initAutoUpdate, checkForUpdates, getUpdateStatus, quitAndInstall } from './updater'
 import { dyEngineStatus, installDyEngine, downloadDouyin, getChannels, removeChannel } from './douyin'
 import {
   whisperEngineStatus,
@@ -427,6 +427,7 @@ function registerIpc(): void {
 
   // Tu cap nhat app
   ipcMain.handle('update:check', async () => checkForUpdates())
+  ipcMain.handle('update:status', async () => getUpdateStatus())
   ipcMain.handle('update:install', async () => quitAndInstall())
 
   // Cong cu tai: phien ban + cap nhat thu cong

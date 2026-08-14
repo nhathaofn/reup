@@ -125,8 +125,15 @@ export default function App(): JSX.Element {
   useEffect(() => {
     void check()
     void window.api.appVersion().then(setVersion)
+    let mounted = true
     const offUpd = window.api.onUpdateStatus(setUpdate)
-    return offUpd
+    void window.api.appUpdateStatus().then((status) => {
+      if (mounted) setUpdate(status)
+    })
+    return () => {
+      mounted = false
+      offUpd()
+    }
   }, [])
 
   if (stage === 'checking') {
@@ -179,6 +186,25 @@ export default function App(): JSX.Element {
     return tab === feature.id ? <FeatureComponent key={feature.id} /> : null
   }
 
+  const updateState = update?.state ?? 'checking'
+  const updateText =
+    updateState === 'downloaded'
+      ? `Cập nhật ${update?.version ?? 'bản mới'}`
+      : updateState === 'downloading'
+        ? `Đang tải bản mới ${update?.percent ?? 0}%`
+        : updateState === 'available'
+          ? `Có bản ${update?.version ?? 'mới'} — đang tải`
+          : updateState === 'error'
+            ? 'Không kiểm tra được cập nhật'
+            : updateState === 'none'
+              ? 'Kiểm tra cập nhật'
+              : 'Đang kiểm tra cập nhật…'
+  const updateCanClick = updateState === 'downloaded' || updateState === 'none' || updateState === 'error'
+  const handleUpdateClick = (): void => {
+    if (updateState === 'downloaded') void window.api.installAppUpdate()
+    else void window.api.checkAppUpdate()
+  }
+
   return (
     <div className={`shell journey-${journeyTone}`}>
       <aside className="sidebar">
@@ -196,30 +222,28 @@ export default function App(): JSX.Element {
             <div className="side-version">Phiên bản {version || '…'}</div>
           </details>
 
-          {update?.state === 'downloaded' && (
-            <button
-              className="side-update ready"
-              onClick={() => window.api.installAppUpdate()}
-              title="Khởi động lại để cài bản mới"
-            >
-              🎉 Có bản mới {update.version} — Cập nhật ngay
-            </button>
-          )}
-          {update?.state === 'downloading' && (
-            <div className="side-update">Đang tải bản mới… {update.percent ?? 0}%</div>
-          )}
-          {update?.state === 'available' && (
-            <div className="side-update">Đã có bản {update.version}, đang tải…</div>
-          )}
         </div>
       </aside>
 
       <main className="content">
         <header className="content-head">
-          <div>
+          <div className="content-head-copy">
             <h1 className="content-title">{active.title}</h1>
             <p className="content-sub muted">{active.subtitle}</p>
           </div>
+          <button
+            className={`update-corner update-${updateState}`}
+            onClick={handleUpdateClick}
+            disabled={!updateCanClick}
+            title={
+              updateState === 'downloaded'
+                ? 'Khởi động lại để cài bản mới'
+                : update?.message || 'Kiểm tra bản phát hành mới trên GitHub'
+            }
+          >
+            <span className="update-corner-dot" aria-hidden="true" />
+            <span>{updateText}</span>
+          </button>
         </header>
         <div className="content-body">
           {/* Giu 2 tab tai luon SONG (khong unmount) de chay song song, khong mat hang doi/tien do */}

@@ -86,6 +86,7 @@ const coreApi = {
 
   // Tu cap nhat app
   checkAppUpdate: (): Promise<void> => ipcRenderer.invoke('update:check'),
+  appUpdateStatus: (): Promise<UpdateStatus> => ipcRenderer.invoke('update:status'),
   installAppUpdate: (): Promise<void> => ipcRenderer.invoke('update:install'),
   onUpdateStatus: (cb: (s: UpdateStatus) => void): (() => void) => {
     const listener = (_e: unknown, s: UpdateStatus): void => cb(s)
