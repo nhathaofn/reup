@@ -191,17 +191,19 @@ export interface DyChannel {
 export type WhisperTask = 'transcribe' | 'translate'
 
 export type WhisperDevice = 'cpu' | 'cuda'
+export type WhisperQuality = 'balanced' | 'accurate'
 
 export interface WhisperRequest {
   input: string // duong dan file audio/video
   outputDir: string
-  model: string // 'base' | 'small' | 'medium'
+  model: string // 'base' | 'small' | 'medium' | 'large-v3-turbo'
   language: string // 'auto' | 'vi' | 'en' ...
   task: WhisperTask
   formats: string[] // ['srt','txt','vtt']
   device: WhisperDevice // 'cuda' neu user bat GPU va da co goi tang toc
   diarize: boolean // nhan dien ai noi luc nao (gan nhan [SPEAKER_xx])
   speakers: number // so nguoi noi (0 = tu doan)
+  quality?: WhisperQuality // accurate = uu tien khong bo sot cac cau ngan
 }
 
 export interface WhisperCudaStatus {

@@ -20,6 +20,7 @@ const isMac = process.platform === 'darwin'
 // Engine (faster-whisper freeze PyInstaller --onedir) nen chay CPU.
 // Ban GPU se tai them CUDA libs khi phat hien NVIDIA (giai doan B5).
 const WHISPER_ENGINE_BASE = ASSET_BASE
+let qualityArgumentSupport: Promise<boolean> | null = null
 function engineAsset(): string {
   return isWin
     ? 'whisper-engine-win.zip'
@@ -39,6 +40,31 @@ function engineDir(): string {
 }
 function enginePath(): string {
   return join(engineDir(), engineExe())
+}
+
+/** Engine cu khong biet --quality; tham do 1 lan de ban app moi van chay duoc
+ *  voi goi engine da cai tu phien ban truoc. */
+function engineSupportsQualityArgument(engine: string): Promise<boolean> {
+  if (qualityArgumentSupport) return qualityArgumentSupport
+  qualityArgumentSupport = new Promise<boolean>((resolve) => {
+    const child = spawn(engine, ['--help'], { windowsHide: true })
+    let help = ''
+    let settled = false
+    const finish = (supported: boolean): void => {
+      if (settled) return
+      settled = true
+      resolve(supported)
+    }
+    child.stdout.on('data', (data) => {
+      help += data.toString()
+    })
+    child.stderr.on('data', (data) => {
+      help += data.toString()
+    })
+    child.on('error', () => finish(false))
+    child.on('close', () => finish(help.includes('--quality')))
+  })
+  return qualityArgumentSupport
 }
 /** Noi cache model (tai lan dau tu HF Hub) — nam trong userData. */
 function modelDir(): string {
@@ -110,6 +136,7 @@ export async function installWhisperEngine(onProgress: (percent: number) => void
   await extractZip(zip, binDir())
   await rm(zip, { force: true })
   if (!isWin) await chmod(enginePath(), 0o755)
+  qualityArgumentSupport = null
   await markEngineInstalled('whisper')
   logInfo('Audio→Text: đã cài xong engine.')
 }
@@ -136,6 +163,7 @@ export async function transcribeAudio(
 
   // Chi chay GPU khi user chon 'cuda' VA da co goi tang toc; nguoc lai CPU.
   const useCuda = req.device === 'cuda' && (await whisperCudaStatus()).has
+  const supportsQuality = await engineSupportsQualityArgument(engine)
 
   const args = [
     '--input', req.input,
@@ -147,6 +175,7 @@ export async function transcribeAudio(
     '--formats', formats.join(','),
     '--device', useCuda ? 'cuda' : 'cpu'
   ]
+  if (supportsQuality) args.push('--quality', req.quality ?? 'accurate')
   if (useCuda) args.push('--cuda-dir', cudaDir())
   if (req.diarize) {
     args.push('--diarize')
@@ -156,7 +185,7 @@ export async function transcribeAudio(
   // Chi ghi TEN TEP, khong ghi ca duong dan — nhat ky khong can biet user
   // luu file o dau trong may ho.
   logInfo(
-    `Audio→Text: bắt đầu ${basename(req.input)} (model ${req.model}, ${req.task}, ${useCuda ? 'GPU' : 'CPU'}${req.diarize ? ', nhận diện người nói' : ''})`
+    `Audio→Text: bắt đầu ${basename(req.input)} (model ${req.model}, ${req.task}, ${useCuda ? 'GPU' : 'CPU'}, ${req.quality === 'balanced' ? 'cân bằng' : 'ưu tiên đầy đủ'}${req.diarize ? ', nhận diện người nói' : ''})`
   )
 
   return new Promise<WhisperResult>((resolve) => {

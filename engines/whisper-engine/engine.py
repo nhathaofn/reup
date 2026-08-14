@@ -17,6 +17,9 @@ import json
 import os
 import sys
 
+from subtitle_segments import resegment_segments, transcript_diagnostics
+from transcription_quality import transcription_options
+
 for _name in ("stdout", "stderr"):
     try:
         getattr(sys, _name).reconfigure(encoding="utf-8", errors="replace")
@@ -412,6 +415,13 @@ def main():
     p.add_argument("--cuda-dir", default=None, help="thu muc chua cuBLAS/cuDNN (goi tang toc GPU)")
     p.add_argument("--diarize", action="store_true", help="nhan dien ai noi luc nao")
     p.add_argument("--speakers", type=int, default=0, help="so nguoi noi (0 = tu doan)")
+    p.add_argument("--quality", default="balanced", choices=["balanced", "accurate"],
+                   help="balanced | accurate (uu tien day du noi dung)")
+    p.add_argument("--hotwords", default=None, help="tu khoa/ten rieng goi y cho Whisper")
+    p.add_argument("--max-cue-seconds", type=float, default=7.0,
+                   help="thoi luong toi da moi cue sau khi chia lai")
+    p.add_argument("--max-cue-chars", type=int, default=42,
+                   help="so ky tu toi da moi cue sau khi chia lai")
     p.add_argument("--live", action="store_true", help="che do nghe truc tiep tu stdin")
     p.add_argument("--live-dir", default=None, help="thu muc goi Thong dich")
     p.add_argument("--translate", default=None, help="dich sang tieng nao (vi|en)")
@@ -467,35 +477,61 @@ def main():
 
     lang = None if args.language in ("auto", "") else args.language
     try:
+        options = transcription_options(args.quality, args.hotwords)
         segments, info = model.transcribe(
             args.input,
             language=lang,
             task=args.task,
-            vad_filter=True,
-            word_timestamps=True,
+            **options,
         )
     except Exception as e:
         emit({"type": "error", "message": "Loi phien am: %s" % e})
         return 1
 
     duration = float(getattr(info, "duration", 0) or 0)
+    duration_after_vad = float(getattr(info, "duration_after_vad", duration) or duration)
     emit({
         "type": "info",
         "language": getattr(info, "language", None),
         "language_probability": getattr(info, "language_probability", None),
         "duration": duration,
+        "duration_after_vad": duration_after_vad,
+        "quality": args.quality,
     })
 
     collected = []
     try:
         for seg in segments:
-            item = {"start": seg.start, "end": seg.end, "text": seg.text}
+            words = []
+            for word in (getattr(seg, "words", None) or []):
+                words.append({
+                    "start": word.start,
+                    "end": word.end,
+                    "text": word.word,
+                    "probability": getattr(word, "probability", None),
+                })
+            item = {
+                "start": seg.start,
+                "end": seg.end,
+                "text": seg.text,
+                "words": words,
+                "avg_logprob": getattr(seg, "avg_logprob", None),
+                "no_speech_prob": getattr(seg, "no_speech_prob", None),
+                "compression_ratio": getattr(seg, "compression_ratio", None),
+            }
             collected.append(item)
             emit({"type": "progress", "seconds": float(seg.end or 0),
                   "duration": duration, "text": seg.text.strip()})
     except Exception as e:
         emit({"type": "error", "message": "Loi trong khi phien am: %s" % e})
         return 1
+
+    collected = resegment_segments(
+        collected,
+        max_chars=max(8, args.max_cue_chars),
+        max_seconds=max(1.0, args.max_cue_seconds),
+    )
+    diagnostics = transcript_diagnostics(collected, duration)
 
     speakers_found = 0
     if args.diarize and collected:
@@ -522,7 +558,7 @@ def main():
         write_txt(collected, pth); outputs.append(pth)
 
     emit({"type": "done", "outputs": outputs, "segments": len(collected),
-          "speakers": speakers_found})
+          "speakers": speakers_found, **diagnostics})
     return 0
 
 

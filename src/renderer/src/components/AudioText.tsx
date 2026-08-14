@@ -27,7 +27,12 @@ interface WhItem {
 const MODELS: { value: string; label: string; note: string }[] = [
   { value: 'base', label: 'Nhanh', note: 'Tải thêm khoảng 145 MB · phù hợp bản nháp' },
   { value: 'small', label: 'Cân bằng — khuyên dùng', note: 'Tải thêm khoảng 484 MB' },
-  { value: 'medium', label: 'Chính xác cao', note: 'Tải thêm khoảng 1,5 GB · xử lý lâu hơn' }
+  { value: 'medium', label: 'Chính xác cao', note: 'Tải thêm khoảng 1,5 GB · xử lý lâu hơn' },
+  {
+    value: 'large-v3-turbo',
+    label: 'Rất chính xác (Turbo)',
+    note: 'Tải thêm khoảng 1,6 GB · phù hợp video nhiều câu ngắn hoặc tiếng Trung'
+  }
 ]
 
 const LANGS: { value: string; label: string }[] = [
@@ -55,10 +60,11 @@ export default function AudioText({
   const [model, setModel] = usePersistedState('tblao.wh.model', 'small')
   const [language, setLanguage] = usePersistedState('tblao.wh.lang', 'auto')
   const [translateEn, setTranslateEn] = usePersistedState('tblao.wh.translate', false)
+  const [accurate, setAccurate] = usePersistedState('tblao.wh.accurate', true)
   const [diarize, setDiarize] = usePersistedState('tblao.wh.diarize', false)
   const [numSpeakers, setNumSpeakers] = usePersistedState('tblao.wh.speakers', 0)
   const [fmtSrt, setFmtSrt] = usePersistedState('tblao.wh.srt', true)
-  const [fmtTxt, setFmtTxt] = usePersistedState('tblao.wh.txt', false)
+  const [fmtTxt, setFmtTxt] = usePersistedState('tblao.wh.txt', true)
   const [fmtVtt, setFmtVtt] = usePersistedState('tblao.wh.vtt', false)
 
   // Dich phu de bang API key cua user — 'none' = khong dich
@@ -223,7 +229,8 @@ export default function AudioText({
       formats: formats.length ? formats : ['srt'],
       device: gpuActive ? 'cuda' : 'cpu',
       diarize,
-      speakers: numSpeakers
+      speakers: numSpeakers,
+      quality: accurate ? 'accurate' : 'balanced'
     }
   }
 
@@ -372,6 +379,14 @@ export default function AudioText({
         </div>
 
         <div className="options" style={{ marginTop: 12 }}>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={accurate}
+              onChange={(e) => setAccurate(e.target.checked)}
+            />
+            Ưu tiên lấy đủ lời (chậm hơn)
+          </label>
           <label className="check">
             <input type="checkbox" checked={fmtSrt} onChange={(e) => setFmtSrt(e.target.checked)} />
             Phụ đề thông thường (.srt)
