@@ -186,7 +186,7 @@ function CapCutFactoryPanel(): JSX.Element {
             </button>
           </div>
           <small className="muted">
-            Chọn output của tab Tách cảnh để timeline CapCut hiển thị từng scene riêng.
+            Chọn output của tab Tách cảnh để timeline CapCut hiển thị từng scene riêng. Cue đi qua nhiều scene sẽ được liên kết logic; voice không bị cắt.
           </small>
         </label>
         <label className="check capcut-factory-check">
@@ -347,6 +347,9 @@ function CapCutFactoryPanel(): JSX.Element {
                     {checked.error
                       ? checked.error
                       : `${checked.matchedCount}/${checked.cueCount} voice khớp · ${checked.projectName}`}
+                    {!checked.error && checked.sceneGroupCount !== undefined && (
+                      <small>{checked.sceneGroupCount} nhóm scene logic · giữ nguyên voice, chỉ liên kết theo timeline</small>
+                    )}
                     {checked.warnings.map((warning) => <small key={warning}>{warning}</small>)}
                   </div>
                 )}
@@ -385,6 +388,12 @@ function CapCutFactoryPanel(): JSX.Element {
             </span>
           )}
           {preflight.sceneCount && <span className="muted small">{preflight.sceneCount} scene video trên timeline</span>}
+          {preflight.sceneGroupCount && (
+            <span className="muted small">{preflight.sceneGroupCount} nhóm scene logic, không cắt voice</span>
+          )}
+          {preflight.crossSceneCueCount && (
+            <span className="muted small">{preflight.crossSceneCueCount} cue đi qua ranh giới scene</span>
+          )}
           {[...preflight.errors, ...preflight.warnings].map((message) => <p key={message}>{message}</p>)}
         </section>
       )}
@@ -423,6 +432,9 @@ function CapCutFactoryPanel(): JSX.Element {
                 </div>
                 {project.projectPath && (
                   <button type="button" onClick={() => window.api.openPath(project.projectPath!)}>Mở</button>
+                )}
+                {project.sceneLinkManifestPath && (
+                  <button type="button" onClick={() => window.api.openPath(project.sceneLinkManifestPath!)}>Map scene</button>
                 )}
               </div>
             ))}

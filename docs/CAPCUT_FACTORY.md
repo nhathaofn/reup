@@ -15,10 +15,12 @@ Mỗi bộ đầu vào tạo đúng một project CapCut độc lập. Số bộ
 Mỗi project gồm ba track có thể tiếp tục chỉnh sửa trong CapCut:
 
 1. `Video nền`: mặc định là một clip phủ toàn bộ thời lượng video. Nếu chọn output của tab `Tách cảnh` (thư mục có `scene-splitter.json`), track này sẽ chứa từng file scene riêng, giữ đúng `start/end` của manifest để CapCut hiển thị các đoạn cắt độc lập. Tiếng gốc mặc định bị tắt, có thể bật lại trên UI.
-2. `Voice`: toàn bộ file audio được sắp xếp tự nhiên theo tên và đặt tại timestamp bắt đầu của cue SRT tương ứng. Mỗi voice vẫn là một clip riêng. Target duration của clip là đúng khoảng SRT và `speed = duration voice gốc / duration cue`, nên voice tự tăng tốc hoặc giảm tốc trong CapCut mà không thay đổi file gốc.
+2. `Voice`: toàn bộ file audio được sắp xếp tự nhiên theo tên và đặt tại timestamp bắt đầu của cue SRT tương ứng. Mỗi voice vẫn là một clip riêng. Target duration của clip là đúng khoảng SRT và `speed = duration voice gốc / duration cue`, nên voice tự tăng tốc hoặc giảm tốc trong CapCut mà không thay đổi hoặc cắt file gốc.
 3. `Phụ đề`: mỗi cue SRT được tạo thành caption segment thật, giữ nguyên start/end và nội dung.
 
 Preflight bắt buộc số voice khớp 1:1 với số cue, mọi file đọc được duration và SRT không vượt quá video. Khi dùng scene manifest, preflight kiểm tra scene thuộc đúng video nền, file scene tồn tại, không có gap/overlap và phủ đủ thời lượng video. Voice được tăng/giảm tốc theo từng khoảng SRT; voice chồng nhau vẫn được giữ nguyên và báo cảnh báo để người dùng chỉnh trong CapCut.
+
+Khi một cue SRT đi qua ranh giới nhiều scene, hệ thống **không cắt subtitle hoặc voice**. Thay vào đó, các scene liền kề được ghi vào cùng một nhóm logic và mapping được lưu trong `tblao-scene-links.json` bên trong từng draft. Manifest này chứa `sceneId`, `cueId`, segment ID CapCut và các nhóm liên kết để hỗ trợ di chuyển/chỉnh sửa mà không làm mất nội dung voice.
 
 ## Kiến trúc
 
@@ -36,7 +38,8 @@ CapCutFactory service
   ├─ FFprobe video/voice
   ├─ đối chiếu SRT ↔ voice
   └─ adapter capcut-cli → compile/lint/sync timeline
-       └─ scene manifest (optional) → nhiều video segment trên cùng track
+       ├─ scene manifest (optional) → nhiều video segment trên cùng track
+       └─ non-destructive scene links → tblao-scene-links.json
 ```
 
 Contract nằm ở `src/shared/features/capcut-factory.ts`; implementation không thêm kiểu vào `src/shared/types.ts` và không thay đổi các service burn/voice hiện tại. Feature được mount `keepAlive` để progress/result không mất khi đổi tab. Main chỉ chạy một batch tại một thời điểm và tạo từng project tuần tự để tránh tranh chấp `root_meta_info.json`.

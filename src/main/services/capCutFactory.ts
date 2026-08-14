@@ -67,11 +67,62 @@ interface CompileSpec {
 }
 
 interface CapCutSceneClip {
+  sceneId: string
+  index: number
   filePath: string
   fileName: string
   startSeconds: number
   endSeconds: number
   durationSeconds: number
+}
+
+interface SceneCueLink {
+  cueId: string
+  index: number
+  startSeconds: number
+  endSeconds: number
+  durationSeconds: number
+  text: string
+  voiceFileName?: string
+  voiceDurationSeconds?: number
+  speed?: number
+  sceneIds: string[]
+  groupId?: string
+  crossesVisualSceneBoundary: boolean
+  videoSegmentId?: string
+  subtitleSegmentId?: string
+  voiceSegmentId?: string
+}
+
+interface SceneGroupLink {
+  groupId: string
+  index: number
+  startSeconds: number
+  endSeconds: number
+  sceneIds: string[]
+  cueIds: string[]
+  videoSegmentIds: string[]
+  subtitleSegmentIds: string[]
+  voiceSegmentIds: string[]
+}
+
+interface SceneLinkPlan {
+  mode: 'non-destructive'
+  scenes: Array<{
+    sceneId: string
+    index: number
+    fileName: string
+    startSeconds: number
+    endSeconds: number
+    durationSeconds: number
+    groupId: string
+    cueIds: string[]
+    sharedCueIds: string[]
+    videoSegmentId?: string
+  }>
+  groups: SceneGroupLink[]
+  cues: SceneCueLink[]
+  crossSceneCueCount: number
 }
 
 const VIDEO_EXTENSIONS = new Set([
@@ -147,12 +198,14 @@ async function loadSceneClips(
     .filter((scene): scene is SceneSplitterScene => isRecord(scene))
     .filter((scene) => typeof scene.sourceVideo === 'string' && samePath(scene.sourceVideo, videoPath))
     .map((scene) => {
+      const index = Number(scene.index)
       const start = Number(scene.startSeconds)
       const end = Number(scene.endSeconds)
       const duration = Number(scene.durationSeconds ?? end - start)
       const declaredPath = typeof scene.filePath === 'string' ? scene.filePath : ''
       const fileName = typeof scene.fileName === 'string' ? scene.fileName : ''
       return {
+        index,
         filePath: declaredPath && isAbsolutePath(declaredPath) ? declaredPath : join(directory, fileName),
         fileName: fileName || basename(declaredPath),
         startSeconds: start,
@@ -161,7 +214,7 @@ async function loadSceneClips(
       }
     })
     .filter((scene) =>
-      [scene.startSeconds, scene.endSeconds, scene.durationSeconds].every(Number.isFinite) &&
+      [scene.index, scene.startSeconds, scene.endSeconds, scene.durationSeconds].every(Number.isFinite) &&
       scene.startSeconds >= 0 &&
       scene.endSeconds > scene.startSeconds &&
       scene.durationSeconds > 0
@@ -190,6 +243,8 @@ async function loadSceneClips(
     const durationSeconds = endSeconds - scene.startSeconds
     if (!(durationSeconds > 0)) continue
     clips.push({
+      sceneId: parse(scene.fileName || filePath).name || `scene-${scene.index}`,
+      index: scene.index,
       filePath,
       fileName: scene.fileName || basename(filePath),
       startSeconds: scene.startSeconds,
@@ -206,6 +261,244 @@ async function loadSceneClips(
     throw new Error(`Các scene chỉ phủ đến ${previousEnd.toFixed(3)}s, video dài ${videoDurationSeconds.toFixed(3)}s.`)
   }
   return clips
+}
+
+function rangesOverlap(
+  leftStart: number,
+  leftEnd: number,
+  rightStart: number,
+  rightEnd: number
+): boolean {
+  return Math.min(leftEnd, rightEnd) - Math.max(leftStart, rightStart) > 0.001
+}
+
+/**
+ * Build non-destructive scene/cue links. Visual scene files stay independent,
+ * while a cue that crosses a visual cut keeps its single subtitle and voice
+ * item. Adjacent scenes are coalesced into one logical group at such a cut so
+ * an editor can move the whole spoken unit without trimming the audio.
+ */
+function buildSceneLinkPlan(
+  sceneClips: CapCutSceneClip[],
+  entries: VoiceSyncEntry[]
+): SceneLinkPlan {
+  const validEntries = entries.filter((entry) => entry.endSeconds > entry.startSeconds)
+  const sceneIdsByCue = new Map<number, string[]>()
+  const crossBoundaryByCue = new Map<number, boolean>()
+
+  for (const entry of validEntries) {
+    const sceneIds = sceneClips
+      .filter((scene) => rangesOverlap(entry.startSeconds, entry.endSeconds, scene.startSeconds, scene.endSeconds))
+      .map((scene) => scene.sceneId)
+    sceneIdsByCue.set(entry.index, sceneIds)
+    crossBoundaryByCue.set(entry.index, sceneIds.length > 1)
+  }
+
+  const rawGroups: CapCutSceneClip[][] = []
+  for (const scene of sceneClips) {
+    const previous = rawGroups.at(-1)
+    const previousScene = previous?.at(-1)
+    const crossesBoundary = previousScene
+      ? validEntries.some((entry) =>
+          entry.startSeconds < scene.startSeconds - 0.001 &&
+          entry.endSeconds > scene.startSeconds + 0.001
+        )
+      : false
+    if (previous && previousScene && crossesBoundary) previous.push(scene)
+    else rawGroups.push([scene])
+  }
+
+  const sceneToGroup = new Map<string, string>()
+  const groups: SceneGroupLink[] = rawGroups.map((groupScenes, groupIndex) => {
+    const groupId = `scene-group-${String(groupIndex + 1).padStart(3, '0')}`
+    for (const scene of groupScenes) sceneToGroup.set(scene.sceneId, groupId)
+    const startSeconds = groupScenes[0].startSeconds
+    const endSeconds = groupScenes.at(-1)!.endSeconds
+    return {
+      groupId,
+      index: groupIndex + 1,
+      startSeconds,
+      endSeconds,
+      sceneIds: groupScenes.map((scene) => scene.sceneId),
+      cueIds: [],
+      videoSegmentIds: [],
+      subtitleSegmentIds: [],
+      voiceSegmentIds: []
+    }
+  })
+
+  const cues: SceneCueLink[] = validEntries.map((entry) => {
+    const cueId = `cue-${String(entry.index).padStart(3, '0')}`
+    const sceneIds = sceneIdsByCue.get(entry.index) ?? []
+    const groupId = sceneIds.map((sceneId) => sceneToGroup.get(sceneId)).find(Boolean)
+    const durationSeconds = Math.max(0, entry.endSeconds - entry.startSeconds)
+    return {
+      cueId,
+      index: entry.index,
+      startSeconds: entry.startSeconds,
+      endSeconds: entry.endSeconds,
+      durationSeconds,
+      text: entry.text,
+      voiceFileName: entry.fileName,
+      voiceDurationSeconds: entry.durationSeconds,
+      speed: entry.durationSeconds && durationSeconds > 0
+        ? Number((entry.durationSeconds / durationSeconds).toFixed(6))
+        : undefined,
+      sceneIds,
+      groupId,
+      crossesVisualSceneBoundary: crossBoundaryByCue.get(entry.index) ?? false
+    }
+  })
+
+  const sceneLinks = sceneClips.map((scene) => {
+    const groupId = sceneToGroup.get(scene.sceneId) ?? `scene-group-${String(scene.index).padStart(3, '0')}`
+    const sceneCues = cues.filter((cue) => cue.sceneIds.includes(scene.sceneId))
+    return {
+      sceneId: scene.sceneId,
+      index: scene.index,
+      fileName: scene.fileName,
+      startSeconds: scene.startSeconds,
+      endSeconds: scene.endSeconds,
+      durationSeconds: scene.durationSeconds,
+      groupId,
+      cueIds: sceneCues.map((cue) => cue.cueId),
+      sharedCueIds: sceneCues.filter((cue) => cue.crossesVisualSceneBoundary).map((cue) => cue.cueId)
+    }
+  })
+
+  for (const group of groups) {
+    const groupScenes = new Set(group.sceneIds)
+    group.cueIds = cues
+      .filter((cue) => cue.sceneIds.some((sceneId) => groupScenes.has(sceneId)))
+      .map((cue) => cue.cueId)
+    group.videoSegmentIds = []
+  }
+
+  return {
+    mode: 'non-destructive',
+    scenes: sceneLinks,
+    groups,
+    cues,
+    crossSceneCueCount: cues.filter((cue) => cue.crossesVisualSceneBoundary).length
+  }
+}
+
+interface DraftSegmentRef {
+  id: string
+  startUs: number
+  durationUs: number
+}
+
+async function readDraftSegmentRefs(
+  projectPath: string,
+  type: string,
+  name: string
+): Promise<DraftSegmentRef[]> {
+  const candidates = ['draft_content.json', 'draft_info.json']
+  let draftPath: string | null = null
+  for (const candidate of candidates) {
+    const path = join(projectPath, candidate)
+    if (await isFile(path)) {
+      draftPath = path
+      break
+    }
+  }
+  if (!draftPath) return []
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(await readFile(draftPath, 'utf8'))
+  } catch {
+    return []
+  }
+  if (!isRecord(parsed) || !Array.isArray(parsed.tracks)) return []
+
+  const tracks = parsed.tracks.filter(isRecord)
+  const matchingTracks = tracks.filter((track) => {
+    const trackType = String(track.type ?? '')
+    const trackName = String(track.name ?? '')
+    return trackType === type && (trackName === name || trackName.length === 0)
+  })
+  const track = matchingTracks.find((candidate) => Array.isArray(candidate.segments) && candidate.segments.length > 0)
+  if (!track || !Array.isArray(track.segments)) return []
+
+  return track.segments
+    .filter(isRecord)
+    .map((segment) => {
+      const target = isRecord(segment.target_timerange) ? segment.target_timerange : {}
+      return {
+        id: String(segment.id ?? ''),
+        startUs: Number(target.start ?? 0),
+        durationUs: Number(target.duration ?? 0)
+      }
+    })
+    .filter((segment) => segment.id.length > 0)
+    .sort((left, right) => left.startUs - right.startUs)
+}
+
+async function writeSceneLinkManifest(
+  projectPath: string,
+  projectName: string,
+  sceneClips: CapCutSceneClip[],
+  entries: VoiceSyncEntry[]
+): Promise<{ path: string; warnings: string[] }> {
+  const plan = buildSceneLinkPlan(sceneClips, entries)
+  const warnings: string[] = []
+  const videoSegments = await readDraftSegmentRefs(projectPath, 'video', 'Video nền')
+  const audioSegments = await readDraftSegmentRefs(projectPath, 'audio', 'Voice')
+  const subtitleSegments = await readDraftSegmentRefs(projectPath, 'text', 'Phụ đề')
+
+  if (videoSegments.length !== sceneClips.length) {
+    warnings.push(`Không xác định đủ segment video để gắn scene map (${videoSegments.length}/${sceneClips.length}).`)
+  }
+  if (audioSegments.length !== plan.cues.length) {
+    warnings.push(`Không xác định đủ segment voice để gắn scene map (${audioSegments.length}/${plan.cues.length}); voice gốc vẫn được giữ nguyên.`)
+  }
+  if (subtitleSegments.length !== plan.cues.length) {
+    warnings.push(`Không xác định đủ segment subtitle để gắn scene map (${subtitleSegments.length}/${plan.cues.length}).`)
+  }
+
+  plan.scenes.forEach((scene, index) => {
+    scene.videoSegmentId = videoSegments[index]?.id
+  })
+  plan.cues.forEach((cue, index) => {
+    cue.voiceSegmentId = audioSegments[index]?.id
+    cue.subtitleSegmentId = subtitleSegments[index]?.id
+  })
+  plan.groups.forEach((group) => {
+    group.videoSegmentIds = plan.scenes
+      .filter((scene) => scene.groupId === group.groupId)
+      .map((scene) => scene.videoSegmentId)
+      .filter((id): id is string => Boolean(id))
+    group.subtitleSegmentIds = plan.cues
+      .filter((cue) => cue.groupId === group.groupId)
+      .map((cue) => cue.subtitleSegmentId)
+      .filter((id): id is string => Boolean(id))
+    group.voiceSegmentIds = plan.cues
+      .filter((cue) => cue.groupId === group.groupId)
+      .map((cue) => cue.voiceSegmentId)
+      .filter((id): id is string => Boolean(id))
+  })
+
+  const manifest = {
+    schemaVersion: 1,
+    kind: 'tblao.capcut.scene-links',
+    projectName,
+    mode: plan.mode,
+    rules: {
+      video: 'visual scenes remain separate clips',
+      subtitle: 'subtitle cues remain intact; links are logical only',
+      voice: 'voice files remain intact; only speed is adjusted to the full SRT cue',
+      crossSceneCue: 'adjacent visual scenes are assigned to one logical group when a cue crosses their boundary'
+    },
+    scenes: plan.scenes,
+    groups: plan.groups,
+    cues: plan.cues,
+    crossSceneCueCount: plan.crossSceneCueCount
+  }
+  const manifestPath = join(projectPath, 'tblao-scene-links.json')
+  await writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf8')
+  return { path: manifestPath, warnings }
 }
 
 function isAbsolutePath(path: string): boolean {
@@ -563,6 +856,8 @@ export async function inspectCapCutFactory(
       cueCount: 0,
       audioCount: 0,
       matchedCount: 0,
+      sceneGroupCount: undefined,
+      crossSceneCueCount: undefined,
       warnings: itemWarnings
     }
 
@@ -579,6 +874,19 @@ export async function inspectCapCutFactory(
       result.matchedCount = scan.matchedCount
       if (!scan.ok) result.error = scan.error || 'Số voice chưa khớp 1:1 với SRT.'
       else if (video) {
+        if (sceneClips) {
+          const scenePlan = buildSceneLinkPlan(sceneClips, scan.entries)
+          result.sceneGroupCount = scenePlan.groups.length
+          result.crossSceneCueCount = scenePlan.crossSceneCueCount
+          itemWarnings.push(
+            `${scenePlan.groups.length} nhóm scene logic; subtitle và voice giữ nguyên, không cắt voice.`
+          )
+          if (scenePlan.crossSceneCueCount > 0) {
+            itemWarnings.push(
+              `${scenePlan.crossSceneCueCount} cue SRT đi qua ranh giới scene; hệ thống chỉ liên kết logic và giữ nguyên nội dung.`
+            )
+          }
+        }
         const lastCueEnd = Math.max(...scan.entries.map((entry) => entry.endSeconds), 0)
         if (lastCueEnd > video.durationSeconds + 0.1) {
           result.error = `SRT dài ${lastCueEnd.toFixed(2)}s, vượt video ${video.durationSeconds.toFixed(2)}s.`
@@ -618,6 +926,8 @@ export async function inspectCapCutFactory(
     ok: errors.length === 0 && sets.length > 0 && sets.every((item) => !item.error),
     video,
     sceneCount: sceneClips?.length,
+    sceneGroupCount: sets.find((item) => item.sceneGroupCount !== undefined)?.sceneGroupCount,
+    crossSceneCueCount: sets.reduce((total, item) => total + (item.crossSceneCueCount ?? 0), 0) || undefined,
     sceneDir: sceneClips ? resolve(request.sceneDir!.trim()) : undefined,
     sets,
     warnings,
@@ -744,6 +1054,7 @@ export async function runCapCutFactory(
         const item = buildCapCutVoiceItem(entry, preflight.video!.durationSeconds)
         return item ? [item] : []
       })
+      const sceneLinkPlan = sceneClips ? buildSceneLinkPlan(sceneClips, scan.entries) : null
       const videoItems = sceneClips
         ? sceneClips.map((scene) => ({
             path: scene.filePath,
@@ -839,8 +1150,29 @@ export async function runCapCutFactory(
         ? { status: null, stdout: '', stderr: 'Đã hủy.' }
         : await runCli(['lint', projectPath], ffprobe, job)
       const projectWarnings = [...preparedWarnings]
+      let sceneLinkManifestPath: string | undefined
       if (sync.status !== 0) projectWarnings.push(cliError('Đồng bộ mirror timeline', sync))
       projectWarnings.push(...lintWarnings(lint))
+      if (sceneLinkPlan) {
+        try {
+          const sceneLinkResult = await writeSceneLinkManifest(
+            projectPath,
+            prepared.projectName,
+            sceneClips!,
+            scan.entries
+          )
+          sceneLinkManifestPath = sceneLinkResult.path
+          projectWarnings.push(
+            `Đã ghi tblao-scene-links.json: ${sceneLinkPlan.groups.length} nhóm logic, ` +
+              `${sceneLinkPlan.crossSceneCueCount} cue xuyên scene; voice không bị cắt.`
+          )
+          projectWarnings.push(...sceneLinkResult.warnings)
+        } catch (error) {
+          projectWarnings.push(
+            `Không ghi được scene map không phá hủy: ${error instanceof Error ? error.message : String(error)}`
+          )
+        }
+      }
       const lintFailed = lint.status === null || lint.status >= 2
       const registrationFailed = registration.status !== 0
       const verificationError = registrationFailed
@@ -853,6 +1185,7 @@ export async function runCapCutFactory(
         label: prepared.label,
         projectName: prepared.projectName,
         projectPath,
+        sceneLinkManifestPath,
         ok: !registrationFailed && !lintFailed && !job.cancelled,
         warnings: projectWarnings,
         error: job.cancelled ? 'Đã hủy.' : verificationError

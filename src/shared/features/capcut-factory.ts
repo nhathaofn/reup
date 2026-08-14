@@ -64,6 +64,8 @@ export interface CapCutFactoryPreflightSet {
   cueCount: number
   audioCount: number
   matchedCount: number
+  sceneGroupCount?: number
+  crossSceneCueCount?: number
   warnings: string[]
   error?: string
 }
@@ -72,6 +74,10 @@ export interface CapCutFactoryPreflightResult {
   ok: boolean
   video?: CapCutFactoryVideoInfo
   sceneCount?: number
+  /** Logical scene groups after coalescing boundaries crossed by an SRT cue. */
+  sceneGroupCount?: number
+  /** Cues that span two or more visual scenes and therefore stay intact. */
+  crossSceneCueCount?: number
   sceneDir?: string
   sets: CapCutFactoryPreflightSet[]
   warnings: string[]
@@ -102,6 +108,7 @@ export interface CapCutFactoryProjectResult {
   label: string
   projectName: string
   projectPath?: string
+  sceneLinkManifestPath?: string
   ok: boolean
   warnings: string[]
   error?: string
