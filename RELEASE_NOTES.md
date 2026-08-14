@@ -1,19 +1,5 @@
 ## T-blao v0.1.21
 
-### Phát hành không lộ mã nguồn
-
-- Repo mã nguồn có thể để private; các bản build được publish riêng tại `nhathaofn/releases`.
-- `electron-updater` tải metadata và installer từ repo release public.
-- GitHub Actions kiểm tra artifact Windows/macOS trước khi publish.
-
-## T-blao v0.1.20
-
-### Cập nhật ứng dụng
-
-- Tự kiểm tra bản phát hành mới trên GitHub khi khởi động và định kỳ trong lúc sử dụng.
-- Hiển thị trạng thái cập nhật ở góc trên bên phải; người dùng có thể bấm để cài bản đã tải hoặc kiểm tra lại.
-- Bản phát hành GitHub được xuất bản tự động để `electron-updater` có thể nhận diện.
-
 ### CapCut Factory
 
 - Giữ liên kết cue/scene không phá huỷ khi neo subtitle và voice theo mốc scene.
@@ -44,9 +30,4 @@
 ### Riêng tư và an toàn
 
 - Cookie được lưu riêng theo tên miền và chỉ dùng cho đúng website cần tải.
-- Cookie, phiên đăng nhập và file bí mật bị loại khỏi Git cũng như gói cài đặt.
-
-### Cập nhật ứng dụng
-
-- Khôi phục gói Windows trong quy trình phát hành tự động.
-- Bổ sung ZIP macOS và metadata cần thiết cho cơ chế tự cập nhật.
+- Cookie, phiên đăng nhập và thông tin nhạy cảm được tách riêng theo từng website.
