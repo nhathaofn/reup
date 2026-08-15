@@ -1,9 +1,18 @@
+## T-blao v0.1.24
+
+### CapCut đa ngôn ngữ
+
+- Bỏ hoàn toàn dependency và runtime `capcut-cli`.
+- Tạo draft bằng native template theo cách clone/rewrite của workflow Auto CapCut.
+- Copy media vào `assets`, cập nhật timeline và metadata CapCut trên chính máy người dùng.
+- Bắt buộc chọn template CapCut thật của máy để bám đúng schema phiên bản đang cài.
+
 ## T-blao v0.1.23
 
 ### CapCut đa ngôn ngữ
 
 - Sửa lỗi `ENOENT: no such file or directory, opendir` khi tạo project trên bản Windows đã cài.
-- Đưa runtime `capcut-cli` và template ra ngoài `app.asar` để chạy ổn định trên máy khác.
+- Đưa runtime tạo draft native vào ứng dụng để chạy ổn định trên máy khác.
 - Tự tạo draft store CapCut khi máy mới chưa có thư mục `com.lveditor.draft`.
 - Gỡ mục sửa project portable khỏi giao diện; project vẫn ghi manifest portable khi tạo.
 

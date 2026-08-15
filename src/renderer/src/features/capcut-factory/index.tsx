@@ -233,7 +233,7 @@ function CapCutFactoryPanel(): JSX.Element {
             )}
           </label>
           <label>
-            <span>Template CapCut trống (không bắt buộc)</span>
+            <span>Template CapCut của máy này (bắt buộc)</span>
             <div className="capcut-factory-input-row">
               <input
                 value={templateDir}
@@ -242,13 +242,13 @@ function CapCutFactoryPanel(): JSX.Element {
                   setTemplateDir(event.target.value)
                   invalidate()
                 }}
-                placeholder="Để trống để dùng template tích hợp"
+                placeholder="Chọn thư mục một project mẫu CapCut"
               />
               <button className="btn" type="button" disabled={running} onClick={() => pickDirectory(setTemplateDir)}>
                 Chọn
               </button>
             </div>
-            <small className="muted">Chỉ cần chọn khi muốn khóa schema theo một bản CapCut cụ thể.</small>
+            <small className="muted">Tạo project mẫu trên chính CapCut máy này, có ít nhất một video, một voice và một subtitle. Hệ thống sẽ clone template rồi thay media bằng file mới.</small>
           </label>
           <label>
             <span>Tiền tố tên project</span>

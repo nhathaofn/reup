@@ -26,6 +26,9 @@ files:
   - '!repo test{,/**}'
   - '!dist-engine{,/**}'
   - '!engines{,/**}'
+  - '!.capcut-sample-check{,/**}'
+  - '!test-artifacts{,/**}'
+  - '!tmp_capcut_probe.json'
   - '!**/*.zip'
   - '!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}'
   - '!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}'
@@ -34,11 +37,6 @@ extraResources:
     to: fonts
     filter:
       - '**/*'
-# capcut-cli is launched through Electron's Node-compatible child runtime.
-# Keep it unpacked so its bundled templates and filesystem scans work after
-# installation; Electron's asar-aware main process is not used by that child.
-asarUnpack:
-  - node_modules/capcut-cli/**
 win:
   target:
     - nsis

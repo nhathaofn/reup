@@ -1,6 +1,6 @@
 {
   "name": "t-blao",
-  "version": "0.1.23",
+  "version": "0.1.24",
   "description": "T-blao - Trinh tai video/audio da nen tang",
   "main": "./out/main/index.js",
   "author": "nhathaofn",
@@ -29,7 +29,6 @@
     "package:mac": "electron-vite build && electron-builder --mac -p never"
   },
   "dependencies": {
-    "capcut-cli": "0.17.2",
     "electron-updater": "^6.3.9",
     "js-yaml": "^4.3.1",
     "opentype.js": "^2.0.0",

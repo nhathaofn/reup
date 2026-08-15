@@ -37,7 +37,7 @@ CapCutFactory service
   ├─ tự phát hiện draft store
   ├─ FFprobe video/voice
   ├─ đối chiếu SRT ↔ voice
-  └─ adapter capcut-cli → compile/lint/sync timeline
+  └─ native template clone + rewrite draft JSON
        ├─ scene manifest (optional) → nhiều video segment trên cùng track
        └─ non-destructive scene links → tblao-scene-links.json
 ```
@@ -55,11 +55,11 @@ Không có username, ổ đĩa hoặc thư mục cá nhân cố định trong so
 - Đường dẫn media trong draft là kết quả của input runtime. Adapter copy video/voice vào thư mục `assets` của từng project để tránh liên kết gãy khi file gốc bị di chuyển.
 - Scene được lấy từ output runtime của tab `Tách cảnh`; manifest cho phép dùng lại các file đã cắt mà không hard-code tên hoặc đường dẫn máy.
 
-Template là tùy chọn. Khi chọn template thủ công, đó phải là một project CapCut trống, có `draft_content.json` hoặc `draft_info.json` và không có segment. Nếu để trống, adapter dùng template tối thiểu tích hợp.
+Template là bắt buộc. Hãy tạo một project mẫu ngay trên CapCut của máy hiện tại, có ít nhất một segment video, một segment voice và một segment subtitle, sau đó chọn thư mục project đó. T-blao clone toàn bộ thư mục rồi thay media, timeline và metadata bằng JSON native; không cần `capcut-cli` hoặc runtime Node phụ trên máy người dùng.
 
 ## Tương thích và an toàn dữ liệu
 
-Định dạng project CapCut không phải API công khai. Dependency `capcut-cli` được pin chính xác ở `0.17.2` để tránh schema tự thay đổi sau `npm install`. Adapter dùng compile spec nguyên tử ở cấp lệnh, đồng bộ các timeline mirror mà CapCut mới có thể đọc, rồi chạy lint trước khi báo thành công.
+Định dạng project CapCut không phải API công khai. Native generator giữ schema và các companion material từ template do chính CapCut của người dùng tạo, sau đó clone segment/material, copy media vào `assets` và cập nhật `draft_content.json`, `draft_meta_info.json` cùng `root_meta_info.json`. Cách này tránh phụ thuộc adapter đóng gói trong T-blao.
 
 Nguyên tắc vận hành:
 
@@ -69,7 +69,7 @@ Nguyên tắc vận hành:
 - cancel chỉ kết thúc process con do batch hiện tại tạo;
 - một project lỗi không ngăn các bộ sau tiếp tục chạy; kết quả ghi rõ thành công/thất bại từng bộ.
 
-Khi CapCut nâng phiên bản và thay đổi schema, tạo một project trống bằng phiên bản mới, chọn thư mục đó ở ô `Template CapCut trống`, chạy preflight và kiểm tra một batch nhỏ trước.
+Khi CapCut nâng phiên bản và thay đổi schema, tạo một project mẫu bằng phiên bản mới trên chính máy đó, chọn thư mục ở ô `Template CapCut của máy này`, chạy preflight và kiểm tra một batch nhỏ trước.
 
 ## Kiểm tra phát hành
 
@@ -79,8 +79,8 @@ npm.cmd run verify
 
 Smoke test cần dùng draft store tạm, video/audio tổng hợp ngắn và SRT có ít nhất hai cue. Gate đạt khi:
 
-- compile trả mã thành công;
-- `lint` không có error;
+- native draft được ghi thành công;
+- `draft_content.json` parse được và các material/segment đều trỏ tới asset tồn tại;
 - draft có một video segment, đúng số audio segment và đúng số caption segment;
 - media nằm trong `assets/video` và `assets/audio` của project;
 - draft store thật không bị thay đổi trong smoke test.

@@ -1,26 +1,21 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { createRequire } from 'node:module'
 import {
   access,
-  mkdtemp,
   mkdir,
   readFile,
   readdir,
-  rm,
   stat,
   writeFile
 } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
 import {
   basename,
-  delimiter,
   dirname,
   extname,
   join,
   parse,
   resolve
 } from 'node:path'
-import { constants, existsSync } from 'node:fs'
+import { constants } from 'node:fs'
 import {
   type CapCutFactoryCancelResult,
   type CapCutFactoryEnvironment,
@@ -36,6 +31,10 @@ import type { SceneSplitterScene } from '../../shared/features/scene-splitter'
 import type { VoiceSyncEntry } from '../../shared/types'
 import { resolveFfmpeg } from '../deps'
 import { writePortableCapCutManifest } from './capcutPortability'
+import {
+  generateNativeCapCutProject,
+  validateNativeCapCutTemplate
+} from './nativeCapCutGenerator'
 import { scanVoiceSync } from './voiceSync'
 
 interface ActiveJob {
@@ -47,24 +46,6 @@ interface CliResult {
   status: number | null
   stdout: string
   stderr: string
-}
-
-interface CompileSpec {
-  name: string
-  width: number
-  height: number
-  fps: number
-  ratio: 'original'
-  tracks: Array<{
-    type: 'video' | 'audio'
-    name: string
-    items: Array<Record<string, string | number>>
-  }>
-  operations: Array<{
-    op: 'captions'
-    path: string
-    trackName: string
-  }>
 }
 
 interface CapCutSceneClip {
@@ -158,7 +139,6 @@ const VIDEO_EXTENSIONS = new Set([
   '.m2ts'
 ])
 const MAX_CAPTURE_BYTES = 4 * 1024 * 1024
-const require = createRequire(import.meta.url)
 let activeJob: ActiveJob | null = null
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -352,27 +332,6 @@ function alignEntriesToScenes(
       alignmentDeltaSeconds: Math.max(0, safeStartSeconds - originalStartSeconds)
     }
   })
-}
-
-function formatSrtTimestamp(seconds: number): string {
-  const milliseconds = Math.max(0, Math.round(seconds * 1000))
-  const hours = Math.floor(milliseconds / 3_600_000)
-  const minutes = Math.floor((milliseconds % 3_600_000) / 60_000)
-  const secondsPart = Math.floor((milliseconds % 60_000) / 1000)
-  const millisPart = milliseconds % 1000
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secondsPart).padStart(2, '0')},${String(millisPart).padStart(3, '0')}`
-}
-
-function buildSrtFromEntries(entries: VoiceSyncEntry[]): string {
-  return entries
-    .filter((entry) => entry.endSeconds > entry.startSeconds)
-    .map((entry, index) => [
-      String(index + 1),
-      `${formatSrtTimestamp(entry.startSeconds)} --> ${formatSrtTimestamp(entry.endSeconds)}`,
-      entry.text,
-      ''
-    ].join('\n'))
-    .join('\n')
 }
 
 /**
@@ -832,32 +791,7 @@ async function allocateProjectName(
 
 async function validateEmptyTemplate(templateDir: string): Promise<string | null> {
   if (!(await isDirectory(templateDir))) return 'Thư mục template CapCut không tồn tại.'
-  const candidates = ['draft_content.json', 'draft_info.json']
-  let timelinePath: string | null = null
-  for (const fileName of candidates) {
-    const candidate = join(templateDir, fileName)
-    if (await isFile(candidate)) {
-      timelinePath = candidate
-      break
-    }
-  }
-  if (!timelinePath) return 'Template phải chứa draft_content.json hoặc draft_info.json.'
-  try {
-    const parsed = JSON.parse(await readFile(timelinePath, 'utf8')) as unknown
-    if (!isRecord(parsed) || !Array.isArray(parsed.tracks)) {
-      return 'Timeline trong template không đúng cấu trúc CapCut.'
-    }
-    const segmentCount = parsed.tracks.reduce((total: number, track: unknown) => {
-      if (!isRecord(track) || !Array.isArray(track.segments)) return total
-      return total + track.segments.length
-    }, 0)
-    if (segmentCount > 0) {
-      return 'Template phải là project CapCut trống (không có segment trên timeline).'
-    }
-  } catch (error) {
-    return `Không đọc được template: ${error instanceof Error ? error.message : String(error)}`
-  }
-  return null
+  return validateNativeCapCutTemplate(templateDir)
 }
 
 async function hasOpenDraftLock(draftsDir: string): Promise<boolean> {
@@ -879,38 +813,6 @@ function setBaseName(request: CapCutFactoryRequest, videoPath: string): string {
   return sanitizeProjectName(prefix || parse(videoPath).name)
 }
 
-/**
- * Build an editable CapCut audio segment whose target range is the SRT cue.
- * CapCut's speed is source-duration / cue-duration, matching the atempo ratio
- * used by the "Đọc chữ video" flow while keeping the original voice file.
- */
-function buildCapCutVoiceItem(
-  entry: VoiceSyncEntry,
-  videoDurationSeconds: number
-): Record<string, string | number> | null {
-  if (entry.status !== 'ok' || !entry.filePath || !entry.durationSeconds) return null
-  const start = Math.max(0, entry.startSeconds)
-  const end = Math.min(entry.endSeconds, videoDurationSeconds)
-  const cueDuration = end - start
-  if (!(cueDuration > 0)) return null
-
-  const speed = entry.durationSeconds / cueDuration
-  const item: Record<string, string | number> = {
-    path: entry.filePath,
-    start,
-    duration: cueDuration,
-    speed: Number(speed.toFixed(6)),
-    volume: 1
-  }
-
-  // capcut-cli 0.17.2 rejects a target audio duration longer than the source
-  // before it applies speed. Its audio compiler ignores `type`, so this marker
-  // only skips that over-strict validation for slow-down clips; the generated
-  // draft still contains a normal CapCut audio material/segment.
-  if (cueDuration > entry.durationSeconds + 0.01) item.type = 'photo'
-  return item
-}
-
 export async function inspectCapCutFactory(
   request: CapCutFactoryRequest
 ): Promise<CapCutFactoryPreflightResult> {
@@ -928,8 +830,8 @@ export async function inspectCapCutFactory(
   }
   if (!draftsDir) errors.push('Chưa chọn thư mục project CapCut.')
   else if (!(await isDirectory(draftsDir))) {
-    // A fresh CapCut installation often has no draft store yet. The CLI can
-    // create it, so only reject a known-unwritable parent here.
+    // A fresh CapCut installation often has no draft store yet. Native draft
+    // generation creates it, so only reject a known-unwritable parent here.
     const parent = dirname(draftsDir)
     if (await isDirectory(parent)) {
       try {
@@ -953,7 +855,9 @@ export async function inspectCapCutFactory(
       warnings.push('Đang có draft CapCut mở. Hãy đóng CapCut trước khi bấm Tạo project để tránh metadata bị ghi đè.')
     }
   }
-  if (request.templateDir?.trim()) {
+  if (!request.templateDir?.trim()) {
+    errors.push('Cần chọn một project template CapCut được tạo trên chính máy này.')
+  } else {
     const templateError = await validateEmptyTemplate(request.templateDir.trim())
     if (templateError) errors.push(templateError)
   }
@@ -1083,71 +987,6 @@ export async function inspectCapCutFactory(
   }
 }
 
-function capCutCliPath(): string {
-  const candidates: string[] = []
-  if (process.resourcesPath) {
-    // Prefer the unpacked copy: the child uses the Electron binary as a
-    // Node-compatible runtime, where ordinary directory scans inside asar
-    // are not reliable.
-    candidates.push(
-      join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', 'capcut-cli', 'dist', 'index.js'),
-      join(process.resourcesPath, 'app.asar', 'node_modules', 'capcut-cli', 'dist', 'index.js')
-    )
-  }
-  try {
-    const packageJson = require.resolve('capcut-cli/package.json')
-    candidates.push(join(dirname(packageJson), 'dist', 'index.js'))
-  } catch {
-    // Fall through to the explicit packaged-app locations above.
-  }
-  candidates.push(join(process.cwd(), 'node_modules', 'capcut-cli', 'dist', 'index.js'))
-  const resolved = candidates.find((candidate) => existsSync(candidate))
-  if (!resolved) {
-    throw new Error(
-      'Bản cài thiếu CapCut adapter (capcut-cli). Hãy tải lại bản T-blao mới nhất và cài lại ứng dụng.'
-    )
-  }
-  return resolved
-}
-
-function childEnvironment(ffprobe: string): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
-  const pathKey = Object.keys(env).find((key) => key.toLowerCase() === 'path') ?? 'PATH'
-  const currentPath = env[pathKey] ?? ''
-  const binaryDir = dirname(ffprobe)
-  env[pathKey] = currentPath ? `${binaryDir}${delimiter}${currentPath}` : binaryDir
-  return env
-}
-
-async function runCli(args: string[], ffprobe: string, job: ActiveJob): Promise<CliResult> {
-  if (job.cancelled) return { status: null, stdout: '', stderr: 'Đã hủy.' }
-  return captureProcess(process.execPath, [capCutCliPath(), ...args], {
-    env: childEnvironment(ffprobe),
-    timeoutMs: 30 * 60_000,
-    job
-  })
-}
-
-function cliError(command: string, result: CliResult): string {
-  const details = (result.stderr || result.stdout).trim().split(/\r?\n/).filter(Boolean).at(-1)
-  return `${command} thất bại${details ? `: ${details}` : '.'}`
-}
-
-function lintWarnings(result: CliResult): string[] {
-  if (result.status === 0 || !result.stdout.trim()) return []
-  try {
-    const parsed = JSON.parse(result.stdout) as unknown
-    if (!isRecord(parsed)) return []
-    const issues = Array.isArray(parsed.issues) ? parsed.issues : []
-    return issues.slice(0, 20).map((issue) => {
-      if (!isRecord(issue)) return String(issue)
-      return String(issue.message ?? issue.code ?? 'Cảnh báo lint CapCut')
-    })
-  } catch {
-    return result.stdout.trim().split(/\r?\n/).filter(Boolean).slice(0, 20)
-  }
-}
-
 function emitProgress(
   callback: (progress: CapCutFactoryProgress) => void,
   progress: CapCutFactoryProgress
@@ -1163,7 +1002,6 @@ export async function runCapCutFactory(
   const job: ActiveJob = { cancelled: false, child: null }
   activeJob = job
   const projects: CapCutFactoryProjectResult[] = []
-  let temporaryRoot: string | null = null
 
   try {
     emitProgress(onProgress, {
@@ -1180,13 +1018,9 @@ export async function runCapCutFactory(
     }
     await mkdir(request.draftsDir.trim(), { recursive: true })
 
-    const ffmpeg = await resolveFfmpeg()
-    if (!ffmpeg) return { ok: false, projects, error: 'Thiếu FFmpeg/FFprobe.' }
-    const ffprobe = ffprobePath(ffmpeg)
     const sceneClips = request.sceneDir?.trim()
       ? await loadSceneClips(request.sceneDir, preflight.video.path, preflight.video.durationSeconds)
       : null
-    temporaryRoot = await mkdtemp(join(tmpdir(), 'tblao-capcut-factory-'))
     const total = preflight.sets.length
 
     for (const [index, input] of request.sets.entries()) {
@@ -1222,52 +1056,52 @@ export async function runCapCutFactory(
         ? alignEntriesToScenes(sceneClips, scan.entries, preflight.video.durationSeconds)
         : null
       const timelineEntries = alignedEntries ?? scan.entries
-      const normalizedSrt = join(temporaryRoot, `subtitles-${index + 1}.srt`)
-      const specPath = join(temporaryRoot, `project-${index + 1}.json`)
-      await writeFile(normalizedSrt, buildSrtFromEntries(timelineEntries), 'utf8')
-      const audioItems = timelineEntries.flatMap((entry) => {
-        const item = buildCapCutVoiceItem(entry, preflight.video!.durationSeconds)
-        return item ? [item] : []
-      })
+      const usableEntries = timelineEntries.filter(
+        (entry) => entry.status === 'ok' && Boolean(entry.filePath) && Boolean(entry.durationSeconds) && entry.endSeconds > entry.startSeconds
+      )
       const sceneLinkPlan = sceneClips && alignedEntries
         ? buildSceneLinkPlan(sceneClips, alignedEntries)
         : null
       const videoItems = sceneClips
-        ? sceneClips.map((scene) => ({
-            path: scene.filePath,
-            start: scene.startSeconds,
-            duration: scene.durationSeconds,
+        ? sceneClips.map((scene, sceneIndex) => ({
+            sourcePath: scene.filePath,
+            assetName: `tblao-video-${String(sceneIndex + 1).padStart(3, '0')}${extname(scene.filePath) || '.mp4'}`,
+            startSeconds: scene.startSeconds,
+            durationSeconds: scene.durationSeconds,
+            sourceDurationSeconds: scene.durationSeconds,
             width: preflight.video!.width,
             height: preflight.video!.height,
             volume: request.muteOriginalVideo === false ? 1 : 0
           }))
         : [
             {
-              path: preflight.video.path,
-              start: 0,
-              duration: preflight.video.durationSeconds,
+              sourcePath: preflight.video.path,
+              assetName: `tblao-video-001${extname(preflight.video.path) || '.mp4'}`,
+              startSeconds: 0,
+              durationSeconds: preflight.video.durationSeconds,
+              sourceDurationSeconds: preflight.video.durationSeconds,
               width: preflight.video.width,
               height: preflight.video.height,
               volume: request.muteOriginalVideo === false ? 1 : 0
             }
           ]
-      const spec: CompileSpec = {
-        name: prepared.projectName,
-        width: preflight.video.width,
-        height: preflight.video.height,
-        fps: preflight.video.fps,
-        ratio: 'original',
-        tracks: [
-          {
-            type: 'video',
-            name: 'Video nền',
-            items: videoItems
-          },
-          { type: 'audio', name: 'Voice', items: audioItems }
-        ],
-        operations: [{ op: 'captions', path: normalizedSrt, trackName: 'Phụ đề' }]
-      }
-      await writeFile(specPath, JSON.stringify(spec), 'utf8')
+      const audioItems = usableEntries.map((entry, entryIndex) => {
+        const cueDuration = Math.min(entry.endSeconds, preflight.video!.durationSeconds) - Math.max(0, entry.startSeconds)
+        return {
+          sourcePath: entry.filePath!,
+          assetName: `tblao-audio-${String(entryIndex + 1).padStart(3, '0')}${extname(entry.filePath!) || '.mp3'}`,
+          startSeconds: Math.max(0, entry.startSeconds),
+          durationSeconds: cueDuration,
+          sourceDurationSeconds: entry.durationSeconds!,
+          speed: Number((entry.durationSeconds! / cueDuration).toFixed(6)),
+          volume: 1
+        }
+      })
+      const textItems = usableEntries.map((entry) => ({
+        startSeconds: Math.max(0, entry.startSeconds),
+        durationSeconds: Math.min(entry.endSeconds, preflight.video!.durationSeconds) - Math.max(0, entry.startSeconds),
+        text: entry.text
+      }))
 
       emitProgress(onProgress, {
         phase: 'creating',
@@ -1278,10 +1112,31 @@ export async function runCapCutFactory(
         completedProjects: index,
         totalProjects: total
       })
-      const compileArgs = ['compile', specPath, '--drafts', request.draftsDir]
-      if (request.templateDir?.trim()) compileArgs.push('--template', request.templateDir.trim())
-      const compile = await runCli(compileArgs, ffprobe, job)
-      if (job.cancelled) {
+      let native: Awaited<ReturnType<typeof generateNativeCapCutProject>>
+      try {
+        native = await generateNativeCapCutProject({
+          projectPath,
+          projectName: prepared.projectName,
+          templateDir: request.templateDir!.trim(),
+          width: preflight.video.width,
+          height: preflight.video.height,
+          fps: preflight.video.fps,
+          videoItems,
+          audioItems,
+          textItems,
+          isCancelled: () => job.cancelled,
+          onProgress: (message) => emitProgress(onProgress, {
+            phase: 'creating',
+            percent: 10 + (index / total) * 88,
+            message,
+            currentSetId: input.id,
+            currentProjectName: prepared.projectName,
+            completedProjects: index,
+            totalProjects: total
+          })
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
         projects.push({
           inputSetId: input.id,
           label: prepared.label,
@@ -1289,48 +1144,25 @@ export async function runCapCutFactory(
           projectPath: (await isDirectory(projectPath)) ? projectPath : undefined,
           ok: false,
           warnings: preparedWarnings,
-          error: 'Đã hủy trong khi tạo project.'
+          error: job.cancelled ? 'Đã hủy trong khi tạo project.' : `Tạo draft native thất bại: ${message}`
         })
-        break
-      }
-      if (compile.status !== 0) {
-        projects.push({
-          inputSetId: input.id,
-          label: prepared.label,
-          projectName: prepared.projectName,
-          projectPath: (await isDirectory(projectPath)) ? projectPath : undefined,
-          ok: false,
-          warnings: preparedWarnings,
-          error: cliError('Tạo draft', compile)
-        })
+        if (job.cancelled) break
         continue
       }
 
       emitProgress(onProgress, {
         phase: 'verifying',
         percent: 10 + ((index + 0.75) / total) * 88,
-        message: `Đang kiểm tra timeline ${prepared.projectName}…`,
+        message: `Đang kiểm tra draft native ${prepared.projectName}…`,
         currentSetId: input.id,
         currentProjectName: prepared.projectName,
         completedProjects: index,
         totalProjects: total
       })
-      const sync = await runCli(['sync-timelines', projectPath, '--apply'], ffprobe, job)
-      const registration = job.cancelled
-        ? { status: null, stdout: '', stderr: 'Đã hủy.' }
-        : await runCli(
-            ['register', projectPath, '--apply', '--drafts', request.draftsDir],
-            ffprobe,
-            job
-          )
-      const lint = job.cancelled
-        ? { status: null, stdout: '', stderr: 'Đã hủy.' }
-        : await runCli(['lint', projectPath], ffprobe, job)
       const projectWarnings = [...preparedWarnings]
+      projectWarnings.push(`Đã tạo draft native bằng template CapCut của máy này: ${native.videoSegmentIds.length} video, ${native.audioSegmentIds.length} voice, ${native.textSegmentIds.length} subtitle.`)
       let sceneLinkManifestPath: string | undefined
       let portableManifestPath: string | undefined
-      if (sync.status !== 0) projectWarnings.push(cliError('Đồng bộ mirror timeline', sync))
-      projectWarnings.push(...lintWarnings(lint))
       if (sceneLinkPlan) {
         try {
           const sceneLinkResult = await writeSceneLinkManifest(
@@ -1359,13 +1191,6 @@ export async function runCapCutFactory(
           `Khong ghi duoc manifest portable; project van duoc tao nhung can relink thu cong: ${error instanceof Error ? error.message : String(error)}`
         )
       }
-      const lintFailed = lint.status === null || lint.status >= 2
-      const registrationFailed = registration.status !== 0
-      const verificationError = registrationFailed
-        ? cliError('Đăng ký project với CapCut', registration)
-        : lintFailed
-          ? cliError('Kiểm tra draft', lint)
-          : undefined
       projects.push({
         inputSetId: input.id,
         label: prepared.label,
@@ -1373,9 +1198,9 @@ export async function runCapCutFactory(
         projectPath,
         sceneLinkManifestPath,
         portableManifestPath,
-        ok: !registrationFailed && !lintFailed && !job.cancelled,
+        ok: !job.cancelled,
         warnings: projectWarnings,
-        error: job.cancelled ? 'Đã hủy.' : verificationError
+        error: job.cancelled ? 'Đã hủy.' : undefined
       })
     }
 
@@ -1419,7 +1244,6 @@ export async function runCapCutFactory(
     return { ok: false, projects, error: message }
   } finally {
     if (job.child) killProcessTree(job.child)
-    if (temporaryRoot) await rm(temporaryRoot, { recursive: true, force: true }).catch(() => undefined)
     if (activeJob === job) activeJob = null
   }
 }

@@ -62,14 +62,10 @@ Chi tiết: https://github.com/Breakthrough/PySceneDetect
 LICENSE và thư mục giấy phép thirdparty đi kèm bản phân phối chính thức.
 
 --------------------------------------------------------------------------
-A6) capcut-cli
+A6) Native CapCut generator
 --------------------------------------------------------------------------
-Vai trò: tạo, đăng ký, kiểm tra và đồng bộ project CapCut có thể tiếp tục chỉnh sửa.
-Phiên bản đóng gói: 0.17.2.
-Giấy phép: MIT License.
-Bản quyền: René Zander và các cộng sự.
-Chi tiết: https://github.com/renezander030/capcut-cli
-Đây là công cụ độc lập, không liên kết hoặc được bảo trợ bởi ByteDance/CapCut.
+Vai trò: clone template và tạo draft CapCut native.
+Mã nguồn: nằm trong T-blao, không có runtime bên thứ ba riêng.
 
 
 ==========================================================================

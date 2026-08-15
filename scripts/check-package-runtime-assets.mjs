@@ -29,10 +29,12 @@ const forbiddenNames = new Set([
   'yt-dlp',
   'yt-dlp.exe'
 ])
+const forbiddenPathTokens = ['capcut-cli', '.capcut-cli-history']
 
 function isForbidden(path) {
   const name = basename(path).toLowerCase()
-  return name.endsWith('.zip') || forbiddenNames.has(name)
+  const normalized = path.toLowerCase()
+  return name.endsWith('.zip') || forbiddenNames.has(name) || forbiddenPathTokens.some((token) => normalized.includes(token))
 }
 
 function walk(directory, results = []) {
@@ -47,28 +49,10 @@ function walk(directory, results = []) {
 
 const packagedFiles = walk(resourcesDir).filter((path) => path !== asarPath)
 const asarFiles = listPackage(asarPath)
-const requiredCapCutAdapterFiles = [
-  '\\node_modules\\capcut-cli\\package.json',
-  '\\node_modules\\capcut-cli\\dist\\index.js',
-  '\\node_modules\\capcut-cli\\templates\\_init\\draft_content.json'
-]
-function unpackedCapCutPath(requiredPath) {
-  return join(resourcesDir, 'app.asar.unpacked', ...requiredPath.slice(1).split('\\'))
-}
-
-const missingCapCutAdapterFiles = requiredCapCutAdapterFiles.filter(
-  (requiredPath) => !asarFiles.includes(requiredPath) && !existsSync(unpackedCapCutPath(requiredPath))
-)
 const violations = [
   ...packagedFiles.filter(isForbidden),
   ...asarFiles.filter(isForbidden).map((path) => `app.asar:${path}`)
 ]
-
-if (missingCapCutAdapterFiles.length > 0) {
-  console.error('Goi cai dat thieu runtime CapCut adapter trong asar hoac asar.unpacked:')
-  for (const missing of missingCapCutAdapterFiles) console.error(`- ${missing}`)
-  process.exit(1)
-}
 
 if (violations.length > 0) {
   console.error('Goi cai dat dang chua runtime bi cam:')
@@ -79,7 +63,7 @@ if (violations.length > 0) {
 console.log(
   `OK: ${asarFiles.length} tep trong app.asar; khong co engine, ffmpeg executable, yt-dlp hoac ZIP.`
 )
-console.log('OK: capcut-cli runtime, command entry va template toi thieu da duoc dong goi (asar/unpacked).')
+console.log('OK: native CapCut generator duoc dong goi trong app.asar.')
 console.log(
   'Luu y: ffmpeg.dll o thu muc goc la thanh phan media cua Electron/Chromium, khong phai FFmpeg runtime cua T-blao.'
 )
