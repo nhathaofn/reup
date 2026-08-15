@@ -3,6 +3,7 @@ import { createRequire } from 'node:module'
 import {
   access,
   mkdtemp,
+  mkdir,
   readFile,
   readdir,
   rm,
@@ -19,7 +20,7 @@ import {
   parse,
   resolve
 } from 'node:path'
-import { constants } from 'node:fs'
+import { constants, existsSync } from 'node:fs'
 import {
   type CapCutFactoryCancelResult,
   type CapCutFactoryEnvironment,
@@ -627,55 +628,69 @@ function compareVersions(left: string, right: string): number {
 }
 
 async function installedCapCutVersion(): Promise<string | null> {
-  if (process.platform !== 'win32' || !process.env.LOCALAPPDATA) return null
-  const appsDir = join(process.env.LOCALAPPDATA, 'CapCut', 'Apps')
-  try {
-    const versions = (await readdir(appsDir, { withFileTypes: true }))
-      .filter((entry) => entry.isDirectory() && /^\d+(?:\.\d+){1,3}$/.test(entry.name))
-      .map((entry) => entry.name)
-      .sort(compareVersions)
-    return versions.at(-1) ?? null
-  } catch {
-    return null
+  if (process.platform !== 'win32') return null
+  const appRoots = unique(
+    [process.env.LOCALAPPDATA, process.env.APPDATA]
+      .filter((value): value is string => Boolean(value))
+      .map((value) => join(value, 'CapCut', 'Apps'))
+  )
+  for (const appsDir of appRoots) {
+    try {
+      const versions = (await readdir(appsDir, { withFileTypes: true }))
+        .filter((entry) => entry.isDirectory() && /^\d+(?:\.\d+){1,3}$/.test(entry.name))
+        .map((entry) => entry.name)
+        .sort(compareVersions)
+      if (versions.length > 0) return versions.at(-1) ?? null
+    } catch {
+      // CapCut co the nam o LOCALAPPDATA hoac APPDATA tuy ban cai.
+    }
   }
+  return null
+}
+
+function capCutDraftCandidates(): string[] {
+  if (process.platform === 'win32') {
+    const profile = process.env.USERPROFILE || process.env.HOME
+    const roots = [
+      process.env.LOCALAPPDATA,
+      process.env.APPDATA,
+      profile ? join(profile, 'Documents') : null,
+      profile ? join(profile, 'Videos') : null,
+      profile ? join(profile, 'Movies') : null
+    ].filter((value): value is string => Boolean(value))
+    return unique(
+      roots.map((root) => join(root, 'CapCut', 'User Data', 'Projects', 'com.lveditor.draft'))
+    )
+  }
+  if (process.platform === 'darwin') {
+    const home = process.env.HOME
+    return home
+      ? [join(home, 'Movies', 'CapCut', 'User Data', 'Projects', 'com.lveditor.draft')]
+      : []
+  }
+  return []
 }
 
 export async function detectCapCutEnvironment(): Promise<CapCutFactoryEnvironment> {
-  const candidates: string[] = []
-  if (process.platform === 'win32') {
-    if (process.env.LOCALAPPDATA) {
-      candidates.push(
-        join(
-          process.env.LOCALAPPDATA,
-          'CapCut',
-          'User Data',
-          'Projects',
-          'com.lveditor.draft'
-        )
-      )
-    }
-    if (process.env.APPDATA) {
-      candidates.push(
-        join(process.env.APPDATA, 'CapCut', 'User Data', 'Projects', 'com.lveditor.draft')
-      )
-    }
-  } else if (process.platform === 'darwin') {
-    const home = process.env.HOME
-    if (home) {
-      candidates.push(join(home, 'Movies', 'CapCut', 'User Data', 'Projects', 'com.lveditor.draft'))
-    }
-  }
-
-  const normalized = unique(candidates)
+  const normalized = capCutDraftCandidates()
   const existing: string[] = []
   for (const candidate of normalized) {
     if (await isDirectory(candidate)) existing.push(candidate)
   }
+  const capCutVersion = await installedCapCutVersion()
+  const capCutRoots = unique(
+    [process.env.LOCALAPPDATA, process.env.APPDATA]
+      .filter((value): value is string => Boolean(value))
+      .map((value) => join(value, 'CapCut'))
+  )
+  const capCutInstalled = Boolean(capCutVersion) || (await Promise.all(capCutRoots.map(isDirectory))).some(Boolean)
 
   return {
-    detectedDraftsDir: existing[0] ?? null,
+    // CapCut may not create com.lveditor.draft until its first project.
+    // Return the standard target so the factory can initialize it on a new PC.
+    detectedDraftsDir: existing[0] ?? (capCutInstalled ? normalized[0] ?? null : null),
     candidates: normalized,
-    capCutVersion: await installedCapCutVersion(),
+    capCutVersion,
     platform: process.platform
   }
 }
@@ -912,8 +927,20 @@ export async function inspectCapCutFactory(
     errors.push(`Định dạng video chưa được hỗ trợ: ${extname(videoPath) || '(không có đuôi file)'}.`)
   }
   if (!draftsDir) errors.push('Chưa chọn thư mục project CapCut.')
-  else if (!(await isDirectory(draftsDir))) errors.push('Thư mục project CapCut không tồn tại.')
-  else {
+  else if (!(await isDirectory(draftsDir))) {
+    // A fresh CapCut installation often has no draft store yet. The CLI can
+    // create it, so only reject a known-unwritable parent here.
+    const parent = dirname(draftsDir)
+    if (await isDirectory(parent)) {
+      try {
+        await access(parent, constants.R_OK | constants.W_OK)
+      } catch {
+        errors.push('Không có quyền tạo thư mục project CapCut.')
+      }
+    } else {
+      warnings.push('Thư mục project CapCut chưa tồn tại; ứng dụng sẽ tự tạo khi bấm Tạo project.')
+    }
+  } else {
     try {
       await access(draftsDir, constants.R_OK | constants.W_OK)
     } catch {
@@ -1057,8 +1084,30 @@ export async function inspectCapCutFactory(
 }
 
 function capCutCliPath(): string {
-  const packageJson = require.resolve('capcut-cli/package.json')
-  return join(dirname(packageJson), 'dist', 'index.js')
+  const candidates: string[] = []
+  if (process.resourcesPath) {
+    // Prefer the unpacked copy: the child uses the Electron binary as a
+    // Node-compatible runtime, where ordinary directory scans inside asar
+    // are not reliable.
+    candidates.push(
+      join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', 'capcut-cli', 'dist', 'index.js'),
+      join(process.resourcesPath, 'app.asar', 'node_modules', 'capcut-cli', 'dist', 'index.js')
+    )
+  }
+  try {
+    const packageJson = require.resolve('capcut-cli/package.json')
+    candidates.push(join(dirname(packageJson), 'dist', 'index.js'))
+  } catch {
+    // Fall through to the explicit packaged-app locations above.
+  }
+  candidates.push(join(process.cwd(), 'node_modules', 'capcut-cli', 'dist', 'index.js'))
+  const resolved = candidates.find((candidate) => existsSync(candidate))
+  if (!resolved) {
+    throw new Error(
+      'Bản cài thiếu CapCut adapter (capcut-cli). Hãy tải lại bản T-blao mới nhất và cài lại ứng dụng.'
+    )
+  }
+  return resolved
 }
 
 function childEnvironment(ffprobe: string): NodeJS.ProcessEnv {
@@ -1129,6 +1178,7 @@ export async function runCapCutFactory(
       const details = [...preflight.errors, ...preflight.sets.flatMap((item) => item.error ? [`${item.label}: ${item.error}`] : [])]
       return { ok: false, projects, error: details.join('\n') || 'Dữ liệu đầu vào chưa hợp lệ.' }
     }
+    await mkdir(request.draftsDir.trim(), { recursive: true })
 
     const ffmpeg = await resolveFfmpeg()
     if (!ffmpeg) return { ok: false, projects, error: 'Thiếu FFmpeg/FFprobe.' }

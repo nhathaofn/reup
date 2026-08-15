@@ -40,10 +40,6 @@ function CapCutFactoryPanel(): JSX.Element {
   const [draftsDir, setDraftsDir] = usePersistedState('tblao.capcut-factory.drafts-dir', '')
   const [templateDir, setTemplateDir] = usePersistedState('tblao.capcut-factory.template-dir', '')
   const [projectPrefix, setProjectPrefix] = usePersistedState('tblao.capcut-factory.prefix', '')
-  const [repairProjectPath, setRepairProjectPath] = usePersistedState(
-    'tblao.capcut-factory.repair-project',
-    ''
-  )
   const [muteOriginalVideo, setMuteOriginalVideo] = usePersistedState(
     'tblao.capcut-factory.mute-video',
     true
@@ -58,8 +54,6 @@ function CapCutFactoryPanel(): JSX.Element {
   const [result, setResult] = useState<CapCutFactoryResult | null>(null)
   const [inspecting, setInspecting] = useState(false)
   const [running, setRunning] = useState(false)
-  const [repairing, setRepairing] = useState(false)
-  const [repairResult, setRepairResult] = useState<Awaited<ReturnType<typeof window.api.repairCapCutProject>> | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const [error, setError] = useState('')
 
@@ -84,7 +78,7 @@ function CapCutFactoryPanel(): JSX.Element {
       muteOriginalVideo,
       sets: inputSets
     }),
-    [videoPath, draftsDir, templateDir, projectPrefix, muteOriginalVideo, inputSets]
+    [videoPath, sceneDir, draftsDir, templateDir, projectPrefix, muteOriginalVideo, inputSets]
   )
 
   const invalidate = (): void => {
@@ -111,20 +105,6 @@ function CapCutFactoryPanel(): JSX.Element {
     if (selected) {
       apply(selected)
       invalidate()
-    }
-  }
-
-  const repairProject = async (): Promise<void> => {
-    if (!repairProjectPath.trim()) return
-    setRepairing(true)
-    setRepairResult(null)
-    setError('')
-    try {
-      setRepairResult(await window.api.repairCapCutProject(repairProjectPath.trim()))
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason))
-    } finally {
-      setRepairing(false)
     }
   }
 
@@ -378,51 +358,6 @@ function CapCutFactoryPanel(): JSX.Element {
           })}
           {inputSets.length === 0 && <div className="muted capcut-factory-empty">Bấm “+ Thêm bộ” để bắt đầu.</div>}
         </div>
-      </section>
-
-      <section className="card capcut-factory-card capcut-factory-portability-card">
-        <div className="capcut-factory-section-head">
-          <div>
-            <strong>4. Sua project khi chuyen sang may Windows khac</strong>
-            <span className="muted small">
-              Chon thu muc project CapCut da copy sang may nay. Ung dung se sua metadata va kiem tra assets.
-            </span>
-          </div>
-          <button
-            className="btn"
-            type="button"
-            disabled={running || repairing}
-            onClick={() => pickDirectory(setRepairProjectPath)}
-          >
-            Chon project
-          </button>
-        </div>
-        <div className={`capcut-factory-path ${repairProjectPath ? 'selected' : ''}`} title={repairProjectPath}>
-          {shortPath(repairProjectPath)}
-        </div>
-        <div className="capcut-factory-run-actions capcut-factory-portability-actions">
-          <button
-            className="btn primary"
-            type="button"
-            disabled={!repairProjectPath.trim() || running || repairing}
-            onClick={repairProject}
-          >
-            {repairing ? 'Dang sua metadata...' : 'Sua duong dan va assets'}
-          </button>
-        </div>
-        {repairResult && (
-          <div className={`capcut-factory-portability-result ${repairResult.ok ? 'ok' : 'error'}`}>
-            <strong>{repairResult.ok ? 'Project da san sang tren may nay' : 'Project van con van de'}</strong>
-            <small>
-              {repairResult.updatedFiles} file da cap nhat, {repairResult.rewrittenPaths} duong dan da sua.
-            </small>
-            {repairResult.missingAssets.length > 0 && (
-              <small>Thieu assets: {repairResult.missingAssets.slice(0, 6).join(', ')}</small>
-            )}
-            {repairResult.warnings.map((warning) => <small key={warning}>{warning}</small>)}
-            {repairResult.error && <small>{repairResult.error}</small>}
-          </div>
-        )}
       </section>
 
       <section className="card capcut-factory-run-card">

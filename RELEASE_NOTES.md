@@ -1,3 +1,12 @@
+## T-blao v0.1.23
+
+### CapCut đa ngôn ngữ
+
+- Sửa lỗi `ENOENT: no such file or directory, opendir` khi tạo project trên bản Windows đã cài.
+- Đưa runtime `capcut-cli` và template ra ngoài `app.asar` để chạy ổn định trên máy khác.
+- Tự tạo draft store CapCut khi máy mới chưa có thư mục `com.lveditor.draft`.
+- Gỡ mục sửa project portable khỏi giao diện; project vẫn ghi manifest portable khi tạo.
+
 ## T-blao v0.1.22
 
 ### Windows release

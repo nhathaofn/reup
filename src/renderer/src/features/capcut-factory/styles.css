@@ -332,37 +332,6 @@
   cursor: pointer;
 }
 
-.capcut-factory-portability-card {
-  border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
-}
-
-.capcut-factory-portability-actions {
-  margin-top: 10px;
-}
-
-.capcut-factory-portability-result {
-  display: flex;
-  margin-top: 10px;
-  padding: 9px 10px;
-  flex-direction: column;
-  gap: 3px;
-  border-radius: 7px;
-  background: var(--panel-2);
-  font-size: 11px;
-}
-
-.capcut-factory-portability-result.ok {
-  border: 1px solid color-mix(in srgb, var(--ok) 45%, var(--border));
-}
-
-.capcut-factory-portability-result.error {
-  border: 1px solid color-mix(in srgb, var(--fail) 50%, var(--border));
-}
-
-.capcut-factory-portability-result small {
-  color: var(--muted);
-}
-
 @media (max-width: 1050px) {
   .capcut-factory-config-grid,
   .capcut-factory-set-grid {
