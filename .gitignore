@@ -46,7 +46,9 @@ Downloaded/
 # Engine build / venv (PyInstaller, pip) — khong day len git
 engines/**/.venv-build/
 engines/**/build/
-engines/**/storage/
+# Source package required by the PyInstaller engine (runtime data stays ignored).
+engines/**/storage/*.db
+engines/**/storage/__pycache__/
 engines/**/dist/
 __pycache__/
 *.py[cod]
