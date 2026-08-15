@@ -248,7 +248,7 @@ function CapCutFactoryPanel(): JSX.Element {
                 Chọn
               </button>
             </div>
-            <small className="muted">Tạo project mẫu trên chính CapCut máy này, có ít nhất một video, một voice và một subtitle. Hệ thống sẽ clone template rồi thay media bằng file mới.</small>
+            <small className="muted">Tạo project mẫu trên chính CapCut máy này, có ít nhất một video, một voice và một subtitle. Hệ thống chỉ lấy schema native và style subtitle; project mới sẽ dùng toàn bộ media, voice, scene và SRT được chọn.</small>
           </label>
           <label>
             <span>Tiền tố tên project</span>

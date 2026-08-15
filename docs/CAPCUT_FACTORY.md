@@ -37,7 +37,7 @@ CapCutFactory service
   ├─ tự phát hiện draft store
   ├─ FFprobe video/voice
   ├─ đối chiếu SRT ↔ voice
-  └─ native template clone + rewrite draft JSON
+  └─ native schema/style template + new draft JSON
        ├─ scene manifest (optional) → nhiều video segment trên cùng track
        └─ non-destructive scene links → tblao-scene-links.json
 ```
@@ -55,11 +55,11 @@ Không có username, ổ đĩa hoặc thư mục cá nhân cố định trong so
 - Đường dẫn media trong draft là kết quả của input runtime. Adapter copy video/voice vào thư mục `assets` của từng project để tránh liên kết gãy khi file gốc bị di chuyển.
 - Scene được lấy từ output runtime của tab `Tách cảnh`; manifest cho phép dùng lại các file đã cắt mà không hard-code tên hoặc đường dẫn máy.
 
-Template là bắt buộc. Hãy tạo một project mẫu ngay trên CapCut của máy hiện tại, có ít nhất một segment video, một segment voice và một segment subtitle, sau đó chọn thư mục project đó. T-blao clone toàn bộ thư mục rồi thay media, timeline và metadata bằng JSON native; không cần `capcut-cli` hoặc runtime Node phụ trên máy người dùng.
+Template là bắt buộc. Hãy tạo một project mẫu ngay trên CapCut của máy hiện tại, có ít nhất một segment video, một segment voice và một segment subtitle, sau đó chọn thư mục project đó. T-blao chỉ đọc schema native và style subtitle từ template để dựng một project mới; không clone media, track thừa hoặc nội dung cũ của template. Video/scene, voice và nội dung SRT mới được copy/map vào project mới; không cần `capcut-cli` hoặc runtime Node phụ trên máy người dùng.
 
 ## Tương thích và an toàn dữ liệu
 
-Định dạng project CapCut không phải API công khai. Native generator giữ schema và các companion material từ template do chính CapCut của người dùng tạo, sau đó clone segment/material, copy media vào `assets` và cập nhật `draft_content.json`, `draft_meta_info.json` cùng `root_meta_info.json`. Cách này tránh phụ thuộc adapter đóng gói trong T-blao.
+Định dạng project CapCut không phải API công khai. Native generator lấy schema track/material từ template do chính CapCut của người dùng tạo, tạo draft mới chỉ với track video, voice và subtitle, sau đó tạo material mới cho từng asset. Material text được kế thừa style của subtitle mẫu (font, cỡ, màu, typesetting và caption metadata); material video/audio chỉ được dùng làm khuôn schema rồi thay hoàn toàn bằng asset mới. Metadata mới được ghi vào `draft_content.json`, `draft_info.json`, `draft_meta_info.json` cùng `root_meta_info.json`. Cách này tránh phụ thuộc adapter đóng gói trong T-blao.
 
 Nguyên tắc vận hành:
 
@@ -80,7 +80,7 @@ npm.cmd run verify
 Smoke test cần dùng draft store tạm, video/audio tổng hợp ngắn và SRT có ít nhất hai cue. Gate đạt khi:
 
 - native draft được ghi thành công;
-- `draft_content.json` parse được và các material/segment đều trỏ tới asset tồn tại;
+- `draft_content.json` parse được, chỉ có track dữ liệu mới và các material/segment đều trỏ tới asset tồn tại;
 - draft có một video segment, đúng số audio segment và đúng số caption segment;
 - media nằm trong `assets/video` và `assets/audio` của project;
 - draft store thật không bị thay đổi trong smoke test.

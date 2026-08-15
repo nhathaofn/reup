@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { copyFile, cp, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
-import { basename, dirname, extname, join, relative, resolve } from 'node:path'
+import { copyFile, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { basename, dirname, extname, join, resolve } from 'node:path'
 
 type JsonRecord = Record<string, unknown>
 
@@ -102,18 +102,15 @@ function isWithin(root: string, candidate: string): boolean {
   return candidatePath === rootPath || candidatePath.startsWith(`${rootPath}\\`)
 }
 
-function rewriteTemplatePaths(value: unknown, templateDir: string, projectDir: string): unknown {
-  if (typeof value === 'string' && isWithin(templateDir, value)) {
-    const relativePath = relative(resolve(templateDir), resolve(value))
-    return join(projectDir, relativePath)
-  }
+function stripTemplatePaths(value: unknown, templateDir: string): unknown {
+  if (typeof value === 'string' && isWithin(templateDir, value)) return ''
   if (Array.isArray(value)) {
-    return value.map((item) => rewriteTemplatePaths(item, templateDir, projectDir))
+    return value.map((item) => stripTemplatePaths(item, templateDir))
   }
   if (isRecord(value)) {
     const result: JsonRecord = {}
     for (const [key, child] of Object.entries(value)) {
-      result[key] = rewriteTemplatePaths(child, templateDir, projectDir)
+      result[key] = stripTemplatePaths(child, templateDir)
     }
     return result
   }
@@ -193,6 +190,7 @@ function appendMaterial(draft: JsonRecord, group: string, material: JsonRecord):
 }
 
 function cloneCompanionMaterials(
+  sourceDraft: JsonRecord,
   draft: JsonRecord,
   prototypeSegment: JsonRecord,
   speed: number
@@ -202,7 +200,7 @@ function cloneCompanionMaterials(
     : []
   const nextRefs: string[] = []
   for (const ref of refs) {
-    const location = findMaterial(draft, ref, '')
+    const location = findMaterial(sourceDraft, ref, '')
     if (!location) continue
     const material = clone(location.item)
     const nextId = id()
@@ -216,6 +214,7 @@ function cloneCompanionMaterials(
 
 function createSegment(
   draft: JsonRecord,
+  sourceDraft: JsonRecord,
   prototype: TrackPrototype,
   materialGroup: string,
   configureMaterial: (material: JsonRecord) => void,
@@ -226,7 +225,7 @@ function createSegment(
   volume: number
 ): JsonRecord {
   const sourceMaterialId = String(prototype.segment.material_id ?? '')
-  const materialLocation = findMaterial(draft, sourceMaterialId, materialGroup)
+  const materialLocation = findMaterial(sourceDraft, sourceMaterialId, materialGroup)
   if (!materialLocation) throw new Error(`Template thiếu material ${materialGroup} cho track ${String(prototype.track.name ?? '')}.`)
 
   const material = clone(materialLocation.item)
@@ -243,7 +242,7 @@ function createSegment(
   setRange(segment, 'source_timerange', 0, microseconds(sourceDurationSeconds))
   segment.speed = speed
   segment.volume = volume
-  segment.extra_material_refs = cloneCompanionMaterials(draft, prototype.segment, speed)
+  segment.extra_material_refs = cloneCompanionMaterials(sourceDraft, draft, prototype.segment, speed)
   return segment
 }
 
@@ -320,14 +319,30 @@ function rewriteTimelineEnvelope(value: unknown, draft: JsonRecord): { value: un
   return { value, changed: false }
 }
 
-async function rewriteTimelineMirrors(projectPath: string, draft: JsonRecord): Promise<void> {
-  for (const fileName of ['draft_info.json', 'template-2.tmp']) {
-    const path = join(projectPath, fileName)
-    const parsed = await readJson(path)
-    if (parsed === null) continue
-    const rewritten = rewriteTimelineEnvelope(parsed, draft)
-    if (rewritten.changed) await writeJsonAtomic(path, rewritten.value)
+async function writeTimelineMirrors(projectPath: string, templateDir: string, draft: JsonRecord): Promise<void> {
+  const draftInfoTemplate = stripTemplatePaths(await readJson(join(templateDir, 'draft_info.json')), templateDir)
+  if (draftInfoTemplate !== null) {
+    const rewritten = rewriteTimelineEnvelope(draftInfoTemplate, draft)
+    await writeJsonAtomic(join(projectPath, 'draft_info.json'), rewritten.changed ? rewritten.value : draft)
+  } else {
+    await writeJsonAtomic(join(projectPath, 'draft_info.json'), draft)
   }
+
+  const templateMirror = stripTemplatePaths(await readJson(join(templateDir, 'template-2.tmp')), templateDir)
+  if (templateMirror !== null) {
+    const rewritten = rewriteTimelineEnvelope(templateMirror, draft)
+    if (rewritten.changed) await writeJsonAtomic(join(projectPath, 'template-2.tmp'), rewritten.value)
+  }
+}
+
+async function seedDraftMetadata(templateDir: string, projectPath: string): Promise<void> {
+  const source = stripTemplatePaths(await readJson(join(templateDir, 'draft_meta_info.json')), templateDir)
+  if (!isRecord(source)) return
+  const metadata = clone(source)
+  for (const key of ['draft_id', 'draft_name', 'draft_fold_path', 'draft_json_file', 'draft_root_path', 'draft_cover']) {
+    delete metadata[key]
+  }
+  await writeJsonAtomic(join(projectPath, 'draft_meta_info.json'), metadata)
 }
 
 async function copyAssets(
@@ -383,7 +398,7 @@ async function updateDraftMeta(
   meta.draft_timeline_materials_size = draftMaterialSize(draft)
   meta.tm_draft_modified = nowMicroseconds()
   if (typeof meta.tm_draft_create !== 'number') meta.tm_draft_create = nowMicroseconds()
-  if (await isFile(join(projectPath, 'draft_cover.jpg'))) meta.draft_cover = 'draft_cover.jpg'
+  meta.draft_cover = await isFile(join(projectPath, 'draft_cover.jpg')) ? 'draft_cover.jpg' : ''
   await writeJsonAtomic(metaPath, meta)
 
   const rootMetaPath = join(rootPath, 'root_meta_info.json')
@@ -441,6 +456,9 @@ export async function generateNativeCapCutProject(
 ): Promise<NativeCapCutProjectResult> {
   const projectPath = resolve(input.projectPath)
   const templateDir = resolve(input.templateDir)
+  if (normalizedPath(projectPath) === normalizedPath(templateDir)) {
+    throw new Error('Project mới phải khác thư mục template CapCut.')
+  }
   if (await isFile(join(projectPath, 'draft_content.json'))) {
     throw new Error(`Project đích đã tồn tại: ${projectPath}`)
   }
@@ -448,16 +466,43 @@ export async function generateNativeCapCutProject(
   if (templateError) throw new Error(templateError)
   if (input.isCancelled?.()) throw new Error('Đã hủy.')
 
-  input.onProgress?.('Đang sao chép template CapCut native…')
-  await cp(templateDir, projectPath, { recursive: true, force: false })
+  input.onProgress?.('Đang tạo project CapCut mới từ schema template…')
+  try {
+    await mkdir(projectPath)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+      throw new Error(`Thư mục project đích đã tồn tại: ${projectPath}`)
+    }
+    throw error
+  }
+
+  await seedDraftMetadata(templateDir, projectPath)
   const draftPath = join(projectPath, 'draft_content.json')
-  const templateDraft = await readJson(draftPath)
-  if (!isRecord(templateDraft)) throw new Error('Không đọc được draft_content.json sau khi sao chép template.')
-  const draft = rewriteTemplatePaths(templateDraft, templateDir, projectPath) as JsonRecord
-  const videoPrototype = findTrackPrototype(draft, 'video', 'Video nền')
-  const audioPrototype = findTrackPrototype(draft, 'audio', 'Voice')
-  const textPrototype = findTrackPrototype(draft, 'text', 'Phụ đề')
-  if (!videoPrototype || !audioPrototype || !textPrototype) throw new Error('Template thiếu track mẫu video, voice hoặc phụ đề.')
+  const templateDraft = await readJson(join(templateDir, 'draft_content.json'))
+  if (!isRecord(templateDraft)) throw new Error('Không đọc được draft_content.json của template.')
+  const schemaDraft = stripTemplatePaths(templateDraft, templateDir) as JsonRecord
+  const sourceVideoPrototype = findTrackPrototype(schemaDraft, 'video', 'Video nền')
+  const sourceAudioPrototype = findTrackPrototype(schemaDraft, 'audio', 'Voice')
+  const sourceTextPrototype = findTrackPrototype(schemaDraft, 'text', 'Phụ đề')
+  if (!sourceVideoPrototype || !sourceAudioPrototype || !sourceTextPrototype) {
+    throw new Error('Template thiếu track mẫu video, voice hoặc phụ đề.')
+  }
+
+  const cleanTrack = (prototype: TrackPrototype): TrackPrototype => {
+    const track = clone(prototype.track)
+    track.id = id()
+    track.segments = []
+    return { track, segment: prototype.segment }
+  }
+  const videoPrototype = cleanTrack(sourceVideoPrototype)
+  const audioPrototype = cleanTrack(sourceAudioPrototype)
+  const textPrototype = cleanTrack(sourceTextPrototype)
+  const draft = clone(schemaDraft)
+  draft.id = id()
+  draft.name = input.projectName
+  draft.tracks = [videoPrototype.track, audioPrototype.track, textPrototype.track]
+  const sourceMaterials = asRecord(schemaDraft.materials)
+  draft.materials = Object.fromEntries(Object.keys(sourceMaterials).map((group) => [group, []]))
 
   const copiedAssets = await copyAssets(projectPath, input.videoItems, input.audioItems)
   const videoTrack = videoPrototype.track
@@ -475,6 +520,7 @@ export async function generateNativeCapCutProject(
     const targetPath = copiedAssets[index]
     const segment = createSegment(
       draft,
+      schemaDraft,
       videoPrototype,
       'videos',
       (material) => {
@@ -502,6 +548,7 @@ export async function generateNativeCapCutProject(
     const targetPath = copiedAssets[input.videoItems.length + index]
     const segment = createSegment(
       draft,
+      schemaDraft,
       audioPrototype,
       'audios',
       (material) => {
@@ -527,6 +574,7 @@ export async function generateNativeCapCutProject(
     if (input.isCancelled?.()) throw new Error('Đã hủy.')
     const segment = createSegment(
       draft,
+      schemaDraft,
       textPrototype,
       'texts',
       (material) => {
@@ -570,7 +618,7 @@ export async function generateNativeCapCutProject(
   draft.canvas_config = canvas
   draft.update_time = nowMicroseconds()
   await writeJsonAtomic(draftPath, draft)
-  await rewriteTimelineMirrors(projectPath, draft)
+  await writeTimelineMirrors(projectPath, templateDir, draft)
   await updateDraftMeta(projectPath, input.projectName, draft, Number(draft.duration ?? 0))
 
   return {

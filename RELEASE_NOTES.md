@@ -1,10 +1,11 @@
-## T-blao v0.1.24
+## T-blao v0.1.25
 
 ### CapCut đa ngôn ngữ
 
 - Bỏ hoàn toàn dependency và runtime `capcut-cli`.
-- Tạo draft bằng native template theo cách clone/rewrite của workflow Auto CapCut.
-- Copy media vào `assets`, cập nhật timeline và metadata CapCut trên chính máy người dùng.
+- Tạo draft native mới từ schema template, không clone media hoặc nội dung cũ của template.
+- Đọc video/scene, voice và SRT mới; copy asset vào project mới và cập nhật timeline/metadata CapCut.
+- Kế thừa style subtitle từ template như font, cỡ chữ, màu và typesetting.
 - Bắt buộc chọn template CapCut thật của máy để bám đúng schema phiên bản đang cài.
 
 ## T-blao v0.1.23
