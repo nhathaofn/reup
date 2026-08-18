@@ -542,6 +542,13 @@ async function resolveDownloadedFile(
 }
 
 /** Dung lenh yt-dlp tu DownloadRequest. */
+type YouTubeFallbackMode = 'none' | 'adaptive' | 'progressive'
+
+interface BuildArgsOptions {
+  formatFallback?: boolean
+  youtubeFallback?: YouTubeFallbackMode
+}
+
 function buildArgs(
   id: string,
   req: DownloadRequest,
@@ -549,9 +556,9 @@ function buildArgs(
   context: SiteExecutionContext,
   cookiesFile: string | null,
   sidecar: string,
-  formatFallback = false,
-  youtubeAudioFallback = false
+  options: BuildArgsOptions = {}
 ): string[] {
+  const { formatFallback = false, youtubeFallback = 'none' } = options
   const args: string[] = []
 
   // Output: <thu muc>/<mau ten file>
@@ -580,16 +587,39 @@ function buildArgs(
   if (ffLoc) args.push('--ffmpeg-location', ffLoc)
   if (isWin) args.push('--windows-filenames')
   args.push(...context.requestArgs)
-  if (youtubeAudioFallback) {
-    // Audio-only DASH cua YouTube co the tra 403 vi GVS/PO-token. Client
-    // tv_simply cung cap stream progressive co audio va khong can PO-token;
-    // yt-dlp se tai stream nay roi trich audio bang FFmpeg.
-    args.push('--extractor-args', 'youtube:player_client=tv_simply')
+  if (youtubeFallback !== 'none') {
+    // `web_embedded` hien cung cap luong khong can GVS PO-token cho video cho
+    // phep nhung. No tranh loi 403 theo tung byte-range cua client mac dinh ma
+    // van giu duoc video/audio tach roi chat luong cao. Khong dung tv_simply:
+    // client do hien cung co the bi YouTube doi PO-token va tra 403.
+    args.push('--extractor-args', 'youtube:player_client=web_embedded')
   }
 
   const container = req.container || 'mp4'
-  if (youtubeAudioFallback) {
-    args.push('-f', 'best', '-x', '--audio-format', req.audioFormat || 'mp3', '--audio-quality', '0')
+  if (youtubeFallback === 'progressive') {
+    // Lop cuoi uu tien stream da ghep san (thuong la format 18). No co the
+    // thap hon chat luong yeu cau, nhung ben vung hon DASH video/audio tach roi.
+    // Audio van duoc trich ve dung dinh dang ma nguoi dung chon.
+    const h = req.height
+    const cap = h && h > 0 ? `[height<=${h}]` : ''
+    args.push('-f', cap ? `best${cap}/best` : 'best')
+    if (req.kind === 'audio') {
+      args.push('-x', '--audio-format', req.audioFormat || 'mp3', '--audio-quality', '0')
+    } else {
+      args.push('--merge-output-format', container)
+    }
+  } else if (youtubeFallback === 'adaptive' && req.kind === 'audio') {
+    // Thu lai audio tach roi chat luong cao bang URL moi truoc khi phai lui ve
+    // stream progressive.
+    args.push(
+      '-f',
+      'bestaudio/best',
+      '-x',
+      '--audio-format',
+      req.audioFormat || 'mp3',
+      '--audio-quality',
+      '0'
+    )
   } else if (req.formatId) {
     // Nguoi dung chon dinh dang cu the (uu tien cao nhat)
     args.push('-f', req.formatId)
@@ -860,6 +890,10 @@ function safeDownloadResult(result: InternalDownloadResult): DownloadResult {
   return safe
 }
 
+function isHttp403(raw: unknown): boolean {
+  return /HTTP Error 403|\b403 Forbidden\b/i.test(String(raw ?? ''))
+}
+
 /** Tai xuong voi retry rieng theo tung website. */
 export async function download(
   id: string,
@@ -907,14 +941,9 @@ export async function download(
       if (result.ok) logInfo('Thử lại không cookie: thành công.')
     }
 
-    if (
-      !result.ok &&
-      context.site === 'youtube' &&
-      req.kind === 'audio' &&
-      /HTTP Error 403|\b403 Forbidden\b/i.test(result.rawError ?? '')
-    ) {
-      logInfo('YouTube từ chối luồng audio-only — thử luồng tương thích…')
-      const retrySidecar = resultSidecarPath(id, 'youtube-audio-compatible')
+    if (!result.ok && context.site === 'youtube' && isHttp403(result.rawError)) {
+      logInfo('YouTube từ chối luồng đã chọn — thử lại bằng luồng tương thích…')
+      const retrySidecar = resultSidecarPath(id, 'youtube-compatible')
       const compatibleArgs = buildArgs(
         id,
         { ...req, formatId: null },
@@ -922,10 +951,9 @@ export async function download(
         context,
         activeCookie,
         retrySidecar,
-        false,
-        true
+        { youtubeFallback: 'adaptive' }
       )
-      debugRaw('ytdlp youtube audio fallback cmd', `${cmd} ${compatibleArgs.join(' ')}`)
+      debugRaw('ytdlp youtube compatible cmd', `${cmd} ${compatibleArgs.join(' ')}`)
       result = await runYtdlpDownload(
         cmd,
         compatibleArgs,
@@ -935,7 +963,32 @@ export async function download(
         onProgress,
         retrySidecar
       )
-      if (result.ok) logInfo('Tải audio YouTube thành công bằng luồng tương thích.')
+      if (result.ok) logInfo('Tải YouTube thành công bằng luồng tương thích.')
+    }
+
+    if (!result.ok && context.site === 'youtube' && isHttp403(result.rawError)) {
+      logInfo('Luồng YouTube chất lượng cao vẫn bị từ chối — thử luồng progressive…')
+      const retrySidecar = resultSidecarPath(id, 'youtube-progressive')
+      const progressiveArgs = buildArgs(
+        id,
+        { ...req, formatId: null },
+        ffLoc,
+        context,
+        activeCookie,
+        retrySidecar,
+        { youtubeFallback: 'progressive' }
+      )
+      debugRaw('ytdlp youtube progressive cmd', `${cmd} ${progressiveArgs.join(' ')}`)
+      result = await runYtdlpDownload(
+        cmd,
+        progressiveArgs,
+        id,
+        req,
+        context,
+        onProgress,
+        retrySidecar
+      )
+      if (result.ok) logInfo('Tải YouTube thành công bằng luồng progressive.')
     }
 
     if (!result.ok && result.errorCode === 'format_unavailable') {
@@ -951,7 +1004,7 @@ export async function download(
         context,
         activeCookie,
         retrySidecar,
-        true
+        { formatFallback: true }
       )
       debugRaw('ytdlp format fallback cmd', `${cmd} ${fallbackArgs.join(' ')}`)
       result = await runYtdlpDownload(

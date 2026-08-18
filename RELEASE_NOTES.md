@@ -1,3 +1,12 @@
+## T-blao v0.1.27
+
+### Tải video YouTube
+
+- Sửa lỗi tải video YouTube dừng giữa chừng với `HTTP 403`.
+- Tự động tạo lại luồng tải bằng client tương thích khi luồng mặc định bị từ chối.
+- Giữ ưu tiên chất lượng và độ phân giải đã chọn trước khi lùi về luồng progressive.
+- Áp dụng cơ chế phục hồi cho cả tải video và audio.
+
 ## T-blao v0.1.26
 
 ### Tải audio YouTube
