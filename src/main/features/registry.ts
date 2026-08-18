@@ -6,12 +6,14 @@ import type { FeatureInvokeHandler, MainFeatureModule } from './contracts'
 import { capcutFactoryMainFeature } from './capcut-factory'
 import { sceneSplitterMainFeature } from './scene-splitter'
 import { mediaInspectorMainFeature } from './media-inspector'
+import { srtTranslatorMainFeature } from './srt-translator'
 
 const registeredMainFeatures = [
   // feature-scaffold:modules
   capcutFactoryMainFeature,
   sceneSplitterMainFeature,
   mediaInspectorMainFeature,
+  srtTranslatorMainFeature,
 ] as const satisfies readonly MainFeatureModule[]
 
 const mainFeatureModules: readonly MainFeatureModule[] = registeredMainFeatures

@@ -90,6 +90,12 @@ import {
 } from './douyinCookies'
 import type { DichProvider, DouyinRequest, Video2xRunRequest, WhisperRequest } from '../shared/types'
 import {
+  isLocalPortableBuild,
+  LOCAL_APP_ID,
+  LOCAL_APP_NAME,
+  LOCAL_USER_DATA_DIRECTORY
+} from '../shared/build-variant'
+import {
   clearLogs,
   debugRaw,
   errLabel,
@@ -115,8 +121,15 @@ import { registerMainFeatures } from './features/registry'
 
 // Cho phep smoke-test ban dong goi bang mot thu muc du lieu sach, tach biet
 // hoan toan voi du lieu that cua nguoi dung. Ban phat hanh khong dat bien nay.
-const userDataOverride = process.env['TBLAO_USER_DATA_DIR']
-if (userDataOverride) app.setPath('userData', userDataOverride)
+const userDataOverride = process.env['TBLAO_USER_DATA_DIR']?.trim()
+const portableDirectory = process.env['PORTABLE_EXECUTABLE_DIR']?.trim()
+const localPortable = isLocalPortableBuild(process.env, app.isPackaged)
+if (userDataOverride) {
+  app.setPath('userData', userDataOverride)
+} else if (localPortable && portableDirectory) {
+  app.setPath('userData', join(portableDirectory, LOCAL_USER_DATA_DIRECTORY))
+  app.setAppUserModelId(LOCAL_APP_ID)
+}
 
 let mainWindow: BrowserWindow | null = null
 const isPrimaryInstance = app.requestSingleInstanceLock()
@@ -138,7 +151,7 @@ function createWindow(): void {
     minHeight: 620,
     show: false,
     autoHideMenuBar: true,
-    title: 'T-blao',
+    title: localPortable ? LOCAL_APP_NAME : 'T-blao',
     icon: join(__dirname, '../../build/icon.png'),
     backgroundColor: '#0f1115',
     webPreferences: {

@@ -56,7 +56,8 @@
 .modal-list:hover::-webkit-scrollbar-thumb,
 .modal-body:hover::-webkit-scrollbar-thumb,
 .logs-list:hover::-webkit-scrollbar-thumb,
-.license-page:hover::-webkit-scrollbar-thumb {
+.license-page:hover::-webkit-scrollbar-thumb,
+.srt-translator-workspace:hover::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.16);
   background-clip: padding-box;
 }

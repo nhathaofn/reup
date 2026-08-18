@@ -4,12 +4,14 @@ import { assertRendererFeatureRegistry, type RendererFeature } from './contracts
 import { capcutFactoryRendererFeature } from './capcut-factory'
 import { sceneSplitterRendererFeature } from './scene-splitter'
 import { mediaInspectorRendererFeature } from './media-inspector'
+import { srtTranslatorRendererFeature } from './srt-translator'
 
 const registeredRendererFeatures = [
   // feature-scaffold:modules
   capcutFactoryRendererFeature,
   sceneSplitterRendererFeature,
   mediaInspectorRendererFeature,
+  srtTranslatorRendererFeature,
 ] as const satisfies readonly RendererFeature[]
 
 assertRendererFeatureRegistry(registeredRendererFeatures)

@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { app } from 'electron'
 import { debugRaw, errLabel, logInfo } from './logger'
 import type { GeminiStatus, SrtBlock } from '../shared/types'
-import { buildSrt, chia, huongDan, parseSrt } from './translate-shared'
+import { buildSrt, chia, huongDan, mergeTranslatedBlocks, parseSrt } from './translate-shared'
 
 export { parseSrt, buildSrt } from './translate-shared'
 
@@ -207,16 +207,15 @@ const SCHEMA = {
  * Khoi nao khong co ban dich -> giu nguyen chu goc (tha 1 dong chua dich con
  * hon ca file sai gio).
  */
-export async function translateSrt(
-  srtPath: string,
-  outPath: string,
+export async function translateSrtText(
+  raw: string,
   dich: string,
   onProgress?: (done: number, total: number) => void
-): Promise<{ ok: boolean; error?: string; count?: number }> {
+): Promise<{ ok: boolean; srt?: string; error?: string; count?: number }> {
   const key = await loadKey()
   if (!key) return { ok: false, error: 'Chưa có API key.' }
 
-  const blocks = parseSrt(await readFile(srtPath, 'utf-8'))
+  const blocks = parseSrt(raw)
   if (!blocks.length) return { ok: false, error: 'File phụ đề trống.' }
 
   const models = await danhSach(key)
@@ -236,12 +235,24 @@ export async function translateSrt(
     } catch {
       return { ok: false, error: 'Kết quả dịch không đọc được.' }
     }
-    const map = new Map(arr.map((x) => [x.n, x.t]))
-    c.forEach((b, j) => ra.push({ time: b.time, text: map.get(j + 1) || b.text }))
+    ra.push(...mergeTranslatedBlocks(c, arr))
     onProgress?.(i + 1, chunks.length)
   }
 
-  await writeFile(outPath, buildSrt(ra), 'utf-8')
   logInfo(`Dịch phụ đề: xong ${ra.length} câu.`)
-  return { ok: true, count: ra.length }
+  return { ok: true, srt: buildSrt(ra), count: ra.length }
+}
+
+export async function translateSrt(
+  srtPath: string,
+  outPath: string,
+  dich: string,
+  onProgress?: (done: number, total: number) => void
+): Promise<{ ok: boolean; error?: string; count?: number }> {
+  const result = await translateSrtText(await readFile(srtPath, 'utf-8'), dich, onProgress)
+  if (!result.ok || result.srt === undefined) {
+    return { ok: false, error: result.error }
+  }
+  await writeFile(outPath, result.srt, 'utf-8')
+  return { ok: true, count: result.count }
 }

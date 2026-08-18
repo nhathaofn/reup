@@ -25,6 +25,9 @@ files:
   # Khong nhet engine/clone/zip vao installer (tai tu assets-v1 luc chay)
   - '!repo test{,/**}'
   - '!dist-engine{,/**}'
+  # Never package local portable build outputs back into another artifact.
+  - '!dist-local{,/**}'
+  - '!dist-local-*{,/**}'
   - '!engines{,/**}'
   - '!.capcut-sample-check{,/**}'
   - '!test-artifacts{,/**}'
