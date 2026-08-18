@@ -1,4 +1,4 @@
-import { probeYtDlpCapabilities, type YtDlpCapabilities } from './deps'
+import { probeYtDlpCapabilities, resolveNodeRuntime, type YtDlpCapabilities } from './deps'
 import { detectSite, type SiteId } from '../shared/sites'
 import type { YtDlpCapabilityStatus } from '../shared/types'
 
@@ -46,6 +46,15 @@ export async function siteExecutionContext(
     // Gia tri rong nghia la de yt-dlp chon target kha dung, ben vung hon viec
     // hard-code mot phien ban Chrome cu the.
     if (cap.impersonationAvailable) requestArgs.push('--impersonate=')
+  }
+
+  const nodeRuntime = site === 'youtube' ? await resolveNodeRuntime() : null
+  if (nodeRuntime) {
+    // yt-dlp can return only storyboard/partial formats without a JS runtime
+    // when YouTube enables a player challenge. Keep this conditional so the
+    // packaged app remains usable on machines that do not have Node installed.
+    const runtimeArg = nodeRuntime === 'node' ? 'node' : `node:${nodeRuntime}`
+    requestArgs.push('--js-runtimes', runtimeArg)
   }
 
   return {

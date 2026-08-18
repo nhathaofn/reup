@@ -1,3 +1,12 @@
+## T-blao v0.1.26
+
+### Tải audio YouTube
+
+- Sửa lỗi YouTube trả `HTTP 403` khi tải luồng audio-only.
+- Tự động thử luồng YouTube tương thích và trích xuất MP3 khi luồng audio mặc định bị từ chối.
+- Bổ sung JavaScript runtime cho yt-dlp để xử lý các định dạng YouTube mới ổn định hơn.
+- Phân loại đúng lỗi HTTP 403 thay vì hiển thị nhầm là định dạng hoặc độ phân giải không khả dụng.
+
 ## T-blao v0.1.25
 
 ### CapCut đa ngôn ngữ

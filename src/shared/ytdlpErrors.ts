@@ -91,6 +91,13 @@ export function classifyYtDlpError(
   if (/geo.?restrict|not available in your (?:country|region)|blocked.*(?:region|country)|\bcountry\b/i.test(text)) {
     return { code: 'geo_restricted', site, message: 'Nội dung bị giới hạn theo khu vực.' }
   }
+  if (site === 'youtube' && /HTTP Error 403|\b403 Forbidden\b/i.test(text)) {
+    return {
+      code: 'network_error',
+      site,
+      message: 'YouTube từ chối luồng tải (HTTP 403). Hãy thử lại hoặc đổi kết nối mạng.'
+    }
+  }
   if (/requested format is not available|no video formats found|format.*(?:missing|unavailable)/i.test(text)) {
     return {
       code: 'format_unavailable',

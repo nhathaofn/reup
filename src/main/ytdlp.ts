@@ -548,7 +548,9 @@ function buildArgs(
   ffLoc: string | null,
   context: SiteExecutionContext,
   cookiesFile: string | null,
-  sidecar: string
+  sidecar: string,
+  formatFallback = false,
+  youtubeAudioFallback = false
 ): string[] {
   const args: string[] = []
 
@@ -578,9 +580,17 @@ function buildArgs(
   if (ffLoc) args.push('--ffmpeg-location', ffLoc)
   if (isWin) args.push('--windows-filenames')
   args.push(...context.requestArgs)
+  if (youtubeAudioFallback) {
+    // Audio-only DASH cua YouTube co the tra 403 vi GVS/PO-token. Client
+    // tv_simply cung cap stream progressive co audio va khong can PO-token;
+    // yt-dlp se tai stream nay roi trich audio bang FFmpeg.
+    args.push('--extractor-args', 'youtube:player_client=tv_simply')
+  }
 
   const container = req.container || 'mp4'
-  if (req.formatId) {
+  if (youtubeAudioFallback) {
+    args.push('-f', 'best', '-x', '--audio-format', req.audioFormat || 'mp3', '--audio-quality', '0')
+  } else if (req.formatId) {
     // Nguoi dung chon dinh dang cu the (uu tien cao nhat)
     args.push('-f', req.formatId)
     if (req.formatId.includes('+') && !req.ensureH264) {
@@ -591,7 +601,15 @@ function buildArgs(
   } else {
     const h = req.height
     const cap = h && h > 0 ? `[height<=${h}]` : ''
-    if (req.ensureH264) {
+    if (formatFallback) {
+      // Format ids va bo stream cua YouTube co the thay doi giua luc probe va
+      // luc tai. Khi selector binh thuong bi tu choi, de yt-dlp tu chon format
+      // dang phat duoc thay vi tiep tuc ep mot cap stream da loi thoi.
+      // `best` uu tien stream progressive nen van chay duoc ca khi khong ghep
+      // duoc video-only + audio-only. Retry nay chi duoc goi sau khi lan dau
+      // that bai voi loi format, khong thay doi lua chon binh thuong.
+      args.push('-f', cap ? `best${cap}/best` : 'best')
+    } else if (req.ensureH264) {
       // Opt-in: thu H.264 truoc de tranh chuyen ma neu website co san. Van co
       // fallback codec khac; buoc sau tai se chuyen file cuoi sang H.264.
       const fmt =
@@ -858,6 +876,7 @@ export async function download(
     const context = await siteExecutionContext(policyUrl, savedCookie)
     // Neu user bat cookie, moi website dung file cua chinh domain ngay tu dau.
     const initialCookie = savedCookie
+    let activeCookie = initialCookie
     logInfo(`Bắt đầu tải từ ${domainOf(req.url)}…`)
     const args = buildArgs(id, req, ffLoc, context, initialCookie, sidecar)
     // Dong lenh day du lo: duong dan cong cu, TEN cong cu (thu tab Giay phep co
@@ -875,6 +894,7 @@ export async function download(
       logInfo('Tải lỗi 403 khi dùng cookie — thử lại KHÔNG cookie…')
       const retrySidecar = resultSidecarPath(id, 'without-cookies')
       const args2 = buildArgs(id, req, ffLoc, context, null, retrySidecar)
+      activeCookie = null
       result = await runYtdlpDownload(
         cmd,
         args2,
@@ -885,6 +905,65 @@ export async function download(
         retrySidecar
       )
       if (result.ok) logInfo('Thử lại không cookie: thành công.')
+    }
+
+    if (
+      !result.ok &&
+      context.site === 'youtube' &&
+      req.kind === 'audio' &&
+      /HTTP Error 403|\b403 Forbidden\b/i.test(result.rawError ?? '')
+    ) {
+      logInfo('YouTube từ chối luồng audio-only — thử luồng tương thích…')
+      const retrySidecar = resultSidecarPath(id, 'youtube-audio-compatible')
+      const compatibleArgs = buildArgs(
+        id,
+        { ...req, formatId: null },
+        ffLoc,
+        context,
+        activeCookie,
+        retrySidecar,
+        false,
+        true
+      )
+      debugRaw('ytdlp youtube audio fallback cmd', `${cmd} ${compatibleArgs.join(' ')}`)
+      result = await runYtdlpDownload(
+        cmd,
+        compatibleArgs,
+        id,
+        req,
+        context,
+        onProgress,
+        retrySidecar
+      )
+      if (result.ok) logInfo('Tải audio YouTube thành công bằng luồng tương thích.')
+    }
+
+    if (!result.ok && result.errorCode === 'format_unavailable') {
+      // Khong chi retry khi formatId null: format da chon trong modal cung co
+      // the het ton tai sau khi website refresh. Quay ve auto-selection mot
+      // lan, van giu cac tuy chon hau xu ly/thu muc cua request goc.
+      logInfo('Format video đã thay đổi — thử lựa chọn tự động khả dụng…')
+      const retrySidecar = resultSidecarPath(id, 'format-fallback')
+      const fallbackArgs = buildArgs(
+        id,
+        { ...req, formatId: null },
+        ffLoc,
+        context,
+        activeCookie,
+        retrySidecar,
+        true
+      )
+      debugRaw('ytdlp format fallback cmd', `${cmd} ${fallbackArgs.join(' ')}`)
+      result = await runYtdlpDownload(
+        cmd,
+        fallbackArgs,
+        id,
+        req,
+        context,
+        onProgress,
+        retrySidecar
+      )
+      if (result.ok) logInfo('Tải thành công sau khi đổi sang format tự động.')
     }
     return safeDownloadResult(result)
   })

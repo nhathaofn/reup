@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto'
 import { createReadStream, createWriteStream } from 'node:fs'
 import { mkdir, access, rm, readdir, copyFile, chmod, rename } from 'node:fs/promises'
 import { constants } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, sep } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { DepStatus, SetupProgress } from '../shared/types'
@@ -115,6 +115,40 @@ function runCapture(
 /** Kiem tra mot lenh co chay duoc khong (tren PATH hoac duong dan tuyet doi). */
 async function canRun(cmd: string, args: string[] = ['--version']): Promise<boolean> {
   return (await runCapture(cmd, args)).code === 0
+}
+
+let nodeRuntimePath: Promise<string | null> | null = null
+
+/**
+ * YouTube hien yeu cau JavaScript runtime de giai mot so player challenge.
+ * Electron co the nhan PATH khac cua cua so PowerShell, nen uu tien tim
+ * node.exe bang duong dan tuyet doi truoc khi thu lenh `node` tren PATH.
+ */
+export async function resolveNodeRuntime(): Promise<string | null> {
+  if (nodeRuntimePath) return nodeRuntimePath
+  nodeRuntimePath = (async () => {
+    const candidates: string[] = []
+    const configured = process.env.TBLAO_NODE_RUNTIME?.trim()
+    if (configured) candidates.push(configured)
+
+    if (isWin) {
+      for (const root of [
+        process.env.ProgramW6432,
+        process.env.ProgramFiles,
+        process.env['ProgramFiles(x86)']
+      ]) {
+        if (root) candidates.push(join(root, 'nodejs', 'node.exe'))
+      }
+    }
+    candidates.push('node')
+
+    for (const candidate of [...new Set(candidates)]) {
+      if (candidate.includes(sep) && !(await fileExists(candidate))) continue
+      if (await canRun(candidate, ['--version'])) return candidate
+    }
+    return null
+  })()
+  return nodeRuntimePath
 }
 
 /**
