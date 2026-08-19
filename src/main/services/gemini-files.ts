@@ -1,6 +1,7 @@
 import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { Readable } from 'node:stream'
+import { LOCKED_GEMINI_MODEL } from '../gemini-model.ts'
 
 export interface GeminiRemoteFile {
   name: string
@@ -32,6 +33,7 @@ export interface GeminiMultimodalTransport {
 
 export interface GeminiFilesDeps {
   apiKey: string
+  /** Test override; production omits this and always uses LOCKED_GEMINI_MODEL. */
   models?: string[]
   generateTimeoutMs?: number
   fetchImpl?: typeof fetch
@@ -46,9 +48,7 @@ export interface GeminiFilesDeps {
 }
 
 const API_ROOT = 'https://generativelanguage.googleapis.com'
-const FALLBACK_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite']
 const EXCLUDED_MODEL = /image|imagen|tts|audio|speech|embedding|robotics|computer-use|omni/u
-const MODEL_LIST_TIMEOUT_MS = 15_000
 const GENERATE_TIMEOUT_MS = 180_000
 const UPLOAD_REQUEST_TIMEOUT_MS = 20 * 60 * 1000
 const POLL_REQUEST_TIMEOUT_MS = 30_000
@@ -238,33 +238,10 @@ export function createGeminiFilesTransport(deps: GeminiFilesDeps): GeminiMultimo
     throw internalError('gemini_network_failed')
   }
 
-  const modelList = async (signal?: AbortSignal): Promise<string[]> => {
-    if (injectedModels && injectedModels.length) return injectedModels
-    const child = childTimeoutSignal(signal, MODEL_LIST_TIMEOUT_MS)
-    try {
-      const response = await requestWithRetry(
-        `${API_ROOT}/v1beta/models?key=${encodeURIComponent(apiKey)}`,
-        { method: 'GET' },
-        child.signal
-      )
-      const payload = await response.json() as { models?: unknown }
-      if (!Array.isArray(payload.models)) return FALLBACK_MODELS
-      const discovered = payload.models.flatMap((item) => {
-        if (!item || typeof item !== 'object') return []
-        const value = item as Record<string, unknown>
-        const name = typeof value.name === 'string' ? value.name : ''
-        const methods = Array.isArray(value.supportedGenerationMethods)
-          ? value.supportedGenerationMethods
-          : []
-        return methods.includes('generateContent') ? [name] : []
-      })
-      return chooseModels(discovered).length ? chooseModels(discovered) : FALLBACK_MODELS
-    } catch (reason) {
-      if (isAbort(reason, signal)) throw abortReason(signal)
-      return FALLBACK_MODELS
-    } finally {
-      child.dispose()
-    }
+  const modelList = async (): Promise<string[]> => {
+    // Production deliberately skips /models discovery. This keeps every SRT
+    // request on the user-selected model and avoids silently changing models.
+    return injectedModels?.length ? injectedModels : [LOCKED_GEMINI_MODEL]
   }
 
   const uploadVideo = async (input: {
@@ -388,7 +365,7 @@ export function createGeminiFilesTransport(deps: GeminiFilesDeps): GeminiMultimo
   }
 
   const generateJson = async <T>(request: GeminiGenerateRequest): Promise<T> => {
-    const models = await modelList(request.signal)
+    const models = await modelList()
     let lastReason: unknown = null
     const parts = [
       ...(request.file ? [{ fileData: { mimeType: request.file.mimeType, fileUri: request.file.uri } }] : []),

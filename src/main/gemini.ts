@@ -3,6 +3,7 @@ import { readFile, writeFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { app } from 'electron'
 import { debugRaw, errLabel, logInfo } from './logger'
+import { LOCKED_GEMINI_MODEL } from './gemini-model'
 import type { GeminiStatus, SrtBlock } from '../shared/types'
 import { buildSrt, chia, huongDan, mergeTranslatedBlocks, parseSrt } from './translate-shared'
 
@@ -42,41 +43,9 @@ export async function hasKey(): Promise<boolean> {
   return (await loadKey()).length > 0
 }
 
-// ---- Chon model ----
-const DU_PHONG = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite']
-const LOAI = /image|imagen|tts|audio|speech|embedding|robotics|computer-use|omni/
-
-function diem(n: string): number {
-  const m = n.match(/(\d+\.\d+|\d+)/)
-  let s = (m ? parseFloat(m[1]) : 1) * 100
-  if (n.includes('flash')) s += 50
-  if (n.includes('lite')) s -= 20
-  if (n.includes('preview') || n.includes('-exp')) s -= 30
-  return s
-}
-
-async function danhSach(key: string): Promise<string[]> {
-  let ds: string[] = []
-  try {
-    // Cung phai co han: mat mang o day thi treo truoc khi kip goi dich.
-    const res = await fetch(`${BASE}/models?key=${key}`, { signal: AbortSignal.timeout(15_000) })
-    if (res.ok) {
-      const d = (await res.json()) as {
-        models?: { name?: string; supportedGenerationMethods?: string[] }[]
-      }
-      ds = (d.models ?? [])
-        .filter(
-          (m) =>
-            (m.name ?? '').includes('gemini-') &&
-            (m.supportedGenerationMethods ?? []).includes('generateContent')
-        )
-        .map((m) => (m.name as string).replace('models/', ''))
-    }
-  } catch {
-    /* rot ve du phong */
-  }
-  const pool = ds.length ? ds : DU_PHONG
-  return pool.filter((n) => !LOAI.test(n)).sort((a, b) => diem(b) - diem(a))
+// ---- Model Gemini cố định ----
+async function danhSach(_key: string): Promise<string[]> {
+  return [LOCKED_GEMINI_MODEL]
 }
 
 interface GenKQ {

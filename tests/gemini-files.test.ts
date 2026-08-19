@@ -5,6 +5,7 @@ import {
   type GeminiFilesDeps,
   type GeminiRemoteFile
 } from '../src/main/services/gemini-files.ts'
+import { LOCKED_GEMINI_MODEL } from '../src/main/gemini-model.ts'
 
 function transportFromResponses(
   responses: readonly Response[],
@@ -72,7 +73,7 @@ test('429 retries at most three calls and honors injected sleeps', async () => {
   assert.deepEqual(waits, [1000, 2000])
 })
 
-test('model discovery filters excluded models and chooses deterministic best model', async () => {
+test('production transport uses the locked model without model discovery', async () => {
   const urls: string[] = []
   const transport = createGeminiFilesTransport({
     apiKey: 'secret-key',
@@ -91,8 +92,8 @@ test('model discovery filters excluded models and chooses deterministic best mod
     openUploadBody: async () => ({ body: '', size: 0 }), sleep: async () => {}, now: () => 0, random: () => 0
   })
   await transport.generateJson({ systemInstruction: '', userText: 'x', responseSchema: {} })
-  assert.match(urls[1] ?? '', /models\/gemini-2\.5-flash:generateContent/)
-  assert.equal(urls.some((url) => url.includes('tts:generateContent')), false)
+  assert.equal(urls.some((url) => url.endsWith('/models?key=secret-key')), false)
+  assert.equal(urls[0]?.includes(`/models/${LOCKED_GEMINI_MODEL}:generateContent`), true)
 })
 
 test('abort during retry stops before another request', async () => {

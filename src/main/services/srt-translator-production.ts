@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { resolveFfmpeg } from '../deps'
 import { loadKey } from '../gemini'
+import { LOCKED_GEMINI_MODEL } from '../gemini-model'
 import { logError, logInfo, logWarn } from '../logger'
 import { createExchangeRateProvider } from './exchange-rates'
 import { createGeminiFilesTransport } from './gemini-files'
@@ -38,7 +39,8 @@ function logSrtProcess(event: SrtTranslatorLogEvent): void {
     event.attempt !== undefined ? `attempt=${event.attempt}` : '',
     durationText(event.durationMs) ? `duration=${durationText(event.durationMs)}` : '',
     durationText(event.elapsedMs) ? `elapsed=${durationText(event.elapsedMs)}` : '',
-    event.hasMedia === undefined ? '' : `media=${event.hasMedia ? 'yes' : 'no'}`
+    event.hasMedia === undefined ? '' : `media=${event.hasMedia ? 'yes' : 'no'}`,
+    event.operation?.includes('gemini-') ? `model=${LOCKED_GEMINI_MODEL}` : ''
   ].filter(Boolean).join(' | ')
   const writer = event.level === 'error' ? logError : event.level === 'warn' ? logWarn : logInfo
   writer(logSafeLine(parts))
