@@ -15,18 +15,46 @@ import {
 import type { LoadedSrtSource } from './srt-source-validation.ts'
 import type { RestorationDraft } from './srt-source-restoration.ts'
 
-export const AUDIT_RESPONSE_SCHEMA = {
-  type: 'OBJECT',
-  properties: { cues: { type: 'ARRAY', items: { type: 'OBJECT' } } },
-  required: ['cues']
-} as const
-
-const DECISIONS = new Set(['accept', 'revert', 'replace', 'review'])
-const CONFIDENCES = new Set(['high', 'medium', 'low'])
-const ISSUES = new Set([
+const DECISION_VALUES = ['accept', 'revert', 'replace', 'review'] as const
+const CONFIDENCE_VALUES = ['high', 'medium', 'low'] as const
+const ISSUE_VALUES = [
   'none', 'homophone', 'asr-omission', 'asr-segmentation', 'dialect', 'slang',
   'taxonomy', 'proper-name', 'technical-term', 'number-or-currency', 'other'
-])
+] as const
+const DECISIONS = new Set<string>(DECISION_VALUES)
+const CONFIDENCES = new Set<string>(CONFIDENCE_VALUES)
+const ISSUES = new Set<string>(ISSUE_VALUES)
+
+const AUDIT_CANDIDATE_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    correctedZh: { type: 'STRING' },
+    meaningVi: { type: 'STRING' },
+    evidenceVi: { type: 'STRING' }
+  },
+  required: ['correctedZh', 'meaningVi', 'evidenceVi']
+} as const
+
+const AUDIT_CUE_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    n: { type: 'INTEGER' },
+    decision: { type: 'STRING', enum: [...DECISION_VALUES] },
+    correctedZh: { type: 'STRING' },
+    meaningVi: { type: 'STRING' },
+    confidence: { type: 'STRING', enum: [...CONFIDENCE_VALUES] },
+    issue: { type: 'STRING', enum: [...ISSUE_VALUES] },
+    evidenceVi: { type: 'STRING' },
+    candidates: { type: 'ARRAY', items: AUDIT_CANDIDATE_SCHEMA }
+  },
+  required: ['n', 'decision', 'correctedZh', 'meaningVi', 'confidence', 'issue', 'evidenceVi', 'candidates']
+} as const
+
+export const AUDIT_RESPONSE_SCHEMA = {
+  type: 'OBJECT',
+  properties: { cues: { type: 'ARRAY', items: AUDIT_CUE_SCHEMA } },
+  required: ['cues']
+} as const
 
 export function buildAuditSystemPrompt(): string {
   return [
@@ -40,7 +68,9 @@ export function buildAuditSystemPrompt(): string {
     'Kiểm tra tính nhất quán của taxonomy, tên riêng, thuật ngữ, số, tiền tệ và đơn vị.',
     'Phân biệt tên chính thức, biệt danh và mô tả dân gian.',
     'Nếu hai nghĩa đều hợp lý, hạ confidence và tạo các candidate tiếng Việt khác biệt rõ.',
-    'Không tự chấp nhận cue low-confidence còn mơ hồ.'
+    'Không tự chấp nhận cue low-confidence còn mơ hồ.',
+    'Mỗi core cue phải trả đúng một object đầy đủ theo schema. Tuyệt đối không trả cues:[{}].',
+    'Nếu không thể xác minh, dùng decision review hoặc revert với đầy đủ correctedZh, meaningVi, evidenceVi và candidates.'
   ].join('\n')
 }
 
@@ -129,7 +159,12 @@ function auditPayload(source: LoadedSrtSource, draft: RestorationDraft, core: re
 }
 
 function cleanRepairText(payload: object, errors: readonly string[]): string {
-  return ['Sửa JSON audit theo đúng các mã lỗi, chỉ trả JSON:', errors.join(', '), JSON.stringify(payload)].join('\n')
+  return [
+    'Sửa JSON audit theo đúng các mã lỗi, chỉ trả JSON hợp lệ theo schema.',
+    'Không được trả object rỗng; phải có đúng một row đầy đủ cho từng core cue.',
+    errors.join(', '),
+    JSON.stringify(payload)
+  ].join('\n')
 }
 
 function trace(input: { onLog?: SrtTranslatorLog }, event: SrtTranslatorLogEvent): void {
@@ -167,6 +202,23 @@ function mergeAuditedCue(original: RestoredCue, audited: Record<string, unknown>
   }
 }
 
+function markCueForReview(cue: RestoredCue): RestoredCue {
+  if (cue.candidates.length > 0) return { ...cue, needsReview: true }
+  // A malformed/failed audit must not leave the UI with an unresolved cue that
+  // has no selectable option. Keep the pass-1 proposal as an explicit local
+  // candidate; the user can accept it or reject it during review.
+  return {
+    ...cue,
+    needsReview: true,
+    candidates: [{
+      id: `${cue.n}:fallback`,
+      correctedZh: cue.correctedZh,
+      meaningVi: cue.meaningVi,
+      evidenceVi: 'Gemini không trả kết quả audit hợp lệ; cần người dùng xác nhận.'
+    }]
+  }
+}
+
 function filterStructuredFacts(canonical: CanonicalSource): CanonicalSource {
   const cues = canonical.cues.map((cue) => {
     const { visualContextVi: _visualContextVi, ...textOnlyCue } = cue
@@ -191,7 +243,6 @@ export async function auditRestoration(input: {
   onLog?: SrtTranslatorLog
 }): Promise<CanonicalSource> {
   const batches = auditBatches(input.source, input.draft)
-  const cueMap = new Map(input.draft.cues.map((cue) => [cue.n, cue]))
   const unresolved = new Set<number>()
   let cues = [...input.draft.cues]
 
@@ -288,22 +339,40 @@ export async function auditRestoration(input: {
         }
         if (!errors.length) break
       }
-      if (errors.length) throw new Error('Dữ liệu audit không hợp lệ.')
+      if (errors.length) {
+        // A bad structured response is recoverable at job level: preserve the
+        // draft and send these cues to the existing review flow.
+        for (const cue of core) unresolved.add(cue.n)
+        trace(input, {
+          jobId: input.jobId,
+          phase: 'auditing-source',
+          kind: 'operation-progress',
+          level: 'warn',
+          operation: 'gemini-audit-batch',
+          message: 'Audit không tạo được JSON hợp lệ; chuyển batch sang review thủ công.',
+          done: batchIndex + 1,
+          total: batches.length,
+          cueCount: core.length,
+          durationMs: Math.max(0, Date.now() - batchStartedAt),
+          hasMedia: Boolean(input.file)
+        })
+        input.onProgress?.(batchIndex + 1, batches.length)
+        continue
+      }
     } catch (reason) {
       trace(input, {
         jobId: input.jobId,
         phase: 'auditing-source',
         kind: 'operation-error',
-        level: 'error',
+        level: 'warn',
         operation: 'gemini-audit-batch',
-        message: 'Batch audit thất bại; các cue trong batch sẽ cần review.',
+        message: 'Batch audit không hoàn tất; giữ các cue trong batch ở trạng thái cần review.',
         done: batchIndex + 1,
         total: batches.length,
         cueCount: core.length,
         durationMs: Math.max(0, Date.now() - batchStartedAt),
         hasMedia: Boolean(input.file)
       })
-      if (reason instanceof Error && reason.message === 'Dữ liệu audit không hợp lệ.') throw reason
       for (const cue of core) unresolved.add(cue.n)
       input.onProgress?.(batchIndex + 1, batches.length)
       continue
@@ -315,11 +384,10 @@ export async function auditRestoration(input: {
     }))
     cues = cues.map((cue) => {
       const audited = auditedByNumber.get(cue.n)
-      if (!audited) return cue
+      if (!audited) return unresolved.has(cue.n) ? markCueForReview(cue) : cue
       const merged = mergeAuditedCue(cue, audited)
       if (merged.needsReview) unresolved.add(cue.n)
       else unresolved.delete(cue.n)
-      cueMap.set(cue.n, merged)
       return merged
     })
     trace(input, {
@@ -338,7 +406,7 @@ export async function auditRestoration(input: {
   }
 
   const finalCues = cues.map((cue) => {
-    const next = unresolved.has(cue.n) ? { ...cue, needsReview: true } : cue
+    const next = unresolved.has(cue.n) ? markCueForReview(cue) : cue
     // Visual context belongs to the removed media path. Never carry a visual
     // claim into a canonical source produced from SRT alone.
     const { visualContextVi: _visualContextVi, ...textOnlyCue } = next

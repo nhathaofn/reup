@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { applyReviewSelections, auditRestoration, buildAuditSystemPrompt } from '../src/main/services/srt-source-audit.ts'
+import { applyReviewSelections, auditRestoration, buildAuditSystemPrompt, AUDIT_RESPONSE_SCHEMA } from '../src/main/services/srt-source-audit.ts'
 import type { GeminiGenerateRequest } from '../src/main/services/gemini-files.ts'
 import { createFakeGeminiTransport, restorationDraftFixture, sourceCuesFixture, unresolvedCanonicalFixture, validatedSourceFixture } from './helpers/srt-localization-fixtures.ts'
 
@@ -10,6 +10,10 @@ test('audit prompt is reviewer-only and checks taxonomy/numbers/aliases', () => 
   assert.match(prompt, /tên chính thức.*biệt danh/i)
   assert.match(prompt, /tiền tệ.*đơn vị/i)
   assert.match(prompt, /không tự chấp nhận.*low/i)
+  assert.match(prompt, /không trả cues:\[\{\}\]/i)
+  assert.deepEqual(AUDIT_RESPONSE_SCHEMA.properties.cues.items.required, [
+    'n', 'decision', 'correctedZh', 'meaningVi', 'confidence', 'issue', 'evidenceVi', 'candidates'
+  ])
 })
 
 test('medium promoted to high is auto accepted; remaining ambiguity is unresolved', async () => {
@@ -60,9 +64,12 @@ test('audit batches 61 eligible cues as 60 + 1 and sends three prior cues as con
   assert.deepEqual(result.unresolvedCueNumbers, [])
 })
 
-test('changed cue without an audit decision fails after one repair', async () => {
+test('malformed audit response falls back to review after one repair', async () => {
   const missing = { cues: [acceptRows(2, 2).cues[0]] }
-  await assert.rejects(() => auditRestoration({ jobId: 'job-1', source: validatedSourceFixture, draft: restorationDraftFixture, transport: createFakeGeminiTransport([missing, missing]) }), /Dữ liệu audit không hợp lệ/)
+  const canonical = await auditRestoration({ jobId: 'job-1', source: validatedSourceFixture, draft: restorationDraftFixture, transport: createFakeGeminiTransport([missing, missing]) })
+  assert.deepEqual(canonical.unresolvedCueNumbers, [1, 2])
+  assert.equal(canonical.cues.every((cue) => cue.needsReview), true)
+  assert.equal(canonical.cues.every((cue) => cue.candidates.length > 0), true)
 })
 
 test('failed audit batch marks every affected cue unresolved', async () => {

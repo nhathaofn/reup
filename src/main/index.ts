@@ -210,6 +210,9 @@ async function maybeAutoUpdateYtDlp(): Promise<void> {
 
 app.whenReady().then(() => {
   if (!isPrimaryInstance) return
+  // Mỗi phiên bắt đầu với nhật ký riêng. Đặt tại đây để không tranh chấp với
+  // các lần ghi async trong lúc app đang thoát.
+  wipeLogFileSync()
   // tblao://b64/<duong-dan-ma-hoa-base64url>  ->  doc tep tren dia.
   // !! Duong dan PHAI di qua base64 va PHAI co host "b64". Da do thuc te:
   //    voi standard:true, Chromium coi khuc dau sau "///" la TEN MIEN, nen
@@ -270,9 +273,6 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
-
-// Tu xoa nhat ky khi thoat app -> moi lan mo la nhat ky moi
-app.on('before-quit', () => wipeLogFileSync())
 
 function registerIpc(): void {
   // Kiem tra phu thuoc luc khoi dong
