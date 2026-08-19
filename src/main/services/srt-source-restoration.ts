@@ -75,7 +75,36 @@ const ISSUE_ALIASES: Record<string, RestoredCue['issue']> = {
   'khác': 'other',
   '未分类': 'other'
 }
-const ENTITY_CATEGORIES = new Set(['species', 'person', 'place', 'brand', 'food', 'technical', 'other'])
+export const RESTORATION_ENTITY_CATEGORY_VALUES = [
+  'species', 'person', 'place', 'brand', 'food', 'technical', 'other'
+] as const
+const ENTITY_CATEGORIES = new Set<string>(RESTORATION_ENTITY_CATEGORY_VALUES)
+const ENTITY_CATEGORY_ALIASES: Record<string, CanonicalEntity['category']> = {
+  animal: 'species',
+  animals: 'species',
+  bird: 'species',
+  birds: 'species',
+  goose: 'species',
+  geese: 'species',
+  'động-vật': 'species',
+  'loài': 'species',
+  loai: 'species',
+  chim: 'species',
+  human: 'person',
+  people: 'person',
+  'người': 'person',
+  location: 'place',
+  city: 'place',
+  'địa-danh': 'place',
+  'địa-điểm': 'place',
+  company: 'brand',
+  product: 'brand',
+  dish: 'food',
+  machine: 'technical',
+  equipment: 'technical',
+  unknown: 'other',
+  misc: 'other'
+}
 const UNIT_CODE = /^[A-Za-z][A-Za-z0-9/_-]{0,15}$/u
 const CURRENCY_CODE = /^[A-Z]{3}$/u
 
@@ -108,7 +137,7 @@ export const RESTORATION_RESPONSE_SCHEMA = {
       type: 'OBJECT',
       properties: {
         id: { type: 'STRING' }, sourceForms: { type: 'ARRAY', items: { type: 'STRING' } },
-        category: { type: 'STRING' }, canonicalMeaningVi: { type: 'STRING' }, scientificName: { type: 'STRING' },
+        category: { type: 'STRING', enum: [...RESTORATION_ENTITY_CATEGORY_VALUES] }, canonicalMeaningVi: { type: 'STRING' }, scientificName: { type: 'STRING' },
         confidence: { type: 'STRING', enum: ['high', 'medium', 'low'] }, useNeutralReference: { type: 'BOOLEAN' }
       },
       required: ['sourceForms', 'category', 'canonicalMeaningVi', 'confidence', 'useNeutralReference']
@@ -167,6 +196,7 @@ export function buildRestorationSystemPrompt(): string {
     'Ưu tiên thuật ngữ chuẩn theo chủ đề thay vì dịch từng chữ: ví dụ 黑天鹅 là black swan/thiên nga đen, 塞巴斯托波尔鹅 là Sebastopol goose; cách nói như 领地霸王 cần được hiểu theo văn phong chứ không bê nguyên cấu trúc máy dịch.',
     'Phân loại confidence: high = ngữ cảnh khóa được đáp án; medium = một cách sửa hợp lý vượt trội nhưng còn giả định; low = nhiều khả năng hoặc không thể xác minh chỉ bằng SRT và phải tạo 1–3 candidate.',
     `Trường issue bắt buộc phải là một trong các mã chính xác sau: ${RESTORATION_ISSUE_VALUES.join(', ')}. Nếu không có lỗi dùng none; nếu không chắc hoặc nhãn không khớp dùng other.`,
+    `Trường entities[].category bắt buộc phải là một trong các mã chính xác sau: ${RESTORATION_ENTITY_CATEGORY_VALUES.join(', ')}. Với mọi loài động vật, chim hoặc ngỗng phải dùng species, không dùng animal.`,
     'correctedZh vẫn là tiếng Trung; meaningVi/evidenceVi phải là tiếng Việt dễ hiểu và chỉ dựa trên SRT.',
     'Không tự tạo loài, tên riêng, currency, unit hoặc dữ kiện không xuất hiện hay không được suy ra hợp lý từ SRT.',
     'Cue changed phải có ít nhất một candidate khớp correctedZh và meaningVi; confidence low phải có từ 1 đến 3 candidate.',
@@ -212,6 +242,18 @@ function normalizeIssue(value: unknown): RestoredCue['issue'] {
     .replace(/[\s_]+/gu, '-')
   if (ISSUES.has(normalized)) return normalized as RestoredCue['issue']
   return ISSUE_ALIASES[normalized] ?? 'other'
+}
+
+function normalizeEntityCategory(value: unknown): CanonicalEntity['category'] {
+  if (typeof value !== 'string') return 'other'
+  const normalized = value
+    .trim()
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[–—]/gu, '-')
+    .replace(/[\s_/]+/gu, '-')
+  if (ENTITY_CATEGORIES.has(normalized)) return normalized as CanonicalEntity['category']
+  return ENTITY_CATEGORY_ALIASES[normalized] ?? 'other'
 }
 
 function validateCoreResponse(
@@ -283,7 +325,7 @@ function validateCoreResponse(
     const entity = objectValue(item)
     if (!entity || !Array.isArray(entity.sourceForms) || entity.sourceForms.length < 1 ||
       !entity.sourceForms.every(nonEmpty) ||
-      typeof entity.category !== 'string' || !ENTITY_CATEGORIES.has(entity.category) ||
+      !ENTITY_CATEGORIES.has(normalizeEntityCategory(entity.category)) ||
       !nonEmpty(entity.canonicalMeaningVi) || typeof entity.confidence !== 'string' ||
       !CONFIDENCES.has(entity.confidence)) {
       errors.push('entity-invalid')
@@ -328,12 +370,13 @@ function normalizeEntities(values: unknown[]): CanonicalEntity[] {
     const value = objectValue(item)
     if (!value) continue
     const sourceForms = (value.sourceForms as string[]).map((form) => form.trim())
-    const key = `${value.category}|${sourceForms.map((form) => form.normalize().toLowerCase()).sort().join('|')}`
+    const category = normalizeEntityCategory(value.category)
+    const key = `${category}|${sourceForms.map((form) => form.normalize().toLowerCase()).sort().join('|')}`
     if (byKey.has(key)) continue
     const entity: CanonicalEntity = {
       id: `entity:${entities.length}`,
       sourceForms,
-      category: value.category as CanonicalEntity['category'],
+      category,
       canonicalMeaningVi: String(value.canonicalMeaningVi).trim(),
       ...(nonEmpty(value.scientificName) ? { scientificName: value.scientificName.trim() } : {}),
       confidence: value.confidence as CanonicalEntity['confidence'],

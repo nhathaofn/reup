@@ -4,6 +4,7 @@ import {
   buildCueWindows,
   buildRestorationSystemPrompt,
   restoreSource,
+  RESTORATION_ENTITY_CATEGORY_VALUES,
   RESTORATION_ISSUE_VALUES,
   RESTORATION_RESPONSE_SCHEMA
 } from '../src/main/services/srt-source-restoration.ts'
@@ -39,17 +40,21 @@ test('restoration prompt requires audio, image, ASR evidence and Vietnamese mean
 
 test('restoration constrains issue codes and normalizes model labels', async () => {
   const issueSchema = (RESTORATION_RESPONSE_SCHEMA.properties.cues.items as { properties: { issue: { enum: readonly string[] } } }).properties.issue
+  const entitySchema = (RESTORATION_RESPONSE_SCHEMA.properties.entities.items as { properties: { category: { enum: readonly string[] } } }).properties.category
   assert.deepEqual(issueSchema.enum, RESTORATION_ISSUE_VALUES)
+  assert.deepEqual(entitySchema.enum, RESTORATION_ENTITY_CATEGORY_VALUES)
   const response = {
     ...validPassOneResponse,
     cues: [
       { ...validPassOneResponse.cues[0], issue: 'đồng âm' },
       { ...validPassOneResponse.cues[1], issue: 'nhãn không chắc' }
-    ]
+    ],
+    entities: validPassOneResponse.entities.map((entity) => ({ ...entity, category: 'animal' }))
   }
   const result = await restoreSource({ source: validatedSourceFixture, transport: createFakeGeminiTransport([response]) })
   assert.equal(result.cues[0]?.issue, 'homophone')
   assert.equal(result.cues[1]?.issue, 'other')
+  assert.equal(result.entities[0]?.category, 'species')
 })
 
 test('Gemini diagnostic payloads preserve content while redacting credentials and URIs', () => {
