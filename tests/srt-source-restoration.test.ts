@@ -95,9 +95,44 @@ for (const [name, invalidCues] of [
   })
 }
 
-test('a second invalid restoration response fails with a cleaned schema error', async () => {
+test('a second structurally invalid restoration response salvages missing cues from source', async () => {
   const invalid = { ...validPassOneResponse, cues: validPassOneResponse.cues.slice(0, 1) }
-  const reason = await restoreSource({ source: validatedSourceFixture, transport: createFakeGeminiTransport([invalid, invalid]) }).catch((error: unknown) => error)
-  assert.match(String(reason), /Dữ liệu phục hồi không hợp lệ/)
-  assert.equal(String(reason).includes(JSON.stringify(invalid)), false)
+  const result = await restoreSource({ source: validatedSourceFixture, transport: createFakeGeminiTransport([invalid, invalid]) })
+  assert.equal(result.cues.length, validatedSourceFixture.cues.length)
+  assert.equal(result.cues[1]?.correctedZh, validatedSourceFixture.cues[1]?.text)
+  assert.equal(result.cues[1]?.confidence, 'low')
+  assert.equal(result.cues[1]?.needsReview, true)
+  assert.equal(result.cues[1]?.candidates[0]?.correctedZh, validatedSourceFixture.cues[1]?.text)
+})
+
+test('missing candidate metadata is synthesized locally without another Gemini call', async () => {
+  let calls = 0
+  const response = {
+    ...validPassOneResponse,
+    cues: validPassOneResponse.cues.map((cue) => ({ ...cue, candidates: [] }))
+  }
+  const base = createFakeGeminiTransport([response])
+  const result = await restoreSource({
+    source: validatedSourceFixture,
+    transport: { ...base, generateJson: async <T>(request: GeminiGenerateRequest): Promise<T> => { calls += 1; return base.generateJson<T>(request) } }
+  })
+  assert.equal(calls, 1)
+  assert.equal(result.cues.every((cue) => !cue.changed || cue.candidates.some((candidate) => candidate.correctedZh === cue.correctedZh)), true)
+})
+
+test('two transport failures keep the original SRT as low-confidence review cues', async () => {
+  let calls = 0
+  const result = await restoreSource({
+    source: validatedSourceFixture,
+    transport: {
+      ...createFakeGeminiTransport([]),
+      generateJson: async () => {
+        calls += 1
+        throw new Error('temporary Gemini failure')
+      }
+    }
+  })
+  assert.equal(calls, 2)
+  assert.deepEqual(result.cues.map((cue) => cue.correctedZh), validatedSourceFixture.cues.map((cue) => cue.text))
+  assert.equal(result.cues.every((cue) => cue.confidence === 'low' && cue.needsReview && cue.candidates.length === 1), true)
 })

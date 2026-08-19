@@ -219,10 +219,6 @@ function sourcePayload(window: CueWindow, allCues: readonly SrtSourceCue[]): obj
   return { coreCueNumbers, cues: context, documentContext }
 }
 
-function error(code: string): Error {
-  return new Error(code)
-}
-
 function nonEmpty(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0
 }
@@ -269,7 +265,9 @@ function validateCoreResponse(
   if (!Array.isArray(value.entities)) errors.push('entities-array')
   if (!Array.isArray(value.moneyMentions)) errors.push('moneyMentions-array')
   if (!Array.isArray(value.measurementMentions)) errors.push('measurementMentions-array')
-  if (errors.length) return { value, errors }
+  // Only the cue array is structurally required. Topic/glossary/fact metadata
+  // can be defaulted or dropped without losing the source SRT itself.
+  if (!Array.isArray(value.cues)) return { value, errors }
 
   const expected = new Set(core.map((cue) => cue.n))
   const actual = value.cues as unknown[]
@@ -364,13 +362,33 @@ function validateCoreResponse(
   return { value, errors }
 }
 
+/**
+ * Only errors that prevent matching model rows back to source cue numbers need
+ * another model call. All semantic/metadata errors are recoverable locally and
+ * will be sent through the independent audit/review stage afterwards.
+ */
+function blockingCoreErrors(errors: readonly string[]): string[] {
+  return errors.filter((code) =>
+    code === 'not-called' ||
+    code === 'top-level-object' ||
+    code === 'cues-array' ||
+    code === 'cue-count' ||
+    code === 'cue-number-range' ||
+    code === 'cue-number-duplicate' ||
+    /^cue-\d+-missing$/u.test(code)
+  )
+}
+
 function normalizeEntities(values: unknown[]): CanonicalEntity[] {
   const entities: CanonicalEntity[] = []
   const byKey = new Map<string, CanonicalEntity>()
   for (const item of values) {
     const value = objectValue(item)
     if (!value) continue
-    const sourceForms = (value.sourceForms as string[]).map((form) => form.trim())
+    const sourceForms = Array.isArray(value.sourceForms)
+      ? value.sourceForms.filter(nonEmpty).map((form) => form.trim())
+      : []
+    if (!sourceForms.length || !nonEmpty(value.canonicalMeaningVi) || typeof value.confidence !== 'string' || !CONFIDENCES.has(value.confidence)) continue
     const category = normalizeEntityCategory(value.category)
     const key = `${category}|${sourceForms.map((form) => form.normalize().toLowerCase()).sort().join('|')}`
     if (byKey.has(key)) continue
@@ -391,48 +409,79 @@ function normalizeEntities(values: unknown[]): CanonicalEntity[] {
 
 function normalizeCues(
   values: unknown[],
-  sourceByNumber: ReadonlyMap<number, SrtSourceCue>
+  sourceByNumber: ReadonlyMap<number, SrtSourceCue>,
+  expected: readonly SrtSourceCue[]
 ): RestoredCue[] {
-  return [...values]
-    .map((item) => item as Record<string, unknown>)
-    .sort((left, right) => Number(left.n) - Number(right.n))
-    .map((value) => {
-      const n = Number(value.n)
-      const source = sourceByNumber.get(n)!
-      const rawCandidates = value.candidates as unknown[]
-      const candidates: RestorationCandidate[] = rawCandidates.map((candidate, index) => {
-        const item = candidate as Record<string, unknown>
-        return {
-          id: `${n}:${index}`,
-          correctedZh: String(item.correctedZh).trim(),
-          meaningVi: String(item.meaningVi).trim(),
-          evidenceVi: String(item.evidenceVi).trim()
-        }
+  const byNumber = new Map<number, Record<string, unknown>>()
+  for (const item of values) {
+    const value = objectValue(item)
+    const n = Number(value?.n)
+    if (!value || !Number.isSafeInteger(n) || !sourceByNumber.has(n) || byNumber.has(n)) continue
+    byNumber.set(n, value)
+  }
+
+  return expected.map((source) => {
+    const value = byNumber.get(source.n)
+    const degraded = !value || !nonEmpty(value.correctedZh) || !nonEmpty(value.meaningVi) ||
+      typeof value.confidence !== 'string' || !CONFIDENCES.has(value.confidence)
+    const correctedZh = value && nonEmpty(value.correctedZh) ? value.correctedZh.trim() : source.text
+    const meaningVi = value && nonEmpty(value.meaningVi)
+      ? value.meaningVi.trim()
+      : 'Giữ nguyên nội dung SRT nguồn; chưa đủ dữ liệu để xác minh ý.'
+    const evidenceVi = value && nonEmpty(value.evidenceVi)
+      ? value.evidenceVi.trim()
+      : 'Kết quả Gemini thiếu dữ liệu; hệ thống giữ nguyên cue nguồn để không làm hỏng toàn bộ job.'
+    const confidence: RestoredCue['confidence'] = degraded
+      ? 'low'
+      : value!.confidence as RestoredCue['confidence']
+    // Preserve a model-declared change even when punctuation/normalization
+    // makes the corrected surface equal to the source. False positives only
+    // add an audit cue; dropping it could skip the independent review pass.
+    const changed = Boolean(value?.changed) || correctedZh !== source.text
+    const candidates: RestorationCandidate[] = []
+    const rawCandidates = value && Array.isArray(value.candidates) ? value.candidates : []
+    for (const candidate of rawCandidates) {
+      const item = objectValue(candidate)
+      if (!item || !nonEmpty(item.correctedZh) || !nonEmpty(item.meaningVi) || !nonEmpty(item.evidenceVi)) continue
+      candidates.push({
+        id: `${source.n}:${candidates.length}`,
+        correctedZh: item.correctedZh.trim(),
+        meaningVi: item.meaningVi.trim(),
+        evidenceVi: item.evidenceVi.trim()
       })
-      return {
-        n,
-        time: source.time,
-        originalZh: source.text,
-        correctedZh: String(value.correctedZh).trim(),
-        meaningVi: String(value.meaningVi).trim(),
-        changed: Boolean(value.changed),
-        confidence: value.confidence as RestoredCue['confidence'],
-        issue: normalizeIssue(value.issue),
-        evidenceVi: String(value.evidenceVi).trim(),
-        candidates,
-        needsReview: Boolean(value.needsReview) || value.confidence === 'low'
-      }
-    })
+    }
+    const needsReview = degraded || Boolean(value?.needsReview) || confidence === 'low'
+    if ((changed || needsReview) && !candidates.some((candidate) => candidate.correctedZh === correctedZh && candidate.meaningVi === meaningVi)) {
+      candidates.unshift({ id: `${source.n}:proposal`, correctedZh, meaningVi, evidenceVi })
+    }
+    return {
+      n: source.n,
+      time: source.time,
+      originalZh: source.text,
+      correctedZh,
+      meaningVi,
+      changed,
+      confidence,
+      issue: normalizeIssue(value?.issue),
+      evidenceVi,
+      candidates: candidates.map((candidate, index) => ({ ...candidate, id: `${source.n}:${index}` })),
+      needsReview
+    }
+  })
 }
 
 function normalizeMoneyMentions(values: unknown[]): CanonicalMoneyMention[] {
   const counts = new Map<number, number>()
-  return values.map((item) => {
-    const value = item as Record<string, unknown>
+  const mentions: CanonicalMoneyMention[] = []
+  for (const item of values) {
+    const value = objectValue(item)
+    if (!value || !Number.isSafeInteger(value.cueNumber) || !Number.isFinite(value.sourceAmount) ||
+      typeof value.sourceCurrencyCode !== 'string' || !CURRENCY_CODE.test(value.sourceCurrencyCode.toUpperCase()) ||
+      !nonEmpty(value.sourceSurface) || typeof value.confidence !== 'string' || !CONFIDENCES.has(value.confidence)) continue
     const cueNumber = Number(value.cueNumber)
     const index = counts.get(cueNumber) ?? 0
     counts.set(cueNumber, index + 1)
-    return {
+    mentions.push({
       id: `money:${cueNumber}:${index}`,
       cueNumber,
       sourceAmount: Number(value.sourceAmount),
@@ -440,18 +489,23 @@ function normalizeMoneyMentions(values: unknown[]): CanonicalMoneyMention[] {
       sourceSurface: String(value.sourceSurface),
       confidence: value.confidence as CanonicalMoneyMention['confidence'],
       shouldConvert: value.confidence === 'high' && Boolean(value.shouldConvert)
-    }
-  })
+    })
+  }
+  return mentions
 }
 
 function normalizeMeasurementMentions(values: unknown[]): CanonicalMeasurementMention[] {
   const counts = new Map<number, number>()
-  return values.map((item) => {
-    const value = item as Record<string, unknown>
+  const mentions: CanonicalMeasurementMention[] = []
+  for (const item of values) {
+    const value = objectValue(item)
+    if (!value || !Number.isSafeInteger(value.cueNumber) || !Number.isFinite(value.sourceValue) ||
+      typeof value.sourceUnitCode !== 'string' || !UNIT_CODE.test(value.sourceUnitCode) ||
+      !nonEmpty(value.sourceSurface) || typeof value.confidence !== 'string' || !CONFIDENCES.has(value.confidence)) continue
     const cueNumber = Number(value.cueNumber)
     const index = counts.get(cueNumber) ?? 0
     counts.set(cueNumber, index + 1)
-    return {
+    mentions.push({
       id: `measurement:${cueNumber}:${index}`,
       cueNumber,
       sourceValue: Number(value.sourceValue),
@@ -459,8 +513,9 @@ function normalizeMeasurementMentions(values: unknown[]): CanonicalMeasurementMe
       sourceSurface: String(value.sourceSurface),
       confidence: value.confidence as CanonicalMeasurementMention['confidence'],
       shouldConvert: value.confidence === 'high' && Boolean(value.shouldConvert)
-    }
-  })
+    })
+  }
+  return mentions
 }
 
 function repairUserText(payload: object, errors: readonly string[]): string {
@@ -525,9 +580,11 @@ export async function restoreSource(input: {
       value: {},
       errors: ['not-called']
     }
+    let hasStructuredResponse = false
+    let lastTransportError: unknown = null
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const attemptStartedAt = Date.now()
-      const attemptRequest = attempt === 0
+      const attemptRequest = attempt === 0 || !hasStructuredResponse
         ? request
         : { ...request, systemInstruction: `${request.systemInstruction}\nChỉ sửa các mã lỗi, không thay đổi dữ kiện ngoài payload.`, userText: repairUserText(payload, checked.errors) }
       trace(input, {
@@ -535,7 +592,11 @@ export async function restoreSource(input: {
         phase: 'restoring-source',
         kind: 'operation-progress',
         operation: 'gemini-restore-attempt',
-        message: attempt === 0 ? 'Đang chờ Gemini trả JSON phục hồi.' : 'Đang chờ Gemini sửa lại JSON phục hồi.',
+        message: attempt === 0
+          ? 'Đang chờ Gemini trả JSON phục hồi.'
+          : hasStructuredResponse
+            ? 'Đang chờ Gemini sửa lại JSON phục hồi.'
+            : 'Đang thử lại request phục hồi Gemini.',
         done: index + 1,
         total: windows.length,
         attempt: attempt + 1,
@@ -560,21 +621,26 @@ export async function restoreSource(input: {
       try {
         response = await input.transport.generateJson<unknown>(attemptRequest)
       } catch (reason) {
+        if (input.signal?.aborted) throw input.signal.reason
+        lastTransportError = reason
         trace(input, {
           jobId: input.jobId,
           phase: 'restoring-source',
-          kind: 'operation-error',
-          level: 'error',
+          kind: 'operation-progress',
+          level: 'warn',
           operation: 'gemini-restore-attempt',
-          message: 'Gemini không trả được JSON phục hồi.',
+          message: attempt === 0
+            ? 'Gemini chưa trả được JSON phục hồi; sẽ thử lại.'
+            : 'Gemini vẫn không trả được JSON; sẽ giữ cue nguồn ở chế độ giảm độ chính xác.',
           done: index + 1,
           total: windows.length,
           attempt: attempt + 1,
           durationMs: Math.max(0, Date.now() - attemptStartedAt),
           hasMedia: Boolean(input.file)
         })
-        throw reason
+        continue
       }
+      hasStructuredResponse = true
       trace(input, {
         jobId: input.jobId,
         phase: 'restoring-source',
@@ -604,38 +670,42 @@ export async function restoreSource(input: {
           hasMedia: Boolean(input.file)
         })
       }
-      if (!checked.errors.length) break
+      if (!blockingCoreErrors(checked.errors).length) break
     }
-    if (checked.errors.length) {
+    const blockingErrors = blockingCoreErrors(checked.errors)
+    if (blockingErrors.length) {
       trace(input, {
         jobId: input.jobId,
         phase: 'restoring-source',
-        kind: 'operation-error',
-        level: 'error',
+        kind: 'operation-progress',
+        level: 'warn',
         operation: 'gemini-restore-window',
-        message: 'Cửa sổ phục hồi thất bại sau các lần thử.',
+        message: hasStructuredResponse
+          ? 'JSON vẫn thiếu cấu trúc; giữ phần hợp lệ, phần thiếu dùng lại cue nguồn và chuyển sang audit/review.'
+          : 'Không nhận được JSON; giữ nguyên các cue nguồn và chuyển sang audit/review.',
         done: index + 1,
         total: windows.length,
         durationMs: Math.max(0, Date.now() - windowStartedAt),
         hasMedia: Boolean(input.file)
       })
-      throw error('Dữ liệu phục hồi không hợp lệ.')
     }
 
     const value = checked.value
-    if (!topicVi) topicVi = String(value.topicVi).trim()
+    if (!topicVi) topicVi = nonEmpty(value.topicVi) ? value.topicVi.trim() : 'Nội dung phụ đề tiếng Trung chưa được xác minh'
     // Visual claims are not evidence in this text-only workflow and are
     // intentionally discarded even if an older model returns that field.
-    allCues.push(...normalizeCues(value.cues as unknown[], sourceByNumber))
-    allEntities.push(...normalizeEntities(value.entities as unknown[]))
-    allMoney.push(...normalizeMoneyMentions(value.moneyMentions as unknown[]))
-    allMeasurements.push(...normalizeMeasurementMentions(value.measurementMentions as unknown[]))
+    allCues.push(...normalizeCues(Array.isArray(value.cues) ? value.cues : [], sourceByNumber, window.core))
+    allEntities.push(...normalizeEntities(Array.isArray(value.entities) ? value.entities : []))
+    allMoney.push(...normalizeMoneyMentions(Array.isArray(value.moneyMentions) ? value.moneyMentions : []))
+    allMeasurements.push(...normalizeMeasurementMentions(Array.isArray(value.measurementMentions) ? value.measurementMentions : []))
     trace(input, {
       jobId: input.jobId,
       phase: 'restoring-source',
       kind: 'operation-complete',
       operation: 'gemini-restore-window',
-      message: 'Đã nhận và kiểm tra xong cửa sổ phục hồi.',
+      message: checked.errors.length || lastTransportError
+        ? 'Đã phục hồi cửa sổ theo chế độ an toàn; dữ liệu thiếu sẽ được audit/review.'
+        : 'Đã nhận và kiểm tra xong cửa sổ phục hồi.',
       done: index + 1,
       total: windows.length,
       outputCount: window.core.length,
