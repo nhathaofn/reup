@@ -51,7 +51,7 @@ test('US profile chooses customary units and custom locale uses safe fallback', 
     regionLabel: 'France',
     currencyCode: 'EUR'
   }).profile.unitSystem, 'metric')
-  assert.match(buildLocaleStyleGuide('fr-FR'), /conversational social-video/)
+  assert.match(buildLocaleStyleGuide('fr-FR'), /Français parlé|mord/)
 })
 
 test('trusted locale guides keep the approved register and reference terms', () => {

@@ -198,7 +198,8 @@ export function buildRestorationSystemPrompt(): string {
     `Trường issue bắt buộc phải là một trong các mã chính xác sau: ${RESTORATION_ISSUE_VALUES.join(', ')}. Nếu không có lỗi dùng none; nếu không chắc hoặc nhãn không khớp dùng other.`,
     `Trường entities[].category bắt buộc phải là một trong các mã chính xác sau: ${RESTORATION_ENTITY_CATEGORY_VALUES.join(', ')}. Với mọi loài động vật, chim hoặc ngỗng phải dùng species, không dùng animal.`,
     'correctedZh vẫn là tiếng Trung; meaningVi/evidenceVi phải là tiếng Việt dễ hiểu và chỉ dựa trên SRT.',
-    'Không tự tạo loài, tên riêng, currency, unit hoặc dữ kiện không xuất hiện hay không được suy ra hợp lý từ SRT.',
+    'Không tự tạo loài, tên riêng, currency, unit hoặc dữ kiện không xuất hiện hay không được suy ra hợp lý từ SRT. Tên phổ thông chung như 白天鹅 chỉ được giữ ở mức “thiên nga trắng”; không tự nâng thành tên loài cụ thể như mute swan/cygne tuberculé/Höckerschwan.',
+    'Không điền scientificName chỉ vì mô hình biết một loài thường được gọi bằng tên đó; chỉ điền khi chính SRT nêu rõ tên khoa học hoặc một định danh không thể nhầm lẫn. Tên chính và biệt danh như 加拿大鹅 / 飞鹅 phải được giữ thành hai nghĩa riêng, không hợp nhất hoặc thay biệt danh bằng một loài khác.',
     'Cue changed phải có ít nhất một candidate khớp correctedZh và meaningVi; confidence low phải có từ 1 đến 3 candidate.',
     'Chỉ trả record cho coreCueNumbers, đúng một record cho mỗi n; không trả timestamp.'
   ].join('\n')

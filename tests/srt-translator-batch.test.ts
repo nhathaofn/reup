@@ -36,8 +36,30 @@ test('prompt locks canonical meaning, social-video style and app conversion toke
   assert.match(prompt, /standard\/common.*target-locale/i)
   assert.match(prompt, /never substitute.*species/i)
   assert.match(prompt, /neutral reference/i)
+  assert.match(prompt, /white swan/i)
+  assert.match(prompt, /flying goose/i)
+  assert.match(prompt, /Lionhead goose/i)
+  assert.match(prompt, /proofread/i)
   assert.match(prompt, /do not output timestamps/i)
   assert.match(prompt, /SPEAKER/)
+})
+
+test('validator rejects a Vietnamese result for the Thai target locale', () => {
+  const thaiCues: PreparedLocalizationCue[] = [
+    { n: 1, time: 'x', text: 'cue one', requiredTokens: [], allowedNumberLiterals: [] },
+    { n: 2, time: 'x', text: 'cue two [[MONEY_money:2:0]]', requiredTokens: ['[[MONEY_money:2:0]]'], allowedNumberLiterals: [] }
+  ]
+  assert.throws(
+    () => validateLocalizedRows([
+      { n: 1, t: 'Con này có cắn người không?' },
+      { n: 2, t: 'Giá [[MONEY_money:2:0]].' }
+    ], thaiCues, { locale: 'th-TH' }),
+    /TARGET_OUTPUT_INVALID: wrong-language-th-TH/
+  )
+  assert.doesNotThrow(() => validateLocalizedRows([
+    { n: 1, t: 'ตัวนี้กัดคนไหม' },
+    { n: 2, t: 'ราคา [[MONEY_money:2:0]]' }
+  ], thaiCues, { locale: 'th-TH' }))
 })
 
 test('payload carries entity identity and local timestamps only as input metadata', () => {

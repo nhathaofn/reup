@@ -16,9 +16,13 @@ const STYLE_GUIDES: Readonly<Record<string, string>> = {
     'Không lạm dụng slang hoặc rải trợ từ máy móc.'
   ].join('\n'),
   'ja-JP': 'Văn nói thân thiện; chọn Tameguchi hoặc Desu/Masu nhẹ theo ngữ cảnh và giữ register nhất quán; tránh giọng documentary; taxonomy chưa chắc dùng この子/この鳥.',
-  'th-TH': 'Thân thiện, sống động; dùng trợ từ tự nhiên như นะ, จ้า, สิ, เนอะ nhưng không rải máy móc; taxonomy chưa chắc dùng ตัวนี้.',
+  'th-TH': 'Viết hoàn toàn bằng tiếng Thái tự nhiên, thân thiện và sống động; dùng trợ từ tự nhiên như นะ, จ้า, สิ, เนอะ có chọn lọc. Tuyệt đối không trả tiếng Việt hoặc chỉ phiên âm Latin; taxonomy chưa chắc dùng ตัวนี้.',
   'ko-KR': 'Voice-over tự nhiên; chọn Banmal hoặc lịch sự nhẹ theo ngữ cảnh và không trộn register.',
-  'en-US': 'Spoken English for Reels/Shorts; concise, catchy, natural slang only; use US customary units.'
+  'en-US': 'Native American spoken English for Reels/Shorts; concise, catchy and natural, not generic translation-English; use US customary units and proofread grammar.',
+  'fr-FR': 'Français parlé naturel pour les Shorts; relire toute la grammaire, les accords et l’orthographe. Ne pas confondre « mort » (dead/death) et « mord » (bites).',
+  'de-DE': 'Natürliches gesprochenes Deutsch für Shorts; Korrekturlesen und keine Übersetzungssyntax. Eigennamen, Rassenbezeichnungen und Spitznamen nicht durch andere Begriffe ersetzen.',
+  'es-ES': 'Español de España natural y hablado para Shorts; conservar los nombres y apodos del original y no repetir el nombre principal como si fuera un alias.',
+  'pt-PT': 'Português europeu natural para Shorts; manter nomes e alcunhas do original, sem acrescentar espécies ou factos não presentes no SRT.'
 }
 
 const DEFAULT_CURRENCY_BY_LOCALE: Readonly<Record<string, string>> = {
