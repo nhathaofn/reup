@@ -65,6 +65,7 @@ Protocol `tblao://` dùng base64url để truyền path file cục bộ và tự
 | CapCut đa ngôn ngữ | `features/capcut-factory/` | `services/capCutFactory.ts` và generator/portability | draft CapCut, asset copy, scene links |
 | Dịch subtitle | `ScreenText.tsx`, `AudioText.tsx` | `gemini.ts`, `openai.ts`, `translate-shared.ts` | API key qua safeStorage/fallback, SRT dịch |
 | Dịch SRT chuyên dụng | `features/srt-translator/` | `features/srt-translator.ts`, `services/srt-translator-job.ts` và các service SRT thuần | SRT-only, phục hồi/audit nguồn theo ngữ cảnh, bản địa hóa locale tuần tự, xuất từng/tất cả file |
+| Pipeline phụ đề thông minh | `features/subtitle-pipeline/` | `services/subtitle-pipeline.ts`, `subtitle-pipeline-fusion.ts`, Whisper/OCR và evidence-aware restoration/audit | Video → OCR → ASR → hợp nhất provenance → Gemini phục hồi/audit → dịch tùy chọn; xuất SRT trung gian và báo cáo evidence |
 
 ### Workflow Dịch SRT chỉ từ văn bản
 
@@ -79,6 +80,19 @@ Feature `srt-translator` là một vertical slice Shared/Main/Preload/Renderer v
 Mặc định mọi job là text-only và kết quả luôn được đánh dấu `_unverified.srt`: SRT giúp kiểm tra rất mạnh về ngôn ngữ/ASR nhưng không xác minh được lời nói hoặc hình ảnh gốc. Nhánh video cũ vẫn được giữ tương thích nội bộ nhưng không còn được UI yêu cầu. Currency conversion chỉ là trợ giúp lời thoại xấp xỉ, không phải giá trị thanh toán/giao dịch/kế toán. Khi có snapshot tỷ giá, UI ghi công **Rates By ExchangeRate-API** ([ExchangeRate-API](https://www.exchangerate-api.com)).
 
 Video remote được upload một lần cho một job và Main cố gắng delete ở mọi đường kết thúc (hoàn tất, lỗi, cancel, release). Nếu cleanup không xác nhận được, Gemini Files có thể còn giữ upload lỗi tối đa 48 giờ trước khi tự hết hạn.
+
+### Pipeline phụ đề thông minh từ video
+
+Feature `subtitle-pipeline` là luồng hợp nhất cho ba nguồn thường bị tách rời trong app:
+
+```text
+video → OCR (chữ nhìn thấy) → ASR/Whisper (lời nói) → fuse theo timeline
+      → Gemini restoration + audit có provenance → SRT an toàn / bản dịch / evidence.json
+```
+
+OCR và ASR chạy tuần tự để không tranh chấp process engine. OCR có chế độ tự động (25% phía dưới) hoặc toàn khung cho video đặt chữ ở vị trí bất thường. Mỗi track vẫn được giữ riêng; bộ fuse không tự ghi đè xung đột mà lưu `primarySource`, similarity, overlap, distance và danh sách source cho từng cue. Nếu SRT tham chiếu được cung cấp, nó là track độc lập và mặc định làm text chính; ASR + OCR cùng khớp vẫn có thể chứng thực một sửa ngữ nghĩa sau audit. Xung đột một-một hoặc cue chưa đủ bằng chứng giữ nguyên trong `*.smart.restored.needs-review.srt`, còn đề xuất AI nằm ở `*.smart.ai-draft.srt`.
+
+Các file chính: `src/shared/features/subtitle-pipeline.ts` (DTO/channel), `src/main/services/subtitle-pipeline.ts` (orchestrator, heartbeat/cancel/cleanup), `src/main/services/subtitle-pipeline-fusion.ts` (pure alignment), `src/main/services/subtitle-pipeline-output.ts` (canonical output/drop filtering), `src/main/features/subtitle-pipeline.ts`, `src/preload/features/subtitle-pipeline.ts` và `src/renderer/src/features/subtitle-pipeline/`. `*.smart.final.srt` giữ transcript canonical, `*.smart.tts-ready.srt` chỉ dành cho phát âm, còn `*.smart.evidence.json` là artifact chẩn đoán có provenance có cấu trúc, disposition/finalAction và các cue bị drop.
 
 ### Ownership của module SRT
 

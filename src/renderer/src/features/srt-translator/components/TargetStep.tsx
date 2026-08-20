@@ -11,6 +11,8 @@ export interface TargetStepProps {
   disabled: boolean
   onChange(targets: SrtLocaleTargetInput[]): void
   onTranslate(): void
+  /** Smart subtitle embeds only the target picker; its outer pipeline owns the action. */
+  showAction?: boolean
 }
 
 function inputFromPreset(preset: LocalizedTarget): SrtLocaleTargetInput {
@@ -18,7 +20,7 @@ function inputFromPreset(preset: LocalizedTarget): SrtLocaleTargetInput {
   return { id, languageLabel, locale, regionLabel, currencyCode }
 }
 
-export default function TargetStep({ presets, selected, disabled, onChange, onTranslate }: TargetStepProps): JSX.Element {
+export default function TargetStep({ presets, selected, disabled, onChange, onTranslate, showAction = true }: TargetStepProps): JSX.Element {
   const [customLanguageLabel, setCustomLanguageLabel] = useState('')
   const [customLocale, setCustomLocale] = useState('')
   const [customRegionLabel, setCustomRegionLabel] = useState('')
@@ -84,9 +86,11 @@ export default function TargetStep({ presets, selected, disabled, onChange, onTr
         </div>
         {customError && <div className="srt-translator-message error">{customError}</div>}
       </div>
-      <div className="srt-translator-actions">
-        <button className="btn primary" type="button" onClick={onTranslate} disabled={disabled || selected.length === 0}>Bắt đầu bản địa hóa</button>
-      </div>
+      {showAction && (
+        <div className="srt-translator-actions">
+          <button className="btn primary" type="button" onClick={onTranslate} disabled={disabled || selected.length === 0}>Bắt đầu bản địa hóa</button>
+        </div>
+      )}
     </section>
   )
 }

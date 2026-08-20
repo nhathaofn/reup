@@ -7,6 +7,7 @@ import {
   validateLocalizedRows,
   type PreparedLocalizationCue
 } from '../src/main/services/srt-localization.ts'
+import { extractNumberLiterals } from '../src/main/services/srt-number-literals.ts'
 import type { GeminiGenerateRequest } from '../src/main/services/gemini-files.ts'
 import {
   createFakeGeminiTransport,
@@ -28,6 +29,11 @@ const validRows = [
   { n: 2, t: 'Giá [[MONEY_money:2:0]].' }
 ]
 
+const japaneseRows = [
+  { n: 1, t: '[SPEAKER_00] この列車は人を噛みますか？' },
+  { n: 2, t: '価格は [[MONEY_money:2:0]] です。' }
+]
+
 test('prompt locks canonical meaning, social-video style and app conversion tokens', () => {
   const prompt = buildLocalizationSystemPrompt(viTargetFixture.profile)
   assert.match(prompt, /do not change.*canonical meaning/i)
@@ -40,8 +46,12 @@ test('prompt locks canonical meaning, social-video style and app conversion toke
   assert.match(prompt, /flying goose/i)
   assert.match(prompt, /Lionhead goose/i)
   assert.match(prompt, /proofread/i)
+  assert.match(prompt, /same Arabic number|exact value/i)
   assert.match(prompt, /do not output timestamps/i)
   assert.match(prompt, /SPEAKER/)
+  const japanesePrompt = buildLocalizationSystemPrompt(jaTargetFixture.profile)
+  assert.match(japanesePrompt, /Japanese.*日本語/u)
+  assert.match(japanesePrompt, /locale is authoritative/i)
 })
 
 test('validator rejects a Vietnamese result for the Thai target locale', () => {
@@ -60,6 +70,71 @@ test('validator rejects a Vietnamese result for the Thai target locale', () => {
     { n: 1, t: 'ตัวนี้กัดคนไหม' },
     { n: 2, t: 'ราคา [[MONEY_money:2:0]]' }
   ], thaiCues, { locale: 'th-TH' }))
+})
+
+test('validator accepts equivalent Arabic digits for Chinese number words', () => {
+  const cues: PreparedLocalizationCue[] = [
+    { n: 1, time: 'x', text: '仅需三分三十秒', requiredTokens: [], allowedNumberLiterals: extractNumberLiterals('仅需三分三十秒') },
+    { n: 2, time: 'x', text: '从零加速到时速600公里', requiredTokens: [], allowedNumberLiterals: extractNumberLiterals('从零加速到时速600公里') }
+  ]
+  assert.doesNotThrow(() => validateLocalizedRows([
+    { n: 1, t: 'Chỉ mất 3 phút 30 giây.' },
+    { n: 2, t: 'Tăng tốc từ 0 đến 600 km/h.' }
+  ], cues))
+})
+
+test('number guard treats Chinese counters and country counts as facts', () => {
+  assert.deepEqual(extractNumberLiterals('这是五国CR450列车'), ['5', '450'])
+  assert.deepEqual(extractNumberLiterals('车身长六公里'), ['6'])
+  assert.deepEqual(extractNumberLiterals('唯一商业化运营'), [])
+})
+
+test('number guard allows Japanese to make the implicit single carriage explicit', () => {
+  const source = '单节车厢载客约200人'
+  assert.deepEqual(extractNumberLiterals(source), ['1', '200'])
+  assert.doesNotThrow(() => validateLocalizedRows([
+    { n: 1, t: '1両あたり約200人を乗せられます。' }
+  ], [{ n: 1, time: 'x', text: source, requiredTokens: [], allowedNumberLiterals: extractNumberLiterals(source) }], { locale: 'ja-JP' }))
+})
+
+test('number guard accepts locale decimal and grouping separators', () => {
+  const source = '车身长2.6米，载客1000人'
+  const cue = [{ n: 1, time: 'x', text: source, requiredTokens: [], allowedNumberLiterals: extractNumberLiterals(source) }]
+  assert.doesNotThrow(() => validateLocalizedRows([
+    { n: 1, t: 'Panjang badan 2,6 meter dan mampu membawa 1.000 orang.' }
+  ], cue, { locale: 'id-ID' }))
+  assert.doesNotThrow(() => validateLocalizedRows([
+    { n: 1, t: 'Longueur de 2,6 mètres, capacité de 1\u202f000 personnes.' }
+  ], cue, { locale: 'fr-FR' }))
+  assert.doesNotThrow(() => validateLocalizedRows([
+    { n: 1, t: 'Länge 2.6 Meter, Kapazität 1’000 Personen.' }
+  ], cue, { locale: 'de-CH' }))
+  assert.throws(() => validateLocalizedRows([
+    { n: 1, t: 'Panjang badan 2,7 meter dan mampu membawa 1.000 orang.' }
+  ], cue, { locale: 'id-ID' }), /TARGET_OUTPUT_INVALID: invented-number/)
+})
+
+test('validator catches a wrong script for Japanese and Korean targets', () => {
+  const cues = [
+    { n: 1, time: 'x', text: '列车是什么', requiredTokens: [], allowedNumberLiterals: [] },
+    { n: 2, time: 'x', text: '这是一列列车', requiredTokens: [], allowedNumberLiterals: [] }
+  ]
+  assert.throws(() => validateLocalizedRows([
+    { n: 1, t: 'Đây là loại tàu gì?' },
+    { n: 2, t: 'Đây là một đoàn tàu.' }
+  ], cues, { locale: 'ja-JP' }), /TARGET_OUTPUT_INVALID: wrong-language-ja-JP/)
+  assert.doesNotThrow(() => validateLocalizedRows([
+    { n: 1, t: 'この列車は何ですか？' },
+    { n: 2, t: 'これは列車です。' }
+  ], cues, { locale: 'ja-JP' }))
+  assert.throws(() => validateLocalizedRows([
+    { n: 1, t: 'Đây là loại tàu gì?' },
+    { n: 2, t: 'Đây là một đoàn tàu.' }
+  ], cues, { locale: 'ko-KR' }), /TARGET_OUTPUT_INVALID: wrong-language-ko-KR/)
+  assert.doesNotThrow(() => validateLocalizedRows([
+    { n: 1, t: '이 열차는 무엇인가요?' },
+    { n: 2, t: '이것은 열차입니다.' }
+  ], cues, { locale: 'ko-KR' }))
 })
 
 test('payload carries entity identity and local timestamps only as input metadata', () => {
@@ -85,6 +160,7 @@ test('validator rejects malformed target rows and invented values', () => {
     ['malformed money token', [validRows[0], { n: 2, t: '[[MONEY_money:2:0]] [[MONEY_bad!]]' }]],
     ['malformed measure token', [validRows[0], { n: 2, t: '[[MONEY_money:2:0]] [[MEASURE_bad!]]' }]],
     ['timestamp in text', [{ n: 1, t: '[SPEAKER_00] 00:00:01,000' }, validRows[1]]],
+    ['blank line in text', [{ n: 1, t: '[SPEAKER_00] line one\n\nline two' }, validRows[1]]],
     ['invented direct number', [{ n: 1, t: '[SPEAKER_00] Có 999 con.' }, validRows[1]]]
   ] as const) {
     assert.throws(() => validateLocalizedRows(rows, preparedCues), new RegExp(`TARGET_OUTPUT_INVALID`), name)
@@ -165,7 +241,7 @@ test('transport error is not retried even when its message resembles a validator
 
 test('every verified target reuses one file URI and text-only omits it', async () => {
   const uris: Array<string | undefined> = []
-  const base = createFakeGeminiTransport([validRows, validRows])
+  const base = createFakeGeminiTransport([validRows, japaneseRows])
   const verified = await runLocalizedTargetBatch({
     canonical: resolvedCanonicalFixture, targets: [viTargetFixture, jaTargetFixture], file: remoteFileFixture, rateSnapshot: rateFixture,
     transport: { ...base, generateJson: async <T>(request: GeminiGenerateRequest): Promise<T> => { uris.push(request.file?.uri); return base.generateJson<T>(request) } }

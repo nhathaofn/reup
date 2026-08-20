@@ -135,6 +135,20 @@ Contract và điểm nối:
 
 `srt-translator:analyze` mặc định nhận duy nhất `sourcePath` của SRT. Job đọc toàn bộ SRT, phục hồi ASR bằng ngữ cảnh và audit độc lập; không yêu cầu chọn/upload/xem video hoặc audio. Kết quả text-only luôn mang hậu tố `_unverified.srt` để nhắc rằng không thể xác minh lời nói/hình ảnh gốc. `verificationMode: 'video'` và các channel media cũ chỉ còn tương thích với caller cũ, không được UI sử dụng.
 
+### Feature `subtitle-pipeline`
+
+Đây là workflow thống nhất cho việc lấy phụ đề từ video, không thay thế ngay các tab cũ để giữ tương thích:
+
+| Channel | Hướng | Trách nhiệm |
+| --- | --- | --- |
+| `subtitle-pipeline:run` | Renderer → Main | chạy tuần tự OCR → ASR → fuse evidence → Gemini restoration/audit → dịch tùy chọn |
+| `subtitle-pipeline:cancel` | Renderer → Main | abort job, kill engine đang chạy và dọn thư mục tạm |
+| `subtitle-pipeline:progress` | Main → Renderer | phase, percent, elapsed, cue/conflict count và job id |
+
+Request nhận video, SRT tham chiếu tùy chọn, model/language/device Whisper, OCR mode (`auto`/`full`) hoặc vùng pixel tùy chọn, Gemini/target locale và cờ giữ intermediate. Main không trộn text trước khi đối chiếu: `subtitle-pipeline-fusion.ts` tạo cue có `primarySource` và toàn bộ `sources[]` (ASR/OCR/SRT, timestamp, similarity, overlap). `*.smart.final.srt` là transcript canonical, `*.smart.tts-ready.srt` là bản chuẩn hóa phát âm sinh từ final, còn cue `hard_failure`/`finalAction=drop` chỉ giữ trong `*.smart.needs-review.srt` và `*.smart.evidence.json`. Các artifact `*.smart.fused.srt`, `*.smart.asr.srt`, `*.smart.ocr.srt`, `*.smart.ai-draft.srt` và `*.smart.evidence.json` được ghi cạnh output video; file tạm `.tblao-subtitle-pipeline-<jobId>` được xóa ở terminal paths.
+
+Prompt evidence-aware nói rõ ASR là giả thuyết lời nói, OCR là chữ nhìn thấy và SRT là track độc lập. Audit chỉ auto-promote thay đổi ngữ nghĩa khi bề mặt corrected khớp ít nhất hai provenance độc lập; xung đột không đủ căn cứ vẫn giữ review. Logger heartbeat mỗi 30 giây và chuyển WARN sau 3 phút, đồng thời ghi request/response Gemini đã che key/URI.
+
 Hai pass nguồn là restoration rồi audit độc lập. Restoration chỉ dùng toàn bộ SRT để kiểm tra ngữ pháp, ngữ cảnh, đồng âm/âm gần, tiếng lóng/phương ngữ, taxonomy, tên riêng, thuật ngữ, số và đơn vị; không được ghi nhận bằng chứng hình/âm thanh. Audit merge canonical facts và đưa cue mơ hồ thành candidate `meaningVi`/evidence tiếng Việt; `translate` bị khóa đến khi user resolve đủ. Locale target điều chỉnh văn phong, tiền tệ, đơn vị và tên loài theo vùng đích nhưng giữ identity/dữ kiện. Currency chỉ là lời thoại xấp xỉ, không phải giá trị thanh toán/giao dịch/kế toán; UI ghi công **Rates By ExchangeRate-API** ([ExchangeRate-API](https://www.exchangerate-api.com)) khi có rate snapshot.
 
 Batch chạy tuần tự theo target; một target lỗi vẫn giữ các target thành công để preview/export. Progress/UI không trả payload; file log chẩn đoán có request/response để debug, nhưng không ghi API key hoặc remote URI.
@@ -232,6 +246,14 @@ Ba registry:
 - Metadata: main placement, `keepAlive=true`; raw source và các bản dịch giữ trong memory của tab.
 - Export: một target dùng Save dialog; `Xuất tất cả` dùng folder dialog, tên có hậu tố locale và `_unverified` khi text-only, tự tăng nếu file đã tồn tại.
 
+### Feature `subtitle-pipeline`
+
+- Contract: `src/shared/features/subtitle-pipeline.ts`; channels `run`, `cancel`, `progress`.
+- Main: `src/main/features/subtitle-pipeline.ts` → `src/main/services/subtitle-pipeline.ts` → OCR/Whisper/fusion/restoration/audit.
+- Preload: `src/preload/features/subtitle-pipeline.ts`.
+- Renderer: `src/renderer/src/features/subtitle-pipeline/index.tsx` + `styles.css`.
+- Metadata: main placement, `keepAlive=true`; một job duy nhất có cancel và heartbeat.
+
 ## Quy trình thêm feature
 
 Lệnh chuẩn:
@@ -270,4 +292,4 @@ Chạy:
 npm.cmd run check:architecture
 ```
 
-Snapshot core source-level có 68 request/20 event; feature `srt-translator` bổ sung 9 channel namespace riêng (8 request + 1 progress event). Lệnh check cần package `typescript` trong `node_modules`; nếu môi trường chưa cài dependencies, kết quả phải được ghi là “chưa chạy được” thay vì suy ra từ số đếm thủ công.
+Snapshot core source-level có 68 request/20 event; các feature bổ sung channel namespace riêng (trong đó `srt-translator` có 9 channel và `subtitle-pipeline` có 3 channel). Lệnh check cần package `typescript` trong `node_modules`; nếu môi trường chưa cài dependencies, kết quả phải được ghi là “chưa chạy được” thay vì suy ra từ số đếm thủ công.

@@ -67,7 +67,8 @@ async function goi(
   sys: string,
   user: string,
   schema?: object,
-  han = HAN_DICH
+  han = HAN_DICH,
+  signal?: AbortSignal
 ): Promise<GenKQ> {
   const cfg: Record<string, unknown> = { temperature: 0.2 }
   if (schema) {
@@ -85,7 +86,9 @@ async function goi(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(han)
+      signal: signal
+        ? AbortSignal.any([AbortSignal.timeout(han), signal])
+        : AbortSignal.timeout(han)
     })
   } catch (e) {
     return { ok: false, lui: true, status: 0, err: String(e) }
@@ -106,13 +109,15 @@ async function goiCoLui(
   sys: string,
   user: string,
   schema?: object,
-  han?: number
+  han?: number,
+  signal?: AbortSignal
 ): Promise<GenKQ> {
   // Khong co model nao de thu -> phai bao ro, dung de rot ve "lỗi không xác định"
   if (!models.length) return { ok: false, err: 'network: không lấy được danh sách' }
   let cuoi: GenKQ = { ok: false, err: 'hết model' }
   for (const m of models) {
-    const r = await goi(key, m, sys, user, schema, han)
+    if (signal?.aborted) return { ok: false, lui: false, status: 0, err: 'Đã huỷ.' }
+    const r = await goi(key, m, sys, user, schema, han, signal)
     if (r.ok) return r
     debugRaw(`gemini ${m}`, r.err)
     cuoi = r
@@ -179,8 +184,10 @@ const SCHEMA = {
 export async function translateSrtText(
   raw: string,
   dich: string,
-  onProgress?: (done: number, total: number) => void
+  onProgress?: (done: number, total: number) => void,
+  signal?: AbortSignal
 ): Promise<{ ok: boolean; srt?: string; error?: string; count?: number }> {
+  if (signal?.aborted) return { ok: false, error: 'Đã huỷ.' }
   const key = await loadKey()
   if (!key) return { ok: false, error: 'Chưa có API key.' }
 
@@ -193,9 +200,10 @@ export async function translateSrtText(
 
   const ra: SrtBlock[] = []
   for (let i = 0; i < chunks.length; i++) {
+    if (signal?.aborted) return { ok: false, error: 'Đã huỷ.' }
     const c = chunks[i]
     const payload = c.map((b, j) => `${j + 1}. ${b.text}`).join('\n')
-    const r = await goiCoLui(key, models, huongDan(dich), payload, SCHEMA)
+    const r = await goiCoLui(key, models, huongDan(dich), payload, SCHEMA, undefined, signal)
     if (!r.ok) return { ok: false, error: errLabel(r.err) }
 
     let arr: { n: number; t: string }[] = []
@@ -216,9 +224,10 @@ export async function translateSrt(
   srtPath: string,
   outPath: string,
   dich: string,
-  onProgress?: (done: number, total: number) => void
+  onProgress?: (done: number, total: number) => void,
+  signal?: AbortSignal
 ): Promise<{ ok: boolean; error?: string; count?: number }> {
-  const result = await translateSrtText(await readFile(srtPath, 'utf-8'), dich, onProgress)
+  const result = await translateSrtText(await readFile(srtPath, 'utf-8'), dich, onProgress, signal)
   if (!result.ok || result.srt === undefined) {
     return { ok: false, error: result.error }
   }

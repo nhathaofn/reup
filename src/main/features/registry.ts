@@ -3,6 +3,7 @@ import { isReservedFeatureId } from '../../shared/features/contracts'
 import type { FeatureInvokeHandler, MainFeatureModule } from './contracts'
 
 // feature-scaffold:imports
+import { subtitlePipelineMainFeature } from './subtitle-pipeline'
 import { capcutFactoryMainFeature } from './capcut-factory'
 import { sceneSplitterMainFeature } from './scene-splitter'
 import { mediaInspectorMainFeature } from './media-inspector'
@@ -10,6 +11,7 @@ import { srtTranslatorMainFeature } from './srt-translator'
 
 const registeredMainFeatures = [
   // feature-scaffold:modules
+  subtitlePipelineMainFeature,
   capcutFactoryMainFeature,
   sceneSplitterMainFeature,
   mediaInspectorMainFeature,

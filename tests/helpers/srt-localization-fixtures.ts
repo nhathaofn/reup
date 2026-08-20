@@ -17,11 +17,38 @@ import type {
   ValidatedLocalizationSource
 } from '../../src/main/services/srt-source-validation.ts'
 import type { RestorationDraft } from '../../src/main/services/srt-source-restoration.ts'
+import type { SubtitlePipelineEvidenceContext } from '../../src/shared/features/subtitle-pipeline.ts'
 
 export const sourceCuesFixture: SrtSourceCue[] = [
   { n: 1, time: '00:00:01,000 --> 00:00:02,000', startSeconds: 1, endSeconds: 2, text: '[SPEAKER_00] 这种鹅咬人吗', speakerLabel: '[SPEAKER_00]' },
   { n: 2, time: '00:00:03,000 --> 00:00:04,000', startSeconds: 3, endSeconds: 4, text: '它值一百元' }
 ]
+
+export const pipelineEvidenceFixture: SubtitlePipelineEvidenceContext = {
+  sourceCounts: { srt: 2, asr: 2, ocr: 2 },
+  conflictCueNumbers: [],
+  cues: sourceCuesFixture.map((cue) => ({
+    n: cue.n,
+    startMs: cue.startSeconds * 1_000,
+    endMs: cue.endSeconds * 1_000,
+    text: cue.text,
+    primarySource: 'srt',
+    confidence: 'high',
+    conflict: false,
+    sources: (['srt', 'asr', 'ocr'] as const).map((source) => ({
+      id: `${source}:${cue.n}`,
+      source,
+      n: cue.n,
+      startMs: cue.startSeconds * 1_000,
+      endMs: cue.endSeconds * 1_000,
+      text: cue.text,
+      confidence: null,
+      similarity: 1,
+      overlapMs: (cue.endSeconds - cue.startSeconds) * 1_000,
+      distanceMs: 0
+    }))
+  }))
+}
 
 export const remoteFileFixture: GeminiRemoteFile = {
   name: 'files/abc', uri: 'https://files.test/abc', mimeType: 'video/mp4', state: 'ACTIVE'

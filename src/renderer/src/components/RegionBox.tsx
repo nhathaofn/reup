@@ -48,6 +48,8 @@ interface Props {
   boxH: number
   boxW: number
   xemMo?: boolean
+  moTheoSrt?: boolean
+  isCueActive?: boolean
   /** CSS font-family cho chu mau trong khung phu de (sau khi @font-face load). */
   previewFontFamily?: string
   /** Cue SRT dang duoc xem truoc; bo trong thi dung cau mau. */
@@ -84,6 +86,8 @@ export default function RegionBox({
   boxH,
   boxW,
   xemMo = false,
+  moTheoSrt = false,
+  isCueActive = true,
   previewFontFamily,
   previewText,
   textColor = '#ffffff',
@@ -271,10 +275,12 @@ export default function RegionBox({
     return `rgba(${r},${g},${b},${a})`
   })()
 
+  const hieuLucMo = xemMo && (!moTheoSrt || isCueActive !== false)
+
   return (
     <div className="rbox-lop">
       {/* Vùng mờ xung quanh active blur region */}
-      {xemMo && activeRegion && (
+      {hieuLucMo && activeRegion && (
         <>
           <div className="rbox-mo" style={{ top: 0, height: pct(activeRegion.y0) }} />
           <div className="rbox-mo" style={{ top: pct(activeRegion.y1), bottom: 0 }} />
@@ -305,7 +311,7 @@ export default function RegionBox({
         return (
           <div
             key={r.id}
-            className={`rbox ${xemMo ? 'rbox-lammo' : ''} ${isActive ? 'active' : ''}`}
+            className={`rbox ${hieuLucMo ? 'rbox-lammo' : ''} ${isActive ? 'active' : ''}`}
             style={{
               top: pct(r.y0),
               height: pct(r.y1 - r.y0),

@@ -107,6 +107,8 @@ Feature này đi qua 5 bước: **Nguồn → Phục hồi → Duyệt → Bản
 | `src/main/services/srt-translator-production.ts` | Composition root nối API key, text generation transport, rate provider, logger/trace và nhánh media legacy |
 | `src/main/services/srt-translator-logging.ts` | Contract trace phase, request/response Gemini, retry, heartbeat và thời lượng; serializer che key/URI nhưng payload có thể chứa SRT/prompt |
 | `src/main/services/srt-translator-job.ts` | Single active job, fingerprint gate, upload một lần/reuse/delete, cancel/release, progress |
+| `src/main/services/subtitle-pipeline.ts` | Orchestrate video → OCR → ASR → fusion → Gemini restoration/audit → translation; heartbeat 30 giây, cancel và cleanup |
+| `src/main/services/subtitle-pipeline-fusion.ts` | Pure parser/alignment của ASR/OCR/SRT; giữ provenance, conflict, similarity và corroboration hai nguồn |
 | `src/main/services/srt-source-validation.ts` | SRT parser, video validation, FFprobe và fingerprint |
 | `src/main/services/gemini-files.ts` | Resumable upload, processing poll, structured generate, retry/timeout/abort và delete |
 | `src/main/services/srt-source-restoration.ts` | Restoration prompt/schema, cue window, repair một lần và draft |
@@ -135,7 +137,7 @@ Service CapCut có các boundary riêng:
 | `src/preload/index.ts` | `coreApi` typed adapter cho toàn bộ core IPC; merge với `featureApi`; expose duy nhất `window.api` |
 | `src/preload/index.d.ts` | khai báo global `Window.api` từ `TblaoApi` |
 | `src/preload/features/contracts.ts` | merge API feature và phát hiện method collision |
-| `src/preload/features/registry.ts` | đăng ký preload adapter của 4 feature |
+| `src/preload/features/registry.ts` | đăng ký preload adapter của 5 feature |
 | `src/preload/features/*.ts` | invoke/listener adapter, không đưa object Electron thô sang Renderer |
 
 Mỗi listener trả về cleanup function dùng `ipcRenderer.removeListener`. Không đặt child process, secret hoặc đường dẫn shell command trong Preload/Renderer.
@@ -179,11 +181,12 @@ Feature renderer:
 
 | Path | Nội dung |
 | --- | --- |
-| `src/renderer/src/features/registry.ts` | merge 4 feature vào App và kiểm tra registry |
+| `src/renderer/src/features/registry.ts` | merge 5 feature vào App và kiểm tra registry |
 | `src/renderer/src/features/media-inspector/index.tsx` | panel scaffold, `keepAlive=false` |
 | `src/renderer/src/features/scene-splitter/index.tsx` + `styles.css` | UI tách cảnh, `keepAlive=true` |
 | `src/renderer/src/features/capcut-factory/index.tsx` + `styles.css` | form dynamic set SRT/voice, preflight, progress/result, `keepAlive=true` |
 | `src/renderer/src/features/srt-translator/index.tsx` + `components/` + `styles.css` | 5-step SRT-only workflow, review/cancel/progress, target chips, partial preview/export, `keepAlive=true` |
+| `src/renderer/src/features/subtitle-pipeline/index.tsx` + `styles.css` | Form một pipeline OCR/ASR/evidence/Gemini, cài engine, cancel/progress và mở output artifact, `keepAlive=true` |
 
 ## Shared contracts
 
@@ -200,6 +203,7 @@ Feature renderer:
 | `src/shared/features/scene-splitter.ts` | PySceneDetect version, defaults, request/result/progress/cancel |
 | `src/shared/features/capcut-factory.ts` | environment, preflight, batch input/result/progress/portability/cancel |
 | `src/shared/features/srt-translator.ts` | metadata, 9 channels, SRT-only review/locale DTO, target validation, output filename và SRT export contract |
+| `src/shared/features/subtitle-pipeline.ts` | metadata, 3 channels, request/progress/evidence fusion và output artifact contract |
 
 Shared contract phải là dữ liệu serializable và không import Electron, React, fs hoặc implementation.
 

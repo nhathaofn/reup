@@ -27,6 +27,50 @@ export const FEATURE_CHANNELS = {
 
 export type Confidence = 'high' | 'medium' | 'low'
 
+export type RestorationBasis =
+  | 'asr'
+  | 'ocr'
+  | 'context'
+  | 'language_model'
+  | 'normalization'
+
+export type RestorationChangeType =
+  | 'asr_correction'
+  | 'ocr_correction'
+  | 'proper_noun'
+  | 'number'
+  | 'unit'
+  | 'homophone'
+  | 'grammar'
+  | 'completion'
+  | 'noise_removal'
+  | 'normalization'
+
+/** Machine-readable outcome of the deterministic review gate. */
+export type RestorationDisposition = 'pass' | 'soft_warning' | 'hard_failure'
+
+/** Action used when materializing the canonical final SRT. */
+export type RestorationFinalAction = 'keep' | 'normalize' | 'fallback' | 'drop'
+
+export interface RestorationSourceSupportItem {
+  /** Raw text from the corresponding evidence track, when available. */
+  text?: string
+  /** Whether the track supports the exact canonical surface or its safe representation. */
+  supportsFinal: boolean
+  /** Number of repeated OCR observations represented by this item. */
+  repeatCount?: number
+}
+
+/** Structured provenance generated/validated by code, not free-form model prose. */
+export interface RestorationSourceSupport {
+  asr?: RestorationSourceSupportItem
+  ocr?: RestorationSourceSupportItem
+  srt?: RestorationSourceSupportItem
+  context?: Pick<RestorationSourceSupportItem, 'supportsFinal'>
+  languageModel?: Pick<RestorationSourceSupportItem, 'supportsFinal'>
+  normalization?: Pick<RestorationSourceSupportItem, 'supportsFinal'>
+}
+
 export type RestorationIssue =
   | 'none'
   | 'homophone'
@@ -75,6 +119,12 @@ export interface RestoredCue {
   visualContextVi?: string
   candidates: RestorationCandidate[]
   needsReview: boolean
+  /** New structured review state; needsReview remains for IPC/UI compatibility. */
+  disposition?: RestorationDisposition
+  finalAction?: RestorationFinalAction
+  sourceSupport?: RestorationSourceSupport
+  basis?: RestorationBasis[]
+  changeType?: RestorationChangeType[]
 }
 
 export interface SrtReviewCue extends RestoredCue {
