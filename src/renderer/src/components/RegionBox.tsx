@@ -31,6 +31,7 @@ export interface Region {
 
 interface Props {
   regions?: BlurRegion[]
+  regionLabel?: string
   activeId?: string | null
   setActiveId?: (id: string) => void
   updateRegion?: (r: BlurRegion) => void
@@ -69,6 +70,7 @@ type DragType = 'move' | 'top' | 'bot' | 'left' | 'right' | 'top-left' | 'top-ri
 
 export default function RegionBox({
   regions,
+  regionLabel,
   activeId,
   setActiveId,
   updateRegion,
@@ -328,7 +330,7 @@ export default function RegionBox({
               </>
             )}
             <div className="rbox-nhan" style={{ background: r.color }}>
-              Vùng mờ {idx + 1}
+              {regionLabel ?? `Vùng mờ ${idx + 1}`}
             </div>
             {removeRegion && list.length > 1 && (
               <div

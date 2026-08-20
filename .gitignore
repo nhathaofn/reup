@@ -15,6 +15,9 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
+# Generated Windows FFmpeg bundle, staged only while packaging the installer
+/build/runtime/
+
 # Secrets / du lieu nhay cam - TUYET DOI khong commit
 .env
 .env.*

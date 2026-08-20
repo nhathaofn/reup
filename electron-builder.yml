@@ -33,10 +33,18 @@ files:
   - '!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}'
   - '!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}'
 extraResources:
+  - from: build/runtime/ffmpeg
+    to: ffmpeg
+    filter:
+      - ffmpeg.exe
+      - ffprobe.exe
+      - FFMPEG-NOTICE.txt
   - from: resources/fonts
     to: fonts
     filter:
       - '**/*'
+  - from: scripts/text-remove-engine.py
+    to: text-remove/text-remove-engine.py
 win:
   target:
     - nsis

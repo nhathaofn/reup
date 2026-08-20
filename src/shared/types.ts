@@ -414,7 +414,15 @@ export const DICH_LANGS = [
   { code: 'en', label: 'Tiếng Anh' },
   { code: 'zh', label: 'Tiếng Trung' },
   { code: 'ja', label: 'Tiếng Nhật' },
-  { code: 'ko', label: 'Tiếng Hàn' }
+  { code: 'ko', label: 'Tiếng Hàn' },
+  { code: 'es', label: 'Tiếng Tây Ban Nha' },
+  { code: 'fr', label: 'Tiếng Pháp' },
+  { code: 'de', label: 'Tiếng Đức' },
+  { code: 'id', label: 'Tiếng Indonesia' },
+  { code: 'th', label: 'Tiếng Thái' },
+  { code: 'pt', label: 'Tiếng Bồ Đào Nha' },
+  { code: 'ru', label: 'Tiếng Nga' },
+  { code: 'ar', label: 'Tiếng Ả Rập' }
 ] as const
 
 // Ket qua quet GPU (buoc an toan truoc khi cho tai goi tang toc CUDA)

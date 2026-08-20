@@ -287,15 +287,55 @@ export async function buildVoiceTimeline(request: VoiceTimelineRequest): Promise
     }
 
     appendSilence(entry.startSeconds - cursor)
-    const ratio = (entry.durationSeconds ?? targetDuration) / targetDuration
+
+    // Keep short TTS clips at their natural speaking rate and pad the rest of
+    // the cue with silence. The previous implementation always stretched or
+    // compressed every clip to the subtitle duration, which made short
+    // sentences unnaturally slow and produced large per-cue speed jumps.
+    // A long clip is accelerated only when it cannot fit before the next cue;
+    // changing subtitle timings is outside this function's contract.
+    const cueDuration = Math.max(0.05, targetDuration)
+    const naturalDuration = entry.durationSeconds ?? cueDuration
+    // A tiny lead-in keeps the first phoneme away from a hard cue/concat
+    // boundary. It is silence, not a trim, so the first word cannot be lost.
+    const leadIn = Math.min(0.06, cueDuration * 0.12)
+    // If there is a real gap before the next cue, let a natural clip use that
+    // gap instead of accelerating it merely because the subtitle box ended.
+    // This preserves complete words for translations that are a little longer
+    // than the source cue without changing subtitle timestamps.
+    const nextStart = activeEntries[inputIndex + 1]
+      ? Math.min(activeEntries[inputIndex + 1].startSeconds, totalDuration)
+      : totalDuration
+    const slotDuration = Math.max(cueDuration, nextStart - entry.startSeconds)
+    const availableSpeech = Math.max(0.02, slotDuration - leadIn)
+    const speechDuration = Math.min(naturalDuration, availableSpeech)
+    const ratio = speechDuration > 0 ? naturalDuration / speechDuration : 1
     const label = `voice${inputIndex}`
+    const tempo = ratio > 1.0005 ? `${atempoChain(ratio).join(',')},` : ''
+    const fadeDuration = Math.min(0.04, speechDuration / 2)
+    const fade =
+      fadeDuration >= 0.004
+        ? `afade=t=in:st=0:d=${fadeDuration.toFixed(6)},` +
+          `afade=t=out:st=${Math.max(0, speechDuration - fadeDuration).toFixed(6)}:d=${fadeDuration.toFixed(6)},`
+        : ''
     filters.push(
       `[${inputIndex}:a]aresample=48000,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,` +
-        `${atempoChain(ratio).join(',')},atrim=duration=${targetDuration.toFixed(6)},` +
+        `${tempo}${fade}adelay=${Math.round(leadIn * 1000)}|${Math.round(leadIn * 1000)},` +
+        `atrim=duration=${(leadIn + speechDuration).toFixed(6)},` +
         `asetpts=PTS-STARTPTS[${label}]`
     )
     concatLabels.push(`[${label}]`)
-    cursor = cueEnd
+
+    const trailingSilence = Math.max(0, cueDuration - leadIn - speechDuration)
+    if (trailingSilence > 0.004) {
+      const silenceLabel = `silenceAfter${segmentIndex++}`
+      filters.push(
+        `anullsrc=r=48000:cl=stereo,atrim=duration=${trailingSilence.toFixed(6)},` +
+          `asetpts=PTS-STARTPTS[${silenceLabel}]`
+      )
+      concatLabels.push(`[${silenceLabel}]`)
+    }
+    cursor = Math.max(cueEnd, entry.startSeconds + leadIn + speechDuration)
   }
 
   appendSilence(totalDuration - cursor)

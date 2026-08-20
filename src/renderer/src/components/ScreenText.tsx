@@ -11,6 +11,11 @@ import { useTabOutputDir } from '../lib/outputDir'
 import { usePersistedState } from '../lib/persist'
 import { readDichProvider } from '../lib/dichProvider'
 import { hasFeature } from '../lib/license'
+import {
+  SUBTITLE_PRESETS,
+  type SubtitlePreset,
+  type SubtitlePresetValues
+} from '../lib/subtitlePresets'
 import RegionBox, { type Region } from './RegionBox'
 import GeminiKey from './GeminiKey'
 
@@ -37,77 +42,6 @@ const PALETTE = [
 
 type Buoc = 'idle' | 'doc' | 'dich' | 'xong' | 'loi'
 type SubtitleMode = 'burn' | 'soft'
-
-type SubtitlePreset = 'custom' | 'clean' | 'cinema' | 'tiktok' | 'highlight'
-
-interface SubtitlePresetValues {
-  textColor: string
-  outlineColor: string
-  outlinePx: number
-  bgEnabled: boolean
-  bgColor: string
-  bgOpacity: number
-  fontScale: number
-  bold: boolean
-  italic: boolean
-  shadowPx: number
-  bgPaddingPx: number
-}
-
-const SUBTITLE_PRESETS: Record<Exclude<SubtitlePreset, 'custom'>, SubtitlePresetValues> = {
-  clean: {
-    textColor: '#ffffff',
-    outlineColor: '#111827',
-    outlinePx: 2,
-    bgEnabled: false,
-    bgColor: '#111827',
-    bgOpacity: 82,
-    fontScale: 100,
-    bold: true,
-    italic: false,
-    shadowPx: 1,
-    bgPaddingPx: 10
-  },
-  cinema: {
-    textColor: '#fff7d6',
-    outlineColor: '#0f172a',
-    outlinePx: 2.5,
-    bgEnabled: false,
-    bgColor: '#0f172a',
-    bgOpacity: 78,
-    fontScale: 95,
-    bold: true,
-    italic: false,
-    shadowPx: 2,
-    bgPaddingPx: 10
-  },
-  tiktok: {
-    textColor: '#ffffff',
-    outlineColor: '#0f172a',
-    outlinePx: 0.5,
-    bgEnabled: true,
-    bgColor: '#0f172a',
-    bgOpacity: 84,
-    fontScale: 100,
-    bold: true,
-    italic: false,
-    shadowPx: 0,
-    bgPaddingPx: 10
-  },
-  highlight: {
-    textColor: '#fff7ed',
-    outlineColor: '#7c2d12',
-    outlinePx: 1.5,
-    bgEnabled: true,
-    bgColor: '#ea580c',
-    bgOpacity: 90,
-    fontScale: 100,
-    bold: true,
-    italic: false,
-    shadowPx: 0,
-    bgPaddingPx: 9
-  }
-}
 
 export default function ScreenText(): JSX.Element {
   const [outputDir, setOutputDir] = useTabOutputDir('tblao.outputDir.screen')

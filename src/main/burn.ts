@@ -99,17 +99,34 @@ function styleFromReq(req: BurnReq, fallbackVien: number): SubStyle {
 let child: ChildProcess | null = null
 let daHuy = false
 
-/** Huy giua chung: giet ffmpeg. child.kill() thoat ma null -> hieu la huy, khong loi. */
+function killProcessTree(processToKill: ChildProcess): void {
+  if (!processToKill.pid) return
+  try {
+    if (process.platform === 'win32') {
+      const killer = spawn('taskkill', ['/pid', String(processToKill.pid), '/T', '/F'], {
+        windowsHide: true,
+        stdio: 'ignore'
+      })
+      killer.unref()
+    } else {
+      process.kill(-processToKill.pid, 'SIGTERM')
+    }
+  } catch {
+    try {
+      processToKill.kill('SIGTERM')
+    } catch {
+      // Process may already have exited.
+    }
+  }
+}
+
+/** Huy giua chung: giet ca ffprobe/ffmpeg va process con cua no. */
 export function cancelBurn(): void {
   daHuy = true
   cancelVoiceTimeline()
-  if (!child) return
-  try {
-    child.kill()
-  } catch {
-    /* bo qua */
-  }
+  const running = child
   child = null
+  if (running) killProcessTree(running)
 }
 
 function duongFfprobe(ffmpeg: string): string {
@@ -138,9 +155,11 @@ async function doVideo(ffprobe: string, video: string): Promise<Meta> {
       ],
       { windowsHide: true }
     )
+    child = p
     let out = ''
     p.stdout.on('data', (d: Buffer) => (out += d.toString()))
     p.on('close', () => {
+      if (child === p) child = null
       resolve({
         w: Number(/width=(\d+)/.exec(out)?.[1]) || 0,
         h: Number(/height=(\d+)/.exec(out)?.[1]) || 0,
@@ -148,7 +167,10 @@ async function doVideo(ffprobe: string, video: string): Promise<Meta> {
         hasAudio: out.includes('codec_type=audio')
       })
     })
-    p.on('error', () => resolve({ w: 0, h: 0, giay: 0, hasAudio: false }))
+    p.on('error', () => {
+      if (child === p) child = null
+      resolve({ w: 0, h: 0, giay: 0, hasAudio: false })
+    })
   })
 }
 
@@ -230,8 +252,11 @@ export function boCuc(
     x = Math.max(0, subRegion.x0)
     bw = Math.min(rong - x, subRegion.x1 - subRegion.x0)
 
-    // Co chu tinh TRUC TIEP theo chieu cao khung phu de user keo
-    fontSize = Math.max(14, Math.round(bh * 0.7))
+    // Vung phu de co the cao 10-20% video doc. Danh 70% chieu cao cho
+    // mot dong se lam chu phong qua lon va cac cue dai thanh 3-4 dong.
+    // Danh khoang 34% de toi da 2 dong co khoang tho, sau do taoAss se
+    // tu co nho rieng cho cue dai.
+    fontSize = Math.max(14, Math.round(bh * 0.34))
     tamY = Math.round(y + bh / 2)
   }
 
@@ -341,6 +366,54 @@ function gioAss(t: string): string {
   return `${Number(m[1])}:${m[2]}:${m[3]}.${String(cs).padStart(2, '0')}`
 }
 
+/**
+ * Chuan hoa timeline truoc khi tao ASS.
+ *
+ * SRT tu mo hinh dich hoac SRT nguon co the co cue trung nhau. Neu de nguyen,
+ * ASS ve dung hai lop chu cung luc, tao cam giac 2-3 dong chong len nhau.
+ * Giu nguyen noi dung va thu tu, chi rut cue truoc ve mep cue sau; cue trung
+ * noi dung duoc gop lai. Day chi la lop render, khong ghi de file SRT goc.
+ */
+function normalizeCuesForRender(cues: Cue[]): Cue[] {
+  const sorted = cues
+    .map((cue, index) => ({
+      cue,
+      index,
+      start: srtTimeToSeconds(cue.a),
+      end: srtTimeToSeconds(cue.b)
+    }))
+    .filter((item) => item.end > item.start + 0.04)
+    .sort((left, right) => left.start - right.start || left.index - right.index)
+
+  const output: Cue[] = []
+  const minDuration = 0.08
+  for (const item of sorted) {
+    const current = { ...item.cue }
+    const start = item.start
+    const end = item.end
+    const previous = output[output.length - 1]
+
+    if (previous) {
+      const previousStart = srtTimeToSeconds(previous.a)
+      const previousEnd = srtTimeToSeconds(previous.b)
+      if (current.chu.trim() === previous.chu.trim() && start <= previousEnd + 0.04) {
+        if (end > previousEnd) previous.b = mocSrt(end)
+        continue
+      }
+      if (start < previousEnd) {
+        previous.b = mocSrt(start)
+        if (start - previousStart < minDuration) output.pop()
+      }
+    }
+
+    if (end - start < minDuration) continue
+    current.a = mocSrt(start)
+    current.b = mocSrt(end)
+    output.push(current)
+  }
+  return output
+}
+
 export function taoAss(
   cues: Cue[],
   meta: Meta,
@@ -404,6 +477,19 @@ export function taoAss(
   const maxWidthPx = wrapWidthFromBox(boxWidth, bgOn ? boxPad : 0)
   const measure = createTextMeasurer(fontSize, fontName, pickedFont)
 
+  const formatCue = (text: string): string => {
+    let size = fontSize
+    let formatted = ngatDongTheoPx(text, maxWidthPx, measure, cueUsesCjkWrap(text))
+    // ASS cho phep override \fs theo tung dialogue. Giam dan de cau dai
+    // khong vuot qua 2 dong trong cung mot vung phu de.
+    while (formatted.split('\\N').length > 2 && size > Math.max(18, Math.round(fontSize * 0.58))) {
+      size -= 2
+      const cueMeasure = createTextMeasurer(size, fontName, pickedFont)
+      formatted = ngatDongTheoPx(text, maxWidthPx, cueMeasure, cueUsesCjkWrap(text))
+    }
+    return size === fontSize ? formatted : `{\\fs${size}}${formatted}`
+  }
+
   const primary = hexToAssColour(style?.textColor ?? '#ffffff', 100)
   const outline = hexToAssColour(style?.outlineColor ?? '#000000', 100)
   const outlineW = style != null ? style.outlinePx : bc.vien
@@ -426,7 +512,7 @@ export function taoAss(
     `0,0,0,0,100,100,0,0,3,${boxPad},0,${alignment},${marginL},${marginR},${marginV},1`
 
   const events = cues.flatMap((c) => {
-    const textFormatted = ngatDongTheoPx(c.chu, maxWidthPx, measure, cueUsesCjkWrap(c.chu))
+    const textFormatted = formatCue(c.chu)
     const a = gioAss(c.a)
     const b = gioAss(c.b)
     if (bgOn) {
@@ -460,6 +546,11 @@ export function taoAss(
 
 /**
  * Cac tham so filter cho ffmpeg. Supports N blur regions using split=N+1 stream architecture.
+ *
+ * Moi crop tao mot mask chu-like tu canh + pixel sang/toi co tuong phan cao.
+ * Chi phan co mask moi nhan mot lop boxblur rat manh qua alphamerge; phan
+ * khong co chu trong khung van giu nguyen. Mask duoc phong dai de phu kin ca
+ * than va vien chu, tranh truong hop chu van doc duoc sau khi lam mo.
  */
 function taoFilterComplex(
   meta: Meta,
@@ -474,7 +565,6 @@ function taoFilterComplex(
   fontsDir: string | null = null,
   externalAudioInputIndex = 1
 ): string[] {
-  const sigma = Math.max(8, Math.round((meta.h > 0 ? meta.h : 720) * 0.03))
   const validRegions = lamMo ? regions.filter((r) => r.x1 > r.x0 && r.y1 > r.y0) : []
 
   const hasVideoFilters = validRegions.length > 0 || coAss
@@ -494,7 +584,7 @@ function taoFilterComplex(
       const splitLabels = Array.from({ length: N }, (_, i) => `[c${i}]`).join('')
       lines.push(`[0:v]split=${N + 1}[main]${splitLabels}`)
 
-      // 2. Crop va gblur doc lap cho tung vung tu luong [c${i}]
+      // 2. Crop, blur va tao mask net chu doc lap cho tung vung tu [c${i}].
       for (let i = 0; i < N; i++) {
         const r = validRegions[i]
         let x = Math.max(0, r.x0)
@@ -512,10 +602,28 @@ function taoFilterComplex(
         if (bh < 2) bh = 2
         if (y + bh > h) bh = Math.max(2, h - y - ((h - y) % 2))
 
-        lines.push(`[c${i}]crop=${bw}:${bh}:${x}:${y},gblur=sigma=${sigma}:steps=3[b${i}]`)
+        // Boxblur duoc dat gan kich thuoc nua chieu cao crop. Gblur voi sigma
+        // lon tren mot so build FFmpeg tao mau hong/tim, con boxblur giu mau
+        // on dinh va lam mat chu manh hon.
+        const blurRadius = Math.max(24, Math.min(260, Math.round(Math.min(bw, bh) * 0.48)))
+
+        // Edge mask duoc giao voi hai mask mau sang/toi truoc khi phong dai
+        // nhieu lan de phu kin toan bo than chu, khong chi vien chu.
+        lines.push(
+          `[c${i}]crop=${bw}:${bh}:${x}:${y},format=yuv444p,split=2[blurSrc${i}][maskSrc${i}]`,
+          `[blurSrc${i}]boxblur=lr=${blurRadius}:lp=2:cr=${blurRadius}:cp=2,format=rgba[blur${i}]`,
+          `[maskSrc${i}]format=gray,split=3[edgeGray${i}][lightGray${i}][darkGray${i}]`,
+          `[edgeGray${i}]edgedetect=mode=wires:low=0.08:high=0.2:planes=y,boxblur=2:1,lut=y='if(gt(val,8),255,0)',split=2[edgeLight${i}][edgeDark${i}]`,
+          `[lightGray${i}]lut=y='if(gt(val,180),255,0)'[lightMask${i}]`,
+          `[darkGray${i}]lut=y='if(lt(val,70),255,0)'[darkMask${i}]`,
+          `[edgeLight${i}][lightMask${i}]blend=all_mode=and,boxblur=4:1,lut=y='if(gt(val,4),255,0)'[lightTextMask${i}]`,
+          `[edgeDark${i}][darkMask${i}]blend=all_mode=and,boxblur=4:1,lut=y='if(gt(val,4),255,0)'[darkTextMask${i}]`,
+          `[lightTextMask${i}][darkTextMask${i}]blend=all_mode=lighten,dilation=coordinates=255,dilation=coordinates=255,lut=y='if(gt(val,12),255,0)',format=gray[mask${i}]`,
+          `[blur${i}][mask${i}]alphamerge[masked${i}]`
+        )
       }
 
-      // 3. Overlay noi tiep lan luot cac vung mo len luong [main]
+      // 3. Overlay tung crop da alphamerge len luong [main].
       let prev = 'main'
       for (let i = 0; i < N; i++) {
         const r = validRegions[i]
@@ -524,18 +632,22 @@ function taoFilterComplex(
         x -= x % 2
         y -= y % 2
 
-        const outLbl = i === N - 1 && !coAss ? '[out]' : `[v${i + 1}]`
-        lines.push(`[${prev}][b${i}]overlay=${x}:${y}${outLbl}`)
+        const outLbl = `[v${i + 1}]`
+        lines.push(`[${prev}][masked${i}]overlay=${x}:${y}${outLbl}`)
         prev = `v${i + 1}`
       }
 
       // 4. Ghep phu de neu co
       if (coAss) {
-        lines.push(`[${prev}]${assFilter}[out]`)
+        lines.push(`[${prev}]${assFilter},format=yuv420p[out]`)
+      } else {
+        // NVENC/QSV/AMF deu nhan format nay on dinh hon sau alphamerge
+        // (neu de FFmpeg tu chon, mot so build se day rgba vao encoder).
+        lines.push(`[${prev}]format=yuv420p[out]`)
       }
     } else {
       // Chi co ass, khong co blur
-      lines.push(`[0:v]${assFilter}[out]`)
+      lines.push(`[0:v]${assFilter},format=yuv420p[out]`)
     }
   }
 
@@ -606,6 +718,10 @@ async function chay(
   onProgress: (p: BurnProgress) => void
 ): Promise<number | null> {
   return new Promise((resolve) => {
+    if (daHuy) {
+      resolve(-1)
+      return
+    }
     const p = spawn(ff, args, { cwd, windowsHide: true })
     child = p
     let errTail = ''
@@ -669,6 +785,7 @@ export async function burnSubtitle(
   daHuy = false
   const ff = await resolveFfmpeg()
   if (!ff) return { ok: false, error: 'Thiếu ffmpeg. Hãy chạy lại bước cài đặt.' }
+  if (daHuy) return { ok: false, error: 'Đã huỷ.' }
 
   const hasSrt = Boolean(req.srt && req.srt.trim())
   const regions = req.blurRegions || []
@@ -699,8 +816,16 @@ export async function burnSubtitle(
   }
 
   const meta = await doVideo(duongFfprobe(ff), req.video)
+  if (daHuy) {
+    if (hasSrt) await rm(srtTam, { force: true })
+    return { ok: false, error: 'Đã huỷ.' }
+  }
   let voiceTimelinePath: string | null = null
   if (voiceSyncRequested) {
+    if (daHuy) {
+      if (hasSrt) await rm(srtTam, { force: true })
+      return { ok: false, error: 'Đã huỷ.' }
+    }
     const timeline = await buildVoiceTimeline({
       srtPath: req.voiceSyncSrt!,
       voiceDir: req.voiceDir!,
@@ -807,8 +932,9 @@ export async function burnSubtitle(
 
   if (hasSrt) {
     const srtRaw = docFileSrt(srtTam)
-    const cues = docSrt(srtRaw)
-    logInfo(`Dịch màn hình: đọc được ${cues.length} câu phụ đề.`)
+    const rawCues = docSrt(srtRaw)
+    const cues = normalizeCuesForRender(rawCues)
+    logInfo(`Dịch màn hình: đọc ${rawCues.length} cue, render ${cues.length} cue không chồng lớp.`)
     bc = boCuc(meta, req.subRegion, req.lamMo)
     subStyle = styleFromReq(req, bc.vien)
     await writeFile(duongAss, taoAss(cues, meta, bc, picked?.family ?? null, subStyle, picked), 'utf8')

@@ -164,6 +164,8 @@ export default function App(): JSX.Element {
       ? 'ingest'
       : tab === 'audiotext' || tab === 'screen' || tab === 'enhance'
         ? 'render'
+        : tab === 'auto-short' || tab === 'multilang-short'
+          ? 'render'
         : 'neutral'
 
   const renderTab = (t: Tab): JSX.Element => (

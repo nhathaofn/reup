@@ -64,7 +64,7 @@ Thiết lập bảo mật cửa sổ hiện tại:
 | Module | Chức năng | Dữ liệu vào/ra và hành vi đáng chú ý |
 | --- | --- | --- |
 | main/index.ts | Khởi động app, BrowserWindow, protocol file, nối toàn bộ IPC | Phục vụ Range cho preview; điều phối dialog, shell, key, font và các service; nay gọi feature registry sau core |
-| deps.ts | Quản lý dependency nền | Tìm hoặc tải yt-dlp và FFmpeg/FFprobe vào userData/bin; phát setup progress; cập nhật yt-dlp tự động/thủ công; dùng assets-v1 cho gói lớn |
+| deps.ts | Quản lý dependency nền | Ưu tiên cặp FFmpeg/FFprobe đồng phiên bản trong resources/ffmpeg của bản đóng gói; fallback userData/bin và chỉ dùng PATH khi dev; phát setup progress; cập nhật yt-dlp; dùng assets-v1 cho gói lớn |
 | ytdlp.ts | Đọc metadata và tải media đa nền tảng | Đọc video/playlist, chọn format, tải video/audio/subtitle/metadata, archive, proxy, progress; khi gặp 403 có thể thử lại không dùng cookie |
 | cookies.ts | Phiên đăng nhập và cookies cho yt-dlp | Mở phiên Electron persistent, xuất cookies theo Netscape format để binary dùng |
 | proxy.ts | Kiểm tra proxy | Xác thực HTTP/SOCKS URL và chạy yêu cầu thử bằng yt-dlp trước khi lưu/dùng |
@@ -202,9 +202,10 @@ sửa. Không nên tạo implementation giả vì sẽ làm sai định dạng d
 ### Video2X và dependency tải ngoài
 
 Video2X không có source trong repo; Main tải và gọi binary tương ứng platform.
-yt-dlp/FFmpeg cũng được resolve từ tài nguyên app hoặc userData/bin. Khi debug,
-phải ghi nhận chính xác binary/path/version đang được chọn thay vì chỉ xem máy
-đã cài gì trong PATH.
+yt-dlp/FFmpeg được resolve từ tài nguyên app hoặc userData/bin. Bản Windows đóng
+gói chứa sẵn `resources/ffmpeg/ffmpeg.exe` và `resources/ffmpeg/ffprobe.exe`; PATH
+chỉ là fallback của môi trường dev. Khi debug, phải ghi nhận chính xác
+binary/path/version đang được chọn thay vì chỉ xem máy đã cài gì trong PATH.
 
 engines-manifest.json hiện chỉ có khóa ocr và video2x, trong khi code còn hỏi
 Douyin và Whisper/CUDA. Khóa vắng mặt khiến kiểm tra cập nhật các engine đó

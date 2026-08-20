@@ -66,6 +66,31 @@ function exe(name: string): string {
   return isWin ? `${name}.exe` : name
 }
 
+function ffprobeSibling(ffmpeg: string): string {
+  if (ffmpeg === 'ffmpeg') return 'ffprobe'
+  return join(dirname(ffmpeg), exe('ffprobe'))
+}
+
+function versionFromToolOutput(output: string): string | null {
+  return /(?:ffmpeg|ffprobe)\s+version\s+([^\s]+)/i.exec(output)?.[1] ?? null
+}
+
+async function usableFfmpegPair(ffmpeg: string): Promise<boolean> {
+  const ffprobe = ffprobeSibling(ffmpeg)
+  const [encoder, probe] = await Promise.all([
+    runCapture(ffmpeg, ['-version']),
+    runCapture(ffprobe, ['-version'])
+  ])
+  if (encoder.code !== 0 || probe.code !== 0) return false
+  const encoderVersion = versionFromToolOutput(encoder.out)
+  const probeVersion = versionFromToolOutput(probe.out)
+  return Boolean(encoderVersion && probeVersion && encoderVersion === probeVersion)
+}
+
+function packagedFfmpegPath(): string {
+  return join(process.resourcesPath, 'ffmpeg', exe('ffmpeg'))
+}
+
 /** Duong dan co dinh cua yt-dlp do app quan ly. */
 export function managedYtDlpPath(): string {
   return join(binDir(), exe('yt-dlp'))
@@ -239,17 +264,24 @@ export async function probeYtDlpCapabilities(): Promise<YtDlpCapabilities> {
   }
 }
 
-/** Tra ve duong dan ffmpeg dung duoc: bundled -> PATH. Null neu khong co. */
+/**
+ * Trả về FFmpeg thuộc một cặp FFmpeg/FFprobe đồng phiên bản.
+ *
+ * Bản Windows đóng gói luôn ưu tiên resources/ffmpeg. PATH chỉ được dùng khi
+ * chạy dev; app đã đóng gói không được lấy nhầm binary từ máy người dùng.
+ */
 export async function resolveFfmpeg(): Promise<string | null> {
-  const local = join(binDir(), exe('ffmpeg'))
-  const localProbe = join(binDir(), exe('ffprobe'))
-  if (
-    (await fileExists(local)) &&
-    (await fileExists(localProbe)) &&
-    (await canRun(local, ['-version'])) &&
-    (await canRun(localProbe, ['-version']))
-  ) return local
-  if (await canRun('ffmpeg', ['-version']) && await canRun('ffprobe', ['-version'])) return 'ffmpeg'
+  const packaged = packagedFfmpegPath()
+  if (await fileExists(packaged) && (await fileExists(ffprobeSibling(packaged))) && (await usableFfmpegPair(packaged))) {
+    return packaged
+  }
+
+  const managed = join(binDir(), exe('ffmpeg'))
+  if (await fileExists(managed) && (await fileExists(ffprobeSibling(managed))) && (await usableFfmpegPair(managed))) {
+    return managed
+  }
+
+  if (!app.isPackaged && (await usableFfmpegPair('ffmpeg'))) return 'ffmpeg'
   return null
 }
 
@@ -257,16 +289,13 @@ export async function checkDependencies(): Promise<DepStatus> {
   // Trang setup bat buoc cai ban do app quan ly vao userData/bin, ke ca khi
   // PATH da co yt-dlp/ffmpeg. Nho vay installer luon nhe va moi may dung dung
   // binary da khoa tren release runtime cua du an.
-  const [managedYtDlp, managedFfmpeg] = await Promise.all([
+  const [managedYtDlp, ffmpeg] = await Promise.all([
     canRun(managedYtDlpPath()),
-    Promise.all([
-      canRun(join(binDir(), exe('ffmpeg')), ['-version']),
-      canRun(join(binDir(), exe('ffprobe')), ['-version'])
-    ]).then(([ffmpeg, ffprobe]) => ffmpeg && ffprobe)
+    resolveFfmpeg()
   ])
   return {
     ytdlp: managedYtDlp,
-    ffmpeg: managedFfmpeg,
+    ffmpeg: ffmpeg !== null,
     engines: false,
     platform: process.platform
   }

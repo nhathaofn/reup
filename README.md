@@ -14,6 +14,7 @@ Repo chính thức của dự án này: <https://github.com/nhathaofn/reup>.
 - Chọn thư mục lưu (mặc định: Downloads)
 - **Progress bar** thời gian thực (tốc độ, ETA)
 - **Tự kiểm tra & tải** các thành phần cần thiết khi thiếu (màn hình Setup lúc khởi động)
+- Bản Windows đóng gói sẵn cặp FFmpeg/FFprobe đồng bộ; không phụ thuộc FFmpeg trong `PATH` của máy người dùng
 - Tạo hàng loạt **project CapCut đa ngôn ngữ** từ một video và số bộ SRT + voice tùy ý
 
 ## Yêu cầu môi trường

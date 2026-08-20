@@ -142,10 +142,10 @@ async function fileExists(p: string): Promise<boolean> {
   }
 }
 
-/** Neu ffmpeg da tai ve binDir thi tra ve thu muc do de truyen cho yt-dlp. */
+/** Trả thư mục của FFmpeg đã được resolve để yt-dlp dùng đúng binary của app. */
 async function ffmpegLocation(): Promise<string | null> {
-  const local = join(binDir(), isWin ? 'ffmpeg.exe' : 'ffmpeg')
-  return (await fileExists(local)) ? binDir() : null
+  const ffmpeg = await resolveFfmpeg()
+  return ffmpeg && isAbsolute(ffmpeg) ? dirname(ffmpeg) : null
 }
 
 async function ytdlpCmd(): Promise<string> {

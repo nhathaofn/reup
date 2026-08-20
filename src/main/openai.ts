@@ -3,7 +3,7 @@ import { readFile, writeFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { debugRaw, errLabel, logInfo } from './logger'
 import type { DichKeyStatus, SrtBlock } from '../shared/types'
-import { buildSrt, chia, huongDan, parseSrt } from './translate-shared'
+import { buildCueText, buildSrt, chia, chiaText, huongDan, huongDanDiaPhuong, loiHeChuDich, parseCueText, parseSrt } from './translate-shared'
 
 const BASE = 'https://api.openai.com/v1'
 
@@ -249,4 +249,109 @@ export async function translateSrt(
   await writeFile(outPath, buildSrt(ra), 'utf-8')
   logInfo(`Dịch phụ đề (ChatGPT): xong ${ra.length} câu.`)
   return { ok: true, count: ra.length }
+}
+
+/** Dịch kèm biên tập văn phong cho pipeline video đa ngôn ngữ. */
+export async function localizeSrt(
+  srtPath: string,
+  outPath: string,
+  dich: string,
+  phongCach: string,
+  onProgress?: (done: number, total: number) => void
+): Promise<{ ok: boolean; error?: string; count?: number }> {
+  const key = await loadKey()
+  if (!key) return { ok: false, error: 'Chưa có API key.' }
+
+  const blocks = parseSrt(await readFile(srtPath, 'utf-8'))
+  if (!blocks.length) return { ok: false, error: 'File phụ đề trống.' }
+
+  const models = await danhSach(key)
+  const chunks = chia(blocks)
+  const ra: SrtBlock[] = []
+  for (let i = 0; i < chunks.length; i++) {
+    const c = chunks[i]
+    const payload = c.map((b, j) => `${j + 1}. ${b.text}`).join('\n')
+    const r = await goiCoLui(key, models, huongDanDiaPhuong(dich, phongCach), payload, true)
+    if (!r.ok) return { ok: false, error: errLabel(r.err) }
+
+    let arr: { n: number; t: string }[] = []
+    try {
+      const parsed = JSON.parse(r.text as string) as
+        | { items?: { n: number; t: string }[] }
+        | { n: number; t: string }[]
+      arr = Array.isArray(parsed) ? parsed : (parsed.items ?? [])
+    } catch {
+      return { ok: false, error: 'Kết quả bản địa hóa không đọc được.' }
+    }
+    const map = new Map(arr.map((x) => [x.n, x.t]))
+    c.forEach((b, j) => ra.push({ time: b.time, text: map.get(j + 1) || b.text }))
+    onProgress?.(i + 1, chunks.length)
+  }
+
+  await writeFile(outPath, buildSrt(ra), 'utf-8')
+  logInfo(`Bản địa hóa phụ đề (ChatGPT): xong ${ra.length} câu.`)
+  return { ok: true, count: ra.length }
+}
+
+/** Bản địa hóa TXT: một request xử lý cả chunk nhiều dòng, mỗi dòng là một cue. */
+export async function localizeTextFile(
+  textPath: string,
+  outPath: string,
+  dich: string,
+  phongCach: string,
+  onProgress?: (done: number, total: number) => void
+): Promise<{ ok: boolean; error?: string; count?: number }> {
+  const key = await loadKey()
+  if (!key) return { ok: false, error: 'Chưa có API key.' }
+
+  const lines = parseCueText(await readFile(textPath, 'utf-8'))
+  if (!lines.length) return { ok: false, error: 'File phụ đề TXT trống.' }
+
+  const models = await danhSach(key)
+  const chunks = chiaText(lines)
+  logInfo(`Bản địa hóa TXT (ChatGPT): ${lines.length} cue trong ${chunks.length} request…`)
+  const translated: string[] = []
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i]
+    const payload = chunk.map((line, index) => `${index + 1}. ${line}`).join('\n')
+    let accepted: string[] | null = null
+    let languageError = ''
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const retryInstruction = attempt === 0
+        ? ''
+        : `\n\nRETRY: The previous response used the wrong language (${languageError}). Translate every line again and output only the target language. Do not retain source text.`
+      const result = await goiCoLui(key, models, `${huongDanDiaPhuong(dich, phongCach)}${retryInstruction}`, payload, true)
+      if (!result.ok) return { ok: false, error: errLabel(result.err) }
+
+      let items: { n: number; t: string }[] = []
+      try {
+        const parsed = JSON.parse(result.text as string) as
+          | { items?: { n: number; t: string }[] }
+          | { n: number; t: string }[]
+        items = Array.isArray(parsed) ? parsed : (parsed.items ?? [])
+      } catch {
+        return { ok: false, error: 'Kết quả bản địa hóa TXT không đọc được.' }
+      }
+      const map = new Map(items.map((item) => [item.n, item.t]))
+      const candidate: string[] = []
+      for (let index = 0; index < chunk.length; index++) {
+        const value = map.get(index + 1)
+        if (!value?.trim()) return { ok: false, error: `Kết quả bản địa hóa TXT thiếu dòng ${index + 1}.` }
+        candidate.push(value.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim())
+      }
+      languageError = loiHeChuDich(dich, candidate) ?? ''
+      if (!languageError) {
+        accepted = candidate
+        break
+      }
+      logInfo(`Bản địa hóa TXT (ChatGPT): ${languageError} Đang tự dịch lại phần ${i + 1}.`)
+    }
+    if (!accepted) return { ok: false, error: `${languageError} AI vẫn trả về sai ngôn ngữ sau khi thử lại.` }
+    translated.push(...accepted)
+    onProgress?.(i + 1, chunks.length)
+  }
+
+  await writeFile(outPath, buildCueText(translated), 'utf-8')
+  logInfo(`Bản địa hóa TXT (ChatGPT): xong ${translated.length} cue.`)
+  return { ok: true, count: translated.length }
 }

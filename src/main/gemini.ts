@@ -1,45 +1,49 @@
-import { safeStorage } from 'electron'
-import { readFile, writeFile, rm } from 'node:fs/promises'
-import { join } from 'node:path'
-import { app } from 'electron'
+import { readFile, writeFile } from 'node:fs/promises'
 import { debugRaw, errLabel, logInfo } from './logger'
 import type { GeminiStatus, SrtBlock } from '../shared/types'
-import { buildSrt, chia, huongDan, parseSrt } from './translate-shared'
+import { buildCueText, buildSrt, chia, chiaText, huongDan, huongDanDiaPhuong, loiHeChuDich, parseCueText, parseSrt } from './translate-shared'
+import { backoffMs, loadApiKeyPool, nextCursor, parseApiKeys, rotateIndices, saveApiKeyPool, sleep } from './services/apiKeyPool'
 
 export { parseSrt, buildSrt } from './translate-shared'
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta'
 
 // ---- Khoa cua user: ma hoa bang DPAPI (Win) / Keychain (mac) ----
-function keyFile(): string {
-  return join(app.getPath('userData'), 'gk.bin')
+const GEMINI_POOL_FILE = 'gemini-keys.bin'
+const GEMINI_LEGACY_FILE = 'gk.bin'
+let geminiKeyCursor = 0
+const GEMINI_MODEL_CACHE_MS = 10 * 60_000
+const GEMINI_MIN_GAP_MS = 350
+const geminiModelCache = new Map<string, { expiresAt: number; models: string[] }>()
+let geminiNextRequestAt = 0
+
+async function paceGeminiRequest(): Promise<void> {
+  const wait = geminiNextRequestAt - Date.now()
+  if (wait > 0) await sleep(wait)
+  geminiNextRequestAt = Date.now() + GEMINI_MIN_GAP_MS
 }
 
+export async function loadKeys(): Promise<string[]> {
+  return loadApiKeyPool(GEMINI_POOL_FILE, GEMINI_LEGACY_FILE)
+}
+
+export async function saveKeys(keys: string[]): Promise<void> {
+  await saveApiKeyPool(GEMINI_POOL_FILE, GEMINI_LEGACY_FILE, keys)
+  geminiKeyCursor = 0
+  geminiModelCache.clear()
+}
+
+/** Compatibility API used by the existing single-key translation settings. */
 export async function saveKey(key: string): Promise<void> {
-  const t = key.trim()
-  if (!t) {
-    await rm(keyFile(), { force: true })
-    return
-  }
-  const buf = safeStorage.isEncryptionAvailable()
-    ? safeStorage.encryptString(t)
-    : Buffer.from(t, 'utf-8')
-  await writeFile(keyFile(), buf)
+  await saveKeys(parseApiKeys(key))
 }
 
 export async function loadKey(): Promise<string> {
-  try {
-    const buf = await readFile(keyFile())
-    return safeStorage.isEncryptionAvailable()
-      ? safeStorage.decryptString(buf)
-      : buf.toString('utf-8')
-  } catch {
-    return ''
-  }
+  return (await loadKeys())[0] ?? ''
 }
 
 export async function hasKey(): Promise<boolean> {
-  return (await loadKey()).length > 0
+  return (await loadKeys()).length > 0
 }
 
 // ---- Chon model ----
@@ -56,9 +60,12 @@ function diem(n: string): number {
 }
 
 async function danhSach(key: string): Promise<string[]> {
+  const cached = geminiModelCache.get(key)
+  if (cached && cached.expiresAt > Date.now()) return cached.models
   let ds: string[] = []
   try {
     // Cung phai co han: mat mang o day thi treo truoc khi kip goi dich.
+    await paceGeminiRequest()
     const res = await fetch(`${BASE}/models?key=${key}`, { signal: AbortSignal.timeout(15_000) })
     if (res.ok) {
       const d = (await res.json()) as {
@@ -75,8 +82,13 @@ async function danhSach(key: string): Promise<string[]> {
   } catch {
     /* rot ve du phong */
   }
-  const pool = ds.length ? ds : DU_PHONG
-  return pool.filter((n) => !LOAI.test(n)).sort((a, b) => diem(b) - diem(a))
+  // Danh sach models cua Google co the chi tra ve mot model preview/qua tai
+  // (vi du gemini-3.7-flash). Luon ghep them bo fallback on dinh de 503 cua
+  // mot model khong lam ca pipeline dung lai.
+  const pool = [...ds, ...DU_PHONG]
+  const models = [...new Set(pool.filter((n) => !LOAI.test(n)))].sort((a, b) => diem(b) - diem(a))
+  if (ds.length) geminiModelCache.set(key, { expiresAt: Date.now() + GEMINI_MODEL_CACHE_MS, models })
+  return models
 }
 
 interface GenKQ {
@@ -112,6 +124,7 @@ async function goi(
   if (sys) body.systemInstruction = { parts: [{ text: sys }] }
   let res: Response
   try {
+    await paceGeminiRequest()
     res = await fetch(`${BASE}/models/${model}:generateContent?key=${key}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -150,6 +163,70 @@ async function goiCoLui(
     if (!r.lui) break
   }
   return cuoi
+}
+
+function shouldRotateGeminiKey(result: GenKQ): boolean {
+  if (result.status === 0 || result.status === 401 || result.status === 403 || result.status === 429) return true
+  if ((result.status ?? 0) >= 500) return true
+  return result.status === 400 && /api.?key|quota|resource.?exhausted|rate.?limit/i.test(result.err ?? '')
+}
+
+/** Try keys round-robin; a successful request advances the next starting key. */
+async function goiCoLuiPool(
+  keys: string[],
+  sys: string,
+  user: string,
+  schema?: object,
+  han?: number
+): Promise<GenKQ> {
+  let last: GenKQ = { ok: false, err: 'hết API key' }
+  for (const index of rotateIndices(keys.length, geminiKeyCursor)) {
+    const key = keys[index]
+    const models = await danhSach(key)
+    let result: GenKQ = { ok: false, err: 'hết model' }
+    let rotateKeyAfterModels = false
+    let lastTransientFailure: GenKQ | null = null
+    for (const model of models) {
+      let attempt = 0
+      do {
+        result = await goi(key, model, sys, user, schema, han)
+        if (result.ok || (result.status ?? 0) < 500 || attempt >= 1) break
+        await sleep(backoffMs(attempt))
+        attempt++
+      } while (true)
+      if (result.ok) break
+      debugRaw(`gemini pool ${model}`, result.err)
+      const status = result.status ?? 0
+      if (status >= 500) {
+        // 5xx la loi tam thoi cua model/dich vu: tiep tuc thu model fallback
+        // tren cung key truoc khi ket luan key bi loi.
+        rotateKeyAfterModels = true
+        lastTransientFailure = result
+        continue
+      }
+      if (status === 400 || status === 404) {
+        // Model co the het han/quyen truy cap trong danh sach tra ve tu API.
+        // Bo qua model nay de thu fallback tiep theo, khong xoay key vo ich.
+        continue
+      }
+      // 429/401/403/timeout lien quan den key: doi key ngay. Loi 4xx khac
+      // thi dung model hien tai va tra loi ro rang.
+      if (shouldRotateGeminiKey(result) || !result.lui) {
+        if (shouldRotateGeminiKey(result)) rotateKeyAfterModels = true
+        break
+      }
+    }
+    if (result.ok) {
+      geminiKeyCursor = nextCursor(index, keys.length)
+      if (keys.length > 1) logInfo(`Gemini key pool: dùng key ${index + 1}/${keys.length}, lượt kế tiếp sẽ xoay vòng.`)
+      return result
+    }
+    last = rotateKeyAfterModels && lastTransientFailure ? lastTransientFailure : result
+    if (!rotateKeyAfterModels && !shouldRotateGeminiKey(result)) return result
+      if (keys.length > 1) logInfo(`Gemini key pool: key ${index + 1}/${keys.length} bị giới hạn/lỗi, chuyển key kế tiếp.`)
+      geminiKeyCursor = nextCursor(index, keys.length)
+  }
+  return last
 }
 
 /**
@@ -192,6 +269,26 @@ export async function checkKey(key: string): Promise<GeminiStatus> {
   return { ok: false, message: `API KEY không dùng được: ${errLabel(loiKhac)}` }
 }
 
+export async function checkKeyPool(keyText?: string): Promise<GeminiStatus & { keyCount: number; healthyKeyCount: number }> {
+  const provided = parseApiKeys(keyText?.trim() || '')
+  const pool = provided.length ? provided : await loadKeys()
+  if (!pool.length) return { ok: false, keyCount: 0, healthyKeyCount: 0, message: 'Chưa nhập API key Gemini.' }
+
+  let healthyKeyCount = 0
+  for (const key of pool) {
+    const status = await checkKey(key)
+    if (status.ok) healthyKeyCount++
+  }
+  return {
+    ok: healthyKeyCount > 0,
+    keyCount: pool.length,
+    healthyKeyCount,
+    message: healthyKeyCount > 0
+      ? `Đã kiểm tra ${pool.length} Gemini key: ${healthyKeyCount} key dùng được; hệ thống sẽ tự xoay khi bị giới hạn.`
+      : `Đã kiểm tra ${pool.length} Gemini key nhưng chưa có key dùng được.`
+  }
+}
+
 // ---- Dich .srt ----
 const SCHEMA = {
   type: 'ARRAY',
@@ -213,21 +310,24 @@ export async function translateSrt(
   dich: string,
   onProgress?: (done: number, total: number) => void
 ): Promise<{ ok: boolean; error?: string; count?: number }> {
-  const key = await loadKey()
-  if (!key) return { ok: false, error: 'Chưa có API key.' }
+  const keys = await loadKeys()
+  if (!keys.length) return { ok: false, error: 'Chưa có API key.' }
 
   const blocks = parseSrt(await readFile(srtPath, 'utf-8'))
   if (!blocks.length) return { ok: false, error: 'File phụ đề trống.' }
 
-  const models = await danhSach(key)
+  // Giữ batching theo giới hạn ký tự kể cả khi có nhiều key. Gửi từng cue
+  // khiến một file vài chục câu thành vài chục lượt mạng tuần tự; pool vẫn
+  // xoay key theo từng chunk và retry khi một key bị giới hạn.
   const chunks = chia(blocks)
+  if (keys.length > 1) logInfo(`Gemini key pool: phân phối round-robin ${keys.length} key theo chunk.`)
   logInfo(`Dịch phụ đề: ${blocks.length} câu…`)
 
   const ra: SrtBlock[] = []
   for (let i = 0; i < chunks.length; i++) {
     const c = chunks[i]
     const payload = c.map((b, j) => `${j + 1}. ${b.text}`).join('\n')
-    const r = await goiCoLui(key, models, huongDan(dich), payload, SCHEMA)
+    const r = await goiCoLuiPool(keys, huongDan(dich), payload, SCHEMA)
     if (!r.ok) return { ok: false, error: errLabel(r.err) }
 
     let arr: { n: number; t: string }[] = []
@@ -244,4 +344,102 @@ export async function translateSrt(
   await writeFile(outPath, buildSrt(ra), 'utf-8')
   logInfo(`Dịch phụ đề: xong ${ra.length} câu.`)
   return { ok: true, count: ra.length }
+}
+
+/** Dịch kèm biên tập văn phong cho pipeline video đa ngôn ngữ. */
+export async function localizeSrt(
+  srtPath: string,
+  outPath: string,
+  dich: string,
+  phongCach: string,
+  onProgress?: (done: number, total: number) => void
+): Promise<{ ok: boolean; error?: string; count?: number }> {
+  const keys = await loadKeys()
+  if (!keys.length) return { ok: false, error: 'Chưa có API key.' }
+
+  const blocks = parseSrt(await readFile(srtPath, 'utf-8'))
+  if (!blocks.length) return { ok: false, error: 'File phụ đề trống.' }
+
+  const chunks = chia(blocks)
+  if (keys.length > 1) logInfo(`Gemini key pool: phân phối round-robin ${keys.length} key theo chunk.`)
+  const ra: SrtBlock[] = []
+  for (let i = 0; i < chunks.length; i++) {
+    const c = chunks[i]
+    const payload = c.map((b, j) => `${j + 1}. ${b.text}`).join('\n')
+    const r = await goiCoLuiPool(keys, huongDanDiaPhuong(dich, phongCach), payload, SCHEMA)
+    if (!r.ok) return { ok: false, error: errLabel(r.err) }
+
+    let arr: { n: number; t: string }[] = []
+    try {
+      arr = JSON.parse(r.text as string)
+    } catch {
+      return { ok: false, error: 'Kết quả bản địa hóa không đọc được.' }
+    }
+    const map = new Map(arr.map((x) => [x.n, x.t]))
+    c.forEach((b, j) => ra.push({ time: b.time, text: map.get(j + 1) || b.text }))
+    onProgress?.(i + 1, chunks.length)
+  }
+
+  await writeFile(outPath, buildSrt(ra), 'utf-8')
+  logInfo(`Bản địa hóa phụ đề: xong ${ra.length} câu.`)
+  return { ok: true, count: ra.length }
+}
+
+/** Bản địa hóa TXT: một request xử lý cả chunk nhiều dòng, mỗi dòng là một cue. */
+export async function localizeTextFile(
+  textPath: string,
+  outPath: string,
+  dich: string,
+  phongCach: string,
+  onProgress?: (done: number, total: number) => void
+): Promise<{ ok: boolean; error?: string; count?: number }> {
+  const keys = await loadKeys()
+  if (!keys.length) return { ok: false, error: 'Chưa có API key.' }
+
+  const lines = parseCueText(await readFile(textPath, 'utf-8'))
+  if (!lines.length) return { ok: false, error: 'File phụ đề TXT trống.' }
+
+  const chunks = chiaText(lines)
+  logInfo(`Bản địa hóa TXT: ${lines.length} cue trong ${chunks.length} request…`)
+  const translated: string[] = []
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i]
+    const payload = chunk.map((line, index) => `${index + 1}. ${line}`).join('\n')
+    let accepted: string[] | null = null
+    let languageError = ''
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const retryInstruction = attempt === 0
+        ? ''
+        : `\n\nRETRY: The previous response used the wrong language (${languageError}). Translate every line again and output only the target language. Do not retain source text.`
+      const result = await goiCoLuiPool(keys, `${huongDanDiaPhuong(dich, phongCach)}${retryInstruction}`, payload, SCHEMA)
+      if (!result.ok) return { ok: false, error: errLabel(result.err) }
+
+      let items: { n: number; t: string }[] = []
+      try {
+        items = JSON.parse(result.text as string) as { n: number; t: string }[]
+      } catch {
+        return { ok: false, error: 'Kết quả bản địa hóa TXT không đọc được.' }
+      }
+      const map = new Map(items.map((item) => [item.n, item.t]))
+      const candidate: string[] = []
+      for (let index = 0; index < chunk.length; index++) {
+        const value = map.get(index + 1)
+        if (!value?.trim()) return { ok: false, error: `Kết quả bản địa hóa TXT thiếu dòng ${index + 1}.` }
+        candidate.push(value.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim())
+      }
+      languageError = loiHeChuDich(dich, candidate) ?? ''
+      if (!languageError) {
+        accepted = candidate
+        break
+      }
+      logInfo(`Bản địa hóa TXT: ${languageError} Đang tự dịch lại phần ${i + 1}.`)
+    }
+    if (!accepted) return { ok: false, error: `${languageError} AI vẫn trả về sai ngôn ngữ sau khi thử lại.` }
+    translated.push(...accepted)
+    onProgress?.(i + 1, chunks.length)
+  }
+
+  await writeFile(outPath, buildCueText(translated), 'utf-8')
+  logInfo(`Bản địa hóa TXT: xong ${translated.length} cue.`)
+  return { ok: true, count: translated.length }
 }

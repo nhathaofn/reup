@@ -46,7 +46,9 @@ export async function detectGpu(): Promise<GpuInfo> {
 
   // 2) CUDA Version (chi hien o header cua `nvidia-smi` thuong, khong co trong --query)
   const p = await run('nvidia-smi', [])
-  const m = p.out.match(/CUDA\s*Version:\s*([0-9]+)\.([0-9]+)/i)
+  // Newer Windows drivers expose `CUDA UMD Version` instead of the older
+  // `CUDA Version` header. Accept both forms before falling back to CPU.
+  const m = p.out.match(/CUDA(?:\s+UMD)?\s*Version:\s*([0-9]+)\.([0-9]+)/i)
   const cudaMajor = m ? Number(m[1]) : null
   const cudaVersion = m ? `${m[1]}.${m[2]}` : null
 

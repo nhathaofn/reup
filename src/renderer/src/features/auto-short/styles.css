@@ -1,0 +1,221 @@
+.auto-short-workspace {
+  width: 100%;
+}
+
+.auto-short-card,
+.auto-short-run-card {
+  padding: 12px;
+}
+
+.auto-short-card > strong {
+  display: block;
+  margin-bottom: 9px;
+  font-size: 13px;
+}
+
+.auto-short-card-head,
+.auto-short-result-head,
+.auto-short-progress-head,
+.auto-short-engine-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.auto-short-card-head > div:first-child,
+.auto-short-result-head > div:first-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.auto-short-actions,
+.auto-short-run-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.auto-short-files {
+  display: flex;
+  max-height: 132px;
+  margin-top: 9px;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.auto-short-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--panel-2);
+  font-size: 12px;
+}
+
+.auto-short-file span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auto-short-remove,
+.auto-short-link {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.auto-short-remove {
+  padding: 0 3px;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.auto-short-remove:hover,
+.auto-short-link:hover {
+  color: var(--text);
+}
+
+.auto-short-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.auto-short-options label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.auto-short-options select {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.auto-short-note {
+  margin: 9px 0 0;
+  line-height: 1.4;
+}
+
+.auto-short-folder-row {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.auto-short-engine-line {
+  justify-content: flex-start;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.auto-short-engine-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 7px var(--ok);
+}
+
+.auto-short-run-actions .btn.primary {
+  flex: 1;
+}
+
+.auto-short-run-actions .btn {
+  padding: 10px 15px;
+}
+
+.auto-short-progress {
+  padding: 13px;
+}
+
+.auto-short-progress.done {
+  border-color: var(--ok);
+}
+
+.auto-short-progress-head {
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.auto-short-count {
+  margin-bottom: 0;
+}
+
+.auto-short-result-card {
+  display: flex;
+  min-height: 0;
+  padding: 0;
+  flex: 1 1 auto !important;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.auto-short-result-head {
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.auto-short-table-wrap {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+.auto-short-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.auto-short-table th,
+.auto-short-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  text-align: left;
+}
+
+.auto-short-table th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.auto-short-table td:first-child {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auto-short-empty {
+  flex: 1;
+}
+
+@media (max-width: 800px) {
+  .auto-short-options {
+    grid-template-columns: 1fr;
+  }
+}

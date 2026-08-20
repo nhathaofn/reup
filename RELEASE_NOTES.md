@@ -7,6 +7,11 @@
 - Giữ ưu tiên chất lượng và độ phân giải đã chọn trước khi lùi về luồng progressive.
 - Áp dụng cơ chế phục hồi cho cả tải video và audio.
 
+### Windows runtime
+
+- Installer đóng gói sẵn cặp `ffmpeg.exe` và `ffprobe.exe` đồng phiên bản trong `resources/ffmpeg`.
+- Bản đã đóng gói không còn lấy FFmpeg từ `PATH` của máy người dùng; runtime chỉ dùng cặp đã kiểm tra của app.
+
 ## T-blao v0.1.26
 
 ### Tải audio YouTube

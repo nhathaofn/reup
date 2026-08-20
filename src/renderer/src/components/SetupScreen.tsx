@@ -56,9 +56,8 @@ export default function SetupScreen({ onDone }: Props): JSX.Element {
       <div className="card setup-card">
         <h2>Chuẩn bị T-blao</h2>
         <p className="muted">
-          Ứng dụng sẽ tải các công cụ xử lý vào thư mục dữ liệu riêng trong lần chạy đầu tiên. Bản
-          cài đặt không chứa engine hoặc FFmpeg; quá trình tải có thể lâu và không yêu cầu quyền
-          quản trị.
+          Ứng dụng đã có sẵn cặp FFmpeg/FFprobe đồng bộ trong bản Windows. Các engine tùy chọn và
+          bộ tải xuống còn thiếu sẽ được tải vào thư mục dữ liệu riêng, không yêu cầu quyền quản trị.
         </p>
 
         {!running && !error && (

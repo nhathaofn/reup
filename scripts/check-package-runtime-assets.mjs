@@ -5,21 +5,26 @@ import { listPackage } from '@electron/asar'
 const packageRoot = resolve(process.argv[2] ?? 'dist/win-unpacked')
 const resourcesDir = join(packageRoot, 'resources')
 const asarPath = join(resourcesDir, 'app.asar')
+const ffmpegDir = join(resourcesDir, 'ffmpeg')
 
 if (!existsSync(packageRoot) || !existsSync(asarPath)) {
   console.error(`Khong tim thay goi Electron tai: ${packageRoot}`)
   process.exit(1)
 }
 
+for (const name of ['ffmpeg.exe', 'ffprobe.exe']) {
+  const path = join(ffmpegDir, name)
+  if (!existsSync(path) || statSync(path).size === 0) {
+    console.error(`Gói Windows thiếu runtime bắt buộc: resources/ffmpeg/${name}`)
+    process.exit(1)
+  }
+}
+
 const forbiddenNames = new Set([
   'dy-engine',
   'dy-engine.exe',
-  'ffmpeg',
-  'ffmpeg.exe',
   'ffplay',
   'ffplay.exe',
-  'ffprobe',
-  'ffprobe.exe',
   'ocr-engine',
   'ocr-engine.exe',
   'video2x',
@@ -54,6 +59,17 @@ const violations = [
   ...asarFiles.filter(isForbidden).map((path) => `app.asar:${path}`)
 ]
 
+const misplacedFfmpeg = [
+  ...packagedFiles.filter((path) => {
+    const name = basename(path).toLowerCase()
+    return (name === 'ffmpeg.exe' || name === 'ffprobe.exe') && !path.toLowerCase().startsWith(ffmpegDir.toLowerCase() + '\\')
+  }),
+  ...asarFiles
+    .filter((path) => ['ffmpeg.exe', 'ffprobe.exe'].includes(basename(path).toLowerCase()))
+    .map((path) => `app.asar:${path}`)
+]
+violations.push(...misplacedFfmpeg)
+
 if (violations.length > 0) {
   console.error('Goi cai dat dang chua runtime bi cam:')
   for (const violation of violations) console.error(`- ${violation}`)
@@ -61,7 +77,7 @@ if (violations.length > 0) {
 }
 
 console.log(
-  `OK: ${asarFiles.length} tep trong app.asar; khong co engine, ffmpeg executable, yt-dlp hoac ZIP.`
+  `OK: ${asarFiles.length} tep trong app.asar; FFmpeg/FFprobe nằm tại resources/ffmpeg, không có engine, yt-dlp hoặc ZIP.`
 )
 console.log('OK: native CapCut generator duoc dong goi trong app.asar.')
 console.log(
