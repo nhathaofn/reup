@@ -3,15 +3,19 @@ import { isReservedFeatureId } from '../../shared/features/contracts'
 import type { FeatureInvokeHandler, MainFeatureModule } from './contracts'
 
 // feature-scaffold:imports
+import { autoShortMainFeature } from './auto-short'
 import { capcutFactoryMainFeature } from './capcut-factory'
 import { sceneSplitterMainFeature } from './scene-splitter'
 import { mediaInspectorMainFeature } from './media-inspector'
+import { multiLangShortMainFeature } from './multilang-short'
 
 const registeredMainFeatures = [
   // feature-scaffold:modules
+  autoShortMainFeature,
   capcutFactoryMainFeature,
   sceneSplitterMainFeature,
   mediaInspectorMainFeature,
+  multiLangShortMainFeature,
 ] as const satisfies readonly MainFeatureModule[]
 
 const mainFeatureModules: readonly MainFeatureModule[] = registeredMainFeatures
