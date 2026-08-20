@@ -1,0 +1,14 @@
+extends: electron-builder.yml
+appId: com.nhathaofn.tblao.local
+productName: T-blao Local
+directories:
+  output: dist-local
+win:
+  target:
+    - portable
+  icon: build/icon.ico
+  signAndEditExecutable: false
+  artifactName: ${productName}-${version}-portable.${ext}
+publish: null
+
+

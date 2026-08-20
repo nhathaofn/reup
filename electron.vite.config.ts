@@ -26,6 +26,10 @@ export default defineConfig({
     },
     build: {
       outDir: 'out/renderer',
+      // Windows can keep a handle on the renderer output while a packaged
+      // or preview Electron process is still open. Let Vite write the new
+      // content without trying to remove the in-use directory first.
+      emptyOutDir: false,
       rollupOptions: {
         input: resolve(__dirname, 'src/renderer/index.html')
       }

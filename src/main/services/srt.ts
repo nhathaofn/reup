@@ -89,3 +89,43 @@ export function readSrtFile(filePath: string): string {
   }
   return utf8
 }
+
+/**
+ * Chuyen doi danh sach cue SRT sang bieu thuc enable cho filter overlay cua FFmpeg.
+ * Gop cac khoang thoi gian lien ke/chong lap de toi uu bieu thuc.
+ */
+export function buildSrtTimelineExpression(cues: ParsedSrtCue[]): string {
+  if (!cues || cues.length === 0) return ''
+
+  const intervals: Array<{ start: number; end: number }> = []
+  for (const c of cues) {
+    const start = srtTimeToSeconds(c.a)
+    const end = srtTimeToSeconds(c.b)
+    if (end > start) {
+      intervals.push({ start, end })
+    }
+  }
+
+  if (intervals.length === 0) return ''
+
+  intervals.sort((a, b) => a.start - b.start)
+
+  const merged: Array<{ start: number; end: number }> = [intervals[0]]
+  for (let i = 1; i < intervals.length; i++) {
+    const prev = merged[merged.length - 1]
+    const curr = intervals[i]
+    if (curr.start <= prev.end + 0.05) {
+      prev.end = Math.max(prev.end, curr.end)
+    } else {
+      merged.push(curr)
+    }
+  }
+
+  const parts = merged.map((inv) => {
+    const s = Number(inv.start.toFixed(3))
+    const e = Number(inv.end.toFixed(3))
+    return `between(t,${s},${e})`
+  })
+
+  return parts.join('+')
+}

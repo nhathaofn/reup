@@ -178,8 +178,12 @@ export async function installWhisperEngine(onProgress: (percent: number) => void
 export async function transcribeAudio(
   id: string,
   req: WhisperRequest,
-  onProgress: (p: WhisperProgress) => void
+  onProgress: (p: WhisperProgress) => void,
+  signal?: AbortSignal
 ): Promise<WhisperResult> {
+  if (signal?.aborted) {
+    return { id, ok: false, outputs: [], segments: 0, speakers: 0, error: 'Đã huỷ.' }
+  }
   const engine = enginePath()
   if (!(await fileExists(engine))) {
     return {
@@ -241,6 +245,18 @@ export async function transcribeAudio(
     let speakers = 0
     let doneOk = false
     let errMsg: string | null = null
+    let aborted = false
+
+    const abort = (): void => {
+      aborted = true
+      try {
+        child.kill()
+      } catch {
+        /* bo qua */
+      }
+    }
+    signal?.addEventListener('abort', abort, { once: true })
+    if (signal?.aborted) abort()
 
     onProgress({ id, status: 'preparing', percent: -1, language: null, line: 'Đang chuẩn bị…' })
 
@@ -304,6 +320,11 @@ export async function transcribeAudio(
     })
 
     child.on('error', (err) => {
+      signal?.removeEventListener('abort', abort)
+      if (aborted || signal?.aborted) {
+        resolve({ id, ok: false, outputs: [], segments: 0, speakers: 0, error: 'Đã huỷ.' })
+        return
+      }
       // Loi tho -> chi console luc phat trien. Nhat ky + UI chi duoc thay NHAN.
       debugRaw('whisper spawn', err)
       const nhan = errLabel(err)
@@ -312,6 +333,12 @@ export async function transcribeAudio(
     })
 
     child.on('close', (code) => {
+      signal?.removeEventListener('abort', abort)
+      if (aborted || signal?.aborted) {
+        onProgress({ id, status: 'error', percent: -1, language, line: 'Đã huỷ.' })
+        resolve({ id, ok: false, outputs, segments, speakers, error: 'Đã huỷ.' })
+        return
+      }
       if (outBuf) handleLine(outBuf)
       if (doneOk && !errMsg) {
         logInfo(

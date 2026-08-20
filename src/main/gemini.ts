@@ -3,8 +3,9 @@ import { readFile, writeFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { app } from 'electron'
 import { debugRaw, errLabel, logInfo } from './logger'
+import { LOCKED_GEMINI_MODEL } from './gemini-model'
 import type { GeminiStatus, SrtBlock } from '../shared/types'
-import { buildSrt, chia, huongDan, parseSrt } from './translate-shared'
+import { buildSrt, chia, huongDan, mergeTranslatedBlocks, parseSrt } from './translate-shared'
 
 export { parseSrt, buildSrt } from './translate-shared'
 
@@ -42,41 +43,9 @@ export async function hasKey(): Promise<boolean> {
   return (await loadKey()).length > 0
 }
 
-// ---- Chon model ----
-const DU_PHONG = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite']
-const LOAI = /image|imagen|tts|audio|speech|embedding|robotics|computer-use|omni/
-
-function diem(n: string): number {
-  const m = n.match(/(\d+\.\d+|\d+)/)
-  let s = (m ? parseFloat(m[1]) : 1) * 100
-  if (n.includes('flash')) s += 50
-  if (n.includes('lite')) s -= 20
-  if (n.includes('preview') || n.includes('-exp')) s -= 30
-  return s
-}
-
-async function danhSach(key: string): Promise<string[]> {
-  let ds: string[] = []
-  try {
-    // Cung phai co han: mat mang o day thi treo truoc khi kip goi dich.
-    const res = await fetch(`${BASE}/models?key=${key}`, { signal: AbortSignal.timeout(15_000) })
-    if (res.ok) {
-      const d = (await res.json()) as {
-        models?: { name?: string; supportedGenerationMethods?: string[] }[]
-      }
-      ds = (d.models ?? [])
-        .filter(
-          (m) =>
-            (m.name ?? '').includes('gemini-') &&
-            (m.supportedGenerationMethods ?? []).includes('generateContent')
-        )
-        .map((m) => (m.name as string).replace('models/', ''))
-    }
-  } catch {
-    /* rot ve du phong */
-  }
-  const pool = ds.length ? ds : DU_PHONG
-  return pool.filter((n) => !LOAI.test(n)).sort((a, b) => diem(b) - diem(a))
+// ---- Model Gemini cố định ----
+async function danhSach(_key: string): Promise<string[]> {
+  return [LOCKED_GEMINI_MODEL]
 }
 
 interface GenKQ {
@@ -98,7 +67,8 @@ async function goi(
   sys: string,
   user: string,
   schema?: object,
-  han = HAN_DICH
+  han = HAN_DICH,
+  signal?: AbortSignal
 ): Promise<GenKQ> {
   const cfg: Record<string, unknown> = { temperature: 0.2 }
   if (schema) {
@@ -116,7 +86,9 @@ async function goi(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(han)
+      signal: signal
+        ? AbortSignal.any([AbortSignal.timeout(han), signal])
+        : AbortSignal.timeout(han)
     })
   } catch (e) {
     return { ok: false, lui: true, status: 0, err: String(e) }
@@ -137,13 +109,15 @@ async function goiCoLui(
   sys: string,
   user: string,
   schema?: object,
-  han?: number
+  han?: number,
+  signal?: AbortSignal
 ): Promise<GenKQ> {
   // Khong co model nao de thu -> phai bao ro, dung de rot ve "lỗi không xác định"
   if (!models.length) return { ok: false, err: 'network: không lấy được danh sách' }
   let cuoi: GenKQ = { ok: false, err: 'hết model' }
   for (const m of models) {
-    const r = await goi(key, m, sys, user, schema, han)
+    if (signal?.aborted) return { ok: false, lui: false, status: 0, err: 'Đã huỷ.' }
+    const r = await goi(key, m, sys, user, schema, han, signal)
     if (r.ok) return r
     debugRaw(`gemini ${m}`, r.err)
     cuoi = r
@@ -207,16 +181,17 @@ const SCHEMA = {
  * Khoi nao khong co ban dich -> giu nguyen chu goc (tha 1 dong chua dich con
  * hon ca file sai gio).
  */
-export async function translateSrt(
-  srtPath: string,
-  outPath: string,
+export async function translateSrtText(
+  raw: string,
   dich: string,
-  onProgress?: (done: number, total: number) => void
-): Promise<{ ok: boolean; error?: string; count?: number }> {
+  onProgress?: (done: number, total: number) => void,
+  signal?: AbortSignal
+): Promise<{ ok: boolean; srt?: string; error?: string; count?: number }> {
+  if (signal?.aborted) return { ok: false, error: 'Đã huỷ.' }
   const key = await loadKey()
   if (!key) return { ok: false, error: 'Chưa có API key.' }
 
-  const blocks = parseSrt(await readFile(srtPath, 'utf-8'))
+  const blocks = parseSrt(raw)
   if (!blocks.length) return { ok: false, error: 'File phụ đề trống.' }
 
   const models = await danhSach(key)
@@ -225,9 +200,10 @@ export async function translateSrt(
 
   const ra: SrtBlock[] = []
   for (let i = 0; i < chunks.length; i++) {
+    if (signal?.aborted) return { ok: false, error: 'Đã huỷ.' }
     const c = chunks[i]
     const payload = c.map((b, j) => `${j + 1}. ${b.text}`).join('\n')
-    const r = await goiCoLui(key, models, huongDan(dich), payload, SCHEMA)
+    const r = await goiCoLui(key, models, huongDan(dich), payload, SCHEMA, undefined, signal)
     if (!r.ok) return { ok: false, error: errLabel(r.err) }
 
     let arr: { n: number; t: string }[] = []
@@ -236,12 +212,25 @@ export async function translateSrt(
     } catch {
       return { ok: false, error: 'Kết quả dịch không đọc được.' }
     }
-    const map = new Map(arr.map((x) => [x.n, x.t]))
-    c.forEach((b, j) => ra.push({ time: b.time, text: map.get(j + 1) || b.text }))
+    ra.push(...mergeTranslatedBlocks(c, arr))
     onProgress?.(i + 1, chunks.length)
   }
 
-  await writeFile(outPath, buildSrt(ra), 'utf-8')
   logInfo(`Dịch phụ đề: xong ${ra.length} câu.`)
-  return { ok: true, count: ra.length }
+  return { ok: true, srt: buildSrt(ra), count: ra.length }
+}
+
+export async function translateSrt(
+  srtPath: string,
+  outPath: string,
+  dich: string,
+  onProgress?: (done: number, total: number) => void,
+  signal?: AbortSignal
+): Promise<{ ok: boolean; error?: string; count?: number }> {
+  const result = await translateSrtText(await readFile(srtPath, 'utf-8'), dich, onProgress, signal)
+  if (!result.ok || result.srt === undefined) {
+    return { ok: false, error: result.error }
+  }
+  await writeFile(outPath, result.srt, 'utf-8')
+  return { ok: true, count: result.count }
 }

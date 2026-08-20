@@ -299,6 +299,8 @@ export interface BurnReq {
   blurRegions?: BlurRegion[]
   // Co lam mo vung do khong (che phu de goc). Doc lap voi vi tri dat chu.
   lamMo?: boolean
+  // Chi lam mo khi co phu de SRT xuat hien
+  moTheoSrt?: boolean
   // Khung vi tri & co chu phu de (pixel video goc). User khoanh/keo gian khung phu de.
   subRegion?: { x0: number; y0: number; x1: number; y1: number }
   // Cat phu de cho vua thoi luong video (chi che do 'soft'). UI bat co nay khi
@@ -414,7 +416,9 @@ export const DICH_LANGS = [
   { code: 'en', label: 'Tiếng Anh' },
   { code: 'zh', label: 'Tiếng Trung' },
   { code: 'ja', label: 'Tiếng Nhật' },
-  { code: 'ko', label: 'Tiếng Hàn' }
+  { code: 'ko', label: 'Tiếng Hàn' },
+  { code: 'id', label: 'Tiếng Indonesia' },
+  { code: 'th', label: 'Tiếng Thái' }
 ] as const
 
 // Ket qua quet GPU (buoc an toan truoc khi cho tai goi tang toc CUDA)
@@ -573,4 +577,3 @@ export interface Video2xRunResult {
   output?: string
   error?: string
 }
-

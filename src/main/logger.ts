@@ -17,6 +17,7 @@ export function logFilePath(): string {
 }
 
 let dirReady = false
+let fileWriteQueue: Promise<void> = Promise.resolve()
 async function ensureDir(): Promise<void> {
   if (dirReady) return
   try {
@@ -103,10 +104,14 @@ export function log(level: LogLevel, msg: string): void {
   if (buffer.length > MAX) buffer.shift()
   logEmitter.emit('entry', entry)
 
-  // Ghi file (fire-and-forget, khong chan luong)
-  void ensureDir().then(() =>
-    appendFile(logFilePath(), `[${entry.time}] ${level.toUpperCase()} ${msg}\n`).catch(() => {})
-  )
+  // Ghi file theo một hàng đợi duy nhất. Nhiều appendFile chạy song song có
+  // thể làm đảo thứ tự các dòng request/response trong nhật ký.
+  fileWriteQueue = fileWriteQueue
+    .then(async () => {
+      await ensureDir()
+      await appendFile(logFilePath(), `[${entry.time}] ${level.toUpperCase()} ${msg}\n`)
+    })
+    .catch(() => {})
 
   // In ra console CHI de tien theo doi luc phat trien. Neu dau kia dong ong
   // (dong cua so console, chay qua `| head`...) thi console.log NEM EPIPE ->
@@ -135,6 +140,8 @@ export function clearLogs(): void {
 /** Xoa sach file log (dong bo) — goi luc app thoat de moi lan mo la nhat ky moi. */
 export function wipeLogFileSync(): void {
   buffer.length = 0
+  // Chỉ được gọi lúc app khởi động, trước khi có log mới; tránh xóa file trong
+  // khi hàng đợi ghi cuối phiên vẫn còn đang chạy.
   try {
     rmSync(logFilePath(), { force: true })
   } catch {
