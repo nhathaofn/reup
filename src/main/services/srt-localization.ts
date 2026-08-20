@@ -69,6 +69,7 @@ const FACT_TOKEN_MARKER_PATTERN = /\[\[(?:MONEY|MEASURE)/giu
 const TIMESTAMP_PATTERN = /\p{Nd}{2}:\p{Nd}{2}:\p{Nd}{2}[,.]\p{Nd}{3}(?:\s*-->\s*\p{Nd}{2}:\p{Nd}{2}:\p{Nd}{2}[,.]\p{Nd}{3})?/u
 const SPEAKER_LABEL_PATTERN = /\[SPEAKER_[^\]]*\]/gu
 const LETTER_PATTERN = /\p{L}/u
+const NUMERIC_SURFACE_PATTERN = /^[\p{Nd}]+(?:[.,][\p{Nd}]+)?$/u
 const THAI_SCRIPT_PATTERN = /\p{Script=Thai}/u
 const HIRAGANA_KATAKANA_PATTERN = /[\p{Script=Hiragana}\p{Script=Katakana}]/u
 const HANGUL_SCRIPT_PATTERN = /\p{Script=Hangul}/u
@@ -121,10 +122,6 @@ function sourcePreservedMoney(amount: number, currencyCode: string): string {
   return `${amount} ${currencyCode.toUpperCase()}`
 }
 
-function sourcePreservedMeasurement(value: number, unitCode: string): string {
-  return `${value} ${unitCode}`
-}
-
 export function buildFactTokenReplacements(
   canonical: CanonicalSource,
   profile: LocaleProfile,
@@ -158,7 +155,7 @@ export function buildFactTokenReplacements(
       token: measurementToken(mention.id),
       cueNumber: mention.cueNumber,
       sourceSurface: mention.sourceSurface,
-      renderedText: instruction?.targetDisplay ?? sourcePreservedMeasurement(mention.sourceValue, mention.sourceUnitCode),
+      renderedText: instruction?.targetDisplay ?? mention.sourceSurface,
       mode: instruction ? 'converted' : 'preserved'
     })
   }
@@ -174,12 +171,35 @@ export function applyFactTokens(
 ): string {
   let text = cue.correctedZh
   for (const replacement of replacements.filter((item) => item.cueNumber === cue.n)) {
-    if (countOccurrences(text, replacement.sourceSurface) !== 1) {
+    if (countSourceSurfaceOccurrences(text, replacement.sourceSurface) !== 1) {
       throw new Error('FACT_TOKEN_INVALID: source surface must occur exactly once')
     }
-    text = text.replace(replacement.sourceSurface, replacement.token)
+    text = replaceSourceSurfaceOnce(text, replacement.sourceSurface, replacement.token)
   }
   return text
+}
+
+function numericSurfacePattern(surface: string): RegExp | null {
+  if (!NUMERIC_SURFACE_PATTERN.test(surface)) return null
+  const escaped = surface.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
+  // A bare number such as "0" must not match the zero inside "600" or
+  // inside a decimal/grouped number. This matters when one cue contains both
+  // facts, for example "0" and "600公里".
+  return new RegExp(`(?<![\\p{Nd}.,'’ʼ])${escaped}(?![\\p{Nd}.,'’ʼ])`, 'gu')
+}
+
+function countSourceSurfaceOccurrences(text: string, surface: string): number {
+  const pattern = numericSurfacePattern(surface)
+  if (!pattern) return countOccurrences(text, surface)
+  return [...text.matchAll(pattern)].length
+}
+
+function replaceSourceSurfaceOnce(text: string, surface: string, replacement: string): string {
+  const pattern = numericSurfacePattern(surface)
+  if (!pattern) return text.replace(surface, replacement)
+  const match = pattern.exec(text)
+  if (!match || match.index === undefined) return text
+  return `${text.slice(0, match.index)}${replacement}${text.slice(match.index + match[0].length)}`
 }
 
 function numberLiterals(text: string): string[] {

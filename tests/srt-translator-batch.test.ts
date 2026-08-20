@@ -1,12 +1,15 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  buildFactTokenReplacements,
   buildLocalizationPayload,
   buildLocalizationSystemPrompt,
+  buildPreparedLocalizationCues,
   runLocalizedTargetBatch,
   validateLocalizedRows,
   type PreparedLocalizationCue
 } from '../src/main/services/srt-localization.ts'
+import { buildMeasurementInstructions } from '../src/main/services/measurement-conversion.ts'
 import { extractNumberLiterals } from '../src/main/services/srt-number-literals.ts'
 import type { GeminiGenerateRequest } from '../src/main/services/gemini-files.ts'
 import {
@@ -95,6 +98,41 @@ test('number guard allows Japanese to make the implicit single carriage explicit
   assert.doesNotThrow(() => validateLocalizedRows([
     { n: 1, t: '1両あたり約200人を乗せられます。' }
   ], [{ n: 1, time: 'x', text: source, requiredTokens: [], allowedNumberLiterals: extractNumberLiterals(source) }], { locale: 'ja-JP' }))
+})
+
+test('fact tokens distinguish a standalone zero from the zero inside a larger measurement', () => {
+  const cue = {
+    n: 3,
+    time: '00:00:05,000 --> 00:00:07,000',
+    originalZh: '从0加速到时速600公里',
+    correctedZh: '从0加速到时速600公里',
+    meaningVi: 'Tăng tốc từ 0 đến 600 km/h.',
+    changed: false,
+    confidence: 'high' as const,
+    issue: 'none' as const,
+    evidenceVi: '',
+    candidates: [],
+    needsReview: false,
+    finalAction: 'keep' as const
+  }
+  const canonical = {
+    ...resolvedCanonicalFixture,
+    cues: [...resolvedCanonicalFixture.cues, cue],
+    measurementMentions: [
+      { id: 'measurement:3:0', cueNumber: 3, sourceValue: 0, sourceUnitCode: 'other', sourceSurface: '0', confidence: 'high' as const, shouldConvert: false },
+      { id: 'measurement:3:1', cueNumber: 3, sourceValue: 600, sourceUnitCode: 'km/h', sourceSurface: '600公里', confidence: 'high' as const, shouldConvert: false }
+    ]
+  }
+  const instructions = buildMeasurementInstructions(canonical.measurementMentions, viTargetFixture.profile)
+  const replacements = buildFactTokenReplacements(canonical, viTargetFixture.profile, [], instructions)
+  const prepared = buildPreparedLocalizationCues(canonical, replacements)
+  const preparedCue = prepared.find((item) => item.n === 3)
+
+  assert.ok(preparedCue)
+  assert.equal(preparedCue.text.includes('[[MEASURE_measurement:3:0]]'), true)
+  assert.equal(preparedCue.text.includes('[[MEASURE_measurement:3:1]]'), true)
+  assert.equal(replacements.find((item) => item.token === '[[MEASURE_measurement:3:0]]')?.renderedText, '0')
+  assert.equal(replacements.find((item) => item.token === '[[MEASURE_measurement:3:1]]')?.renderedText, '600公里')
 })
 
 test('number guard accepts locale decimal and grouping separators', () => {
