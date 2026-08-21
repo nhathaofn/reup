@@ -1,6 +1,7 @@
 import { assertRendererFeatureRegistry, type RendererFeature } from './contracts'
 
 // feature-scaffold:imports
+import { contentBlocksRendererFeature } from './content-blocks'
 import { subtitlePipelineRendererFeature } from './subtitle-pipeline'
 import { capcutFactoryRendererFeature } from './capcut-factory'
 import { sceneSplitterRendererFeature } from './scene-splitter'
@@ -9,6 +10,7 @@ import { srtTranslatorRendererFeature } from './srt-translator'
 
 const registeredRendererFeatures = [
   // feature-scaffold:modules
+  contentBlocksRendererFeature,
   subtitlePipelineRendererFeature,
   capcutFactoryRendererFeature,
   sceneSplitterRendererFeature,
