@@ -11,6 +11,8 @@ export interface NativeCapCutVideoItem {
   durationSeconds: number
   sourceStartSeconds?: number
   sourceDurationSeconds?: number
+  assetDurationSeconds?: number
+  speed?: number
   width: number
   height: number
   volume: number
@@ -240,7 +242,7 @@ function createSegment(
   segment.material_id = materialId
   setRange(segment, 'target_timerange', microseconds(startSeconds), microseconds(durationSeconds))
   setRange(segment, 'source_timerange', 0, microseconds(sourceDurationSeconds))
-  segment.speed = speed
+  segment.speed = Number(speed.toFixed(6))
   segment.volume = volume
   segment.extra_material_refs = cloneCompanionMaterials(sourceDraft, draft, prototype.segment, speed)
   return segment
@@ -345,29 +347,49 @@ async function seedDraftMetadata(templateDir: string, projectPath: string): Prom
   await writeJsonAtomic(join(projectPath, 'draft_meta_info.json'), metadata)
 }
 
+interface CopiedAssets {
+  videoPaths: string[]
+  audioPaths: string[]
+  uniquePaths: string[]
+}
+
 async function copyAssets(
   projectPath: string,
   videoItems: NativeCapCutVideoItem[],
   audioItems: NativeCapCutAudioItem[]
-): Promise<string[]> {
-  const copied: string[] = []
+): Promise<CopiedAssets> {
+  const videoPaths: string[] = []
+  const audioPaths: string[] = []
+  const uniquePaths: string[] = []
+  const sourceByTarget = new Map<string, string>()
+  const copyOnce = async (sourcePath: string, target: string): Promise<void> => {
+    const targetKey = normalizedPath(target)
+    const sourceKey = normalizedPath(sourcePath)
+    const previousSource = sourceByTarget.get(targetKey)
+    if (previousSource !== undefined) {
+      if (previousSource !== sourceKey) throw new Error(`Asset đích trùng tên nhưng khác source: ${target}`)
+      return
+    }
+    await mkdir(dirname(target), { recursive: true })
+    await copyFile(sourcePath, target)
+    sourceByTarget.set(targetKey, sourceKey)
+    uniquePaths.push(target)
+  }
   for (const [index, item] of videoItems.entries()) {
     const extension = extname(item.sourcePath) || '.mp4'
     const name = item.assetName || `tblao-video-${String(index + 1).padStart(3, '0')}${extension}`
     const target = join(projectPath, 'assets', 'video', name)
-    await mkdir(dirname(target), { recursive: true })
-    await copyFile(item.sourcePath, target)
-    copied.push(target)
+    await copyOnce(item.sourcePath, target)
+    videoPaths.push(target)
   }
   for (const [index, item] of audioItems.entries()) {
     const extension = extname(item.sourcePath) || '.mp3'
     const name = item.assetName || `tblao-audio-${String(index + 1).padStart(3, '0')}${extension}`
     const target = join(projectPath, 'assets', 'audio', name)
-    await mkdir(dirname(target), { recursive: true })
-    await copyFile(item.sourcePath, target)
-    copied.push(target)
+    await copyOnce(item.sourcePath, target)
+    audioPaths.push(target)
   }
-  return copied
+  return { videoPaths, audioPaths, uniquePaths }
 }
 
 function draftMaterialSize(draft: JsonRecord): number {
@@ -517,7 +539,9 @@ export async function generateNativeCapCutProject(
 
   for (const [index, item] of input.videoItems.entries()) {
     if (input.isCancelled?.()) throw new Error('Đã hủy.')
-    const targetPath = copiedAssets[index]
+    const targetPath = copiedAssets.videoPaths[index]
+    const sourceDurationSeconds = item.sourceDurationSeconds ?? item.durationSeconds
+    const assetDurationSeconds = item.assetDurationSeconds ?? sourceDurationSeconds
     const segment = createSegment(
       draft,
       schemaDraft,
@@ -527,25 +551,27 @@ export async function generateNativeCapCutProject(
         setFirstPath(material, targetPath)
         setMaterialName(material, basename(targetPath))
         material.type = 'video'
-        material.duration = microseconds(item.sourceDurationSeconds ?? item.durationSeconds)
+        material.duration = microseconds(assetDurationSeconds)
         material.width = item.width
         material.height = item.height
         material.has_audio = false
       },
       item.startSeconds,
       item.durationSeconds,
-      item.sourceDurationSeconds ?? item.durationSeconds,
-      1,
+      sourceDurationSeconds,
+      item.speed ?? 1,
       item.volume
     )
-    if (item.sourceStartSeconds) setRange(segment, 'source_timerange', microseconds(item.sourceStartSeconds), microseconds(item.durationSeconds))
+    if (item.sourceStartSeconds !== undefined) {
+      setRange(segment, 'source_timerange', microseconds(item.sourceStartSeconds), microseconds(sourceDurationSeconds))
+    }
     videoSegmentIds.push(String(segment.id))
     videoSegments.push(segment)
   }
 
   for (const [index, item] of input.audioItems.entries()) {
     if (input.isCancelled?.()) throw new Error('Đã hủy.')
-    const targetPath = copiedAssets[input.videoItems.length + index]
+    const targetPath = copiedAssets.audioPaths[index]
     const segment = createSegment(
       draft,
       schemaDraft,
@@ -626,6 +652,6 @@ export async function generateNativeCapCutProject(
     audioSegmentIds,
     textSegmentIds,
     durationSeconds: Number(draft.duration ?? 0) / 1_000_000,
-    assetFiles: copiedAssets
+    assetFiles: copiedAssets.uniquePaths
   }
 }
