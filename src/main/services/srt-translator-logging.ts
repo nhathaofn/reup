@@ -54,6 +54,26 @@ export interface SrtTranslatorLogEvent {
 
 export type SrtTranslatorLog = (event: SrtTranslatorLogEvent) => void
 
+export function formatSubtitlePipelineLogLine(
+  jobId: string,
+  event: SrtTranslatorLogEvent,
+  modelName: string
+): string {
+  return [
+    `Subtitle pipeline job=${jobId}`,
+    `${event.phase}/${event.kind}`,
+    event.operation ? `op=${event.operation}` : '',
+    event.message ?? '',
+    event.targetId ? `targetId=${event.targetId}` : '',
+    event.targetIndex !== undefined && event.targetCount !== undefined
+      ? `target=${event.targetIndex}/${event.targetCount}`
+      : '',
+    event.done !== undefined && event.total !== undefined ? `step=${event.done}/${event.total}` : '',
+    event.attempt !== undefined ? `attempt=${event.attempt}` : '',
+    event.operation?.includes('gemini-') ? `model=${modelName}` : ''
+  ].filter(Boolean).join(' | ').replace(/[\r\n]+/gu, ' ').slice(0, 1_500)
+}
+
 const TRACE_MAX_CHARS = 2_000_000
 const SENSITIVE_TRACE_KEY = /^(?:api[-_]?key|authorization|x-goog-api-key|fileUri|remoteUri|uri)$/iu
 

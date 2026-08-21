@@ -60,6 +60,41 @@ async function ensureSafeTextTarget(path: string, label: string): Promise<void> 
   }
 }
 
+function countryFileSlug(regionLabel: string): string {
+  return regionLabel
+    .normalize('NFKC')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/gu, '')
+    .replace(/[đĐ]/gu, 'd')
+    .replace(/[^a-zA-Z0-9]+/gu, '')
+    .toLowerCase() || 'quocgia'
+}
+
+export async function materializeLocalizedTitleOutput(
+  outputDir: string,
+  regionLabel: string,
+  title: string
+): Promise<string> {
+  const normalizedTitle = title.trim()
+  if (!normalizedTitle || /\r|\n/u.test(normalizedTitle)) {
+    throw new Error('Tiêu đề phải có đúng một dòng không rỗng.')
+  }
+  const absoluteOutputDir = resolve(outputDir)
+  const titlePath = join(absoluteOutputDir, `tieude_${countryFileSlug(regionLabel)}.txt`)
+  assertContained(absoluteOutputDir, titlePath, 'File tiêu đề')
+  await access(absoluteOutputDir)
+  await ensureSafeTextTarget(titlePath, 'File tiêu đề')
+  try {
+    await writeFile(titlePath, `${normalizedTitle}\n`, { encoding: 'utf8', flag: 'wx' })
+  } catch (reason) {
+    if ((reason as NodeJS.ErrnoException)?.code === 'EEXIST') {
+      throw new Error(`File tiêu đề đã tồn tại: ${titlePath}`)
+    }
+    throw reason
+  }
+  return titlePath
+}
+
 async function ensureSafeSplitDir(splitDir: string, outputDir: string): Promise<void> {
   assertContained(outputDir, splitDir, 'Thư mục Batch')
   try {

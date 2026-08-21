@@ -33,16 +33,23 @@ import { createGeminiFilesTransport } from './gemini-files'
 import { createExchangeRateProvider } from './exchange-rates'
 import { resolveLocalizedTarget } from './srt-locale-profiles'
 import { loadSrtSource } from './srt-source-validation'
-import { runLocalizedTargetBatch } from './srt-localization'
+import { generateLocalizedTitle, runLocalizedTargetBatch } from './srt-localization'
 import { ttsNormalizeSrt } from './srt-tts-normalization'
-import type { SrtTranslatorLogEvent } from './srt-translator-logging'
+import {
+  formatSubtitlePipelineLogLine,
+  type SrtTranslatorLogEvent
+} from './srt-translator-logging'
 import {
   buildFusedSrt,
   fuseSubtitleEvidence,
   type SubtitleEvidenceTrackInput
 } from './subtitle-pipeline-fusion'
 import { buildCanonicalSrt } from './subtitle-pipeline-output'
-import { materializeSrtBatchOutput } from './srt-batch-output'
+import { materializeLocalizedTitleOutput, materializeSrtBatchOutput } from './srt-batch-output'
+import {
+  alignCanonicalToOcrStructure,
+  alignRestorationDraftToOcrStructure
+} from './subtitle-pipeline-structure'
 
 interface SubtitlePipelineServiceOptions {
   jobId?: string
@@ -325,8 +332,9 @@ async function moveExistingSmartArtifacts(outputDir: string, draftDir: string, s
     const isPreviousBatchSrt = entry.name.startsWith('batch_') && extname(entry.name).toLowerCase() === '.srt'
     const isPreviousBatchText = entry.name.startsWith('batch_') && extname(entry.name).toLowerCase() === '.txt'
     const isPreviousBatchFolder = entry.name.startsWith('Batchbatch_') && entry.isDirectory()
+    const isPreviousTitleFile = entry.name.startsWith('tieude_') && extname(entry.name).toLowerCase() === '.txt'
     const isPreviousBatchArtifact = isPreviousBatchSrt || isPreviousBatchText || isPreviousBatchFolder
-    if ((!entry.isFile() && !entry.isDirectory()) || (!isPreviousSmartArtifact && !isPreviousBatchArtifact)) continue
+    if ((!entry.isFile() && !entry.isDirectory()) || (!isPreviousSmartArtifact && !isPreviousBatchArtifact && !isPreviousTitleFile)) continue
     const extension = extname(entry.name).toLowerCase()
     if (isPreviousSmartArtifact && extension !== '.srt' && extension !== '.json') continue
     const sourcePath = join(outputDir, entry.name)
@@ -379,15 +387,7 @@ function buildDraftSrt(draft: RestorationDraft): string {
 
 function logGeminiEvent(jobId: string, event: SrtTranslatorLogEvent): void {
   const prefix = `Subtitle pipeline job=${jobId}`
-  const line = [
-    prefix,
-    `${event.phase}/${event.kind}`,
-    event.operation ? `op=${event.operation}` : '',
-    event.message ?? '',
-    event.done !== undefined && event.total !== undefined ? `step=${event.done}/${event.total}` : '',
-    event.attempt !== undefined ? `attempt=${event.attempt}` : '',
-    event.operation?.includes('gemini-') ? `model=${LOCKED_GEMINI_MODEL}` : ''
-  ].filter(Boolean).join(' | ').replace(/[\r\n]+/gu, ' ').slice(0, 1_500)
+  const line = formatSubtitlePipelineLogLine(jobId, event, LOCKED_GEMINI_MODEL)
   const writer = event.level === 'error' ? logError : event.level === 'warn' ? logWarn : logInfo
   writer(line)
   if (!event.geminiPayload) return
@@ -455,6 +455,7 @@ export async function runSubtitlePipeline(
   let normalized: NormalizedPipelineRequest | null = null
   let workDir = ''
   let draftDir = ''
+  let outputCueCount = 0
 
   const emit = (
     phase: SubtitlePipelineProgress['phase'],
@@ -619,8 +620,10 @@ export async function runSubtitlePipeline(
     if (!summary.cues.length) throw new Error('Các nguồn phụ đề không có cue hợp lệ.')
     const stem = safeStem(normalized.videoPath)
     const translationRequested = normalized.targetLocales.length > 0
-    let canonicalSrtText = buildFusedSrt(summary.cues)
-    let bestCanonical = buildFallbackCanonical(summary, jobId)
+    let outputCanonical = alignCanonicalToOcrStructure(buildFallbackCanonical(summary, jobId), summary)
+    let bestCanonical = outputCanonical
+    let canonicalSrtText = buildCanonicalSrt(outputCanonical)
+    outputCueCount = outputCanonical.cues.filter((cue) => cue.finalAction !== 'drop').length
     const fusedPath = await nextAvailablePath(draftDir, `${stem}.smart.fused.srt`)
     await writeFile(fusedPath, buildFusedSrt(summary.cues), 'utf8')
     outputs.fusedSrt = fusedPath
@@ -666,7 +669,7 @@ export async function runSubtitlePipeline(
           })
           if (normalized.keepDiagnosticFiles) {
             const draftPath = await nextAvailablePath(draftDir, `${stem}.smart.ai-draft.srt`)
-            await writeFile(draftPath, buildDraftSrt(ai.draft), 'utf8')
+            await writeFile(draftPath, buildDraftSrt(alignRestorationDraftToOcrStructure(ai.draft, summary)), 'utf8')
             outputs.aiDraftSrt = draftPath
           }
           emit('auditing', 83, 'Gemini đang audit độc lập bản phục hồi…', { cues: summary.cues.length })
@@ -690,8 +693,10 @@ export async function runSubtitlePipeline(
           // final.srt is the canonical transcript. Hard-failure rows such as
           // tail hallucinations are omitted and the remaining indices are
           // renumbered only when this text is materialized below.
-          canonicalSrtText = buildCanonicalSrt(ai.canonical)
-          bestCanonical = canonicalForTranslation(ai.canonical)
+          outputCanonical = alignCanonicalToOcrStructure(ai.canonical, summary)
+          canonicalSrtText = buildCanonicalSrt(outputCanonical)
+          bestCanonical = canonicalForTranslation(outputCanonical)
+          outputCueCount = outputCanonical.cues.filter((cue) => cue.finalAction !== 'drop').length
           if (reviewCues.length > 0) {
             warnings.push(`${reviewCues.length} cue được đánh dấu cần rà soát (đã xuất riêng vào thư mục draft).`)
           }
@@ -722,10 +727,10 @@ export async function runSubtitlePipeline(
     outputs.ttsReadySrt = ttsReadyPath
 
     if (ai.canonical) {
-      const reviewCues = ai.canonical.cues.filter((cue) => cue.needsReview)
+      const reviewCues = outputCanonical.cues.filter((cue) => cue.needsReview)
       if (reviewCues.length > 0) {
         const needsReviewPath = await nextAvailablePath(draftDir, `${stem}.smart.needs-review.srt`)
-        await writeFile(needsReviewPath, buildNeedsReviewSrt(ai.canonical), 'utf8')
+        await writeFile(needsReviewPath, buildNeedsReviewSrt(outputCanonical), 'utf8')
         outputs.needsReviewSrt = needsReviewPath
       }
     }
@@ -756,11 +761,12 @@ export async function runSubtitlePipeline(
               warnings.push(`Không lấy được tỷ giá; bản dịch sẽ giữ tiền tệ nguồn (${reason instanceof Error ? reason.message : 'không rõ nguyên nhân'}).`)
             }
           }
+          const transport = createGeminiFilesTransport({ apiKey: key })
           const localized = await runLocalizedTargetBatch({
             jobId,
             canonical: bestCanonical,
             targets,
-            transport: createGeminiFilesTransport({ apiKey: key }),
+            transport,
             rateSnapshot,
             unverified: true,
             signal: options.signal,
@@ -773,6 +779,7 @@ export async function runSubtitlePipeline(
           })
           if (localized.cancelled || options.signal?.aborted) throw abortError()
           const translatedOutputs: NonNullable<SubtitlePipelineOutputPaths['translatedOutputs']> = []
+          const titleOutputs: NonNullable<SubtitlePipelineOutputPaths['titleOutputs']> = []
           for (const translated of localized.translations) {
             if (!translated.ok || !translated.srt) {
               warnings.push(`Dịch ${translated.target.languageLabel} không hoàn tất: ${translated.error ?? 'không rõ nguyên nhân'}`)
@@ -790,8 +797,42 @@ export async function runSubtitlePipeline(
               primary: translatedOutputs.length === 0
             })
             if (!outputs.translatedSrt) outputs.translatedSrt = translatedPath
+
+            const target = targets.find((candidate) => candidate.id === translated.target.id)
+            if (!target) {
+              warnings.push(`Không tìm thấy hồ sơ quốc gia để tạo tiêu đề cho ${translated.target.languageLabel}.`)
+              continue
+            }
+            try {
+              emit('translating', 97, `Đang tạo tiêu đề cho ${translated.target.regionLabel}…`)
+              const title = await generateLocalizedTitle({
+                jobId,
+                canonical: bestCanonical,
+                target,
+                localizedSrt: translated.srt,
+                transport,
+                targetIndex: targets.findIndex((candidate) => candidate.id === target.id) + 1,
+                targetCount: targets.length,
+                signal: options.signal,
+                onLog: (event) => logGeminiEvent(jobId, event)
+              })
+              if (!title.ok || !title.title) {
+                warnings.push(`Không tạo được tiêu đề cho ${translated.target.regionLabel}: ${title.error ?? 'không rõ nguyên nhân'}`)
+                continue
+              }
+              const titlePath = await materializeLocalizedTitleOutput(
+                normalized.outputDir,
+                translated.target.regionLabel,
+                title.title
+              )
+              titleOutputs.push({ target: translated.target, path: titlePath })
+            } catch (reason) {
+              if (isAbort(reason, options.signal)) throw abortError()
+              warnings.push(`Không xuất được tiêu đề cho ${translated.target.regionLabel}: ${reason instanceof Error ? reason.message : 'không rõ nguyên nhân'}`)
+            }
           }
           if (translatedOutputs.length) outputs.translatedOutputs = translatedOutputs
+          if (titleOutputs.length) outputs.titleOutputs = titleOutputs
           if (!translatedOutputs.length) warnings.push(`Không có ngôn ngữ nào dịch thành công: ${localized.error ?? 'không rõ nguyên nhân'}`)
         }
       } catch (reason) {
@@ -802,15 +843,15 @@ export async function runSubtitlePipeline(
 
     emit('exporting', 98, 'Đang hoàn tất các file kết quả…')
     emit('completed', 100, 'Pipeline phụ đề đã hoàn tất.', {
-      cues: summary.cues.length,
+      cues: outputCueCount,
       conflicts: summary.conflictCueNumbers.length
     })
-    logInfo(`Subtitle pipeline job=${jobId} | completed/summary | cues=${summary.cues.length} | conflicts=${summary.conflictCueNumbers.length} | warnings=${warnings.length} | elapsed=${((now() - startedAt) / 1_000).toFixed(1)}s`)
+    logInfo(`Subtitle pipeline job=${jobId} | completed/summary | cues=${outputCueCount} | conflicts=${summary.conflictCueNumbers.length} | warnings=${warnings.length} | elapsed=${((now() - startedAt) / 1_000).toFixed(1)}s`)
     return {
       ok: true,
       jobId,
       outputs,
-      cueCount: summary.cues.length,
+      cueCount: outputCueCount,
       conflictCount: summary.conflictCueNumbers.length,
       warnings
     }
@@ -828,7 +869,7 @@ export async function runSubtitlePipeline(
       ok: false,
       jobId,
       outputs,
-      cueCount: summary?.cues.length ?? 0,
+      cueCount: outputCueCount,
       conflictCount: summary?.conflictCueNumbers.length ?? 0,
       warnings,
       error

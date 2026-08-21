@@ -25,7 +25,8 @@ import {
   isLikelyTailHallucination,
   isNumericRepresentationOnlyChange,
   isSafeStructuralCompletion,
-  requiresRestorationReview
+  requiresRestorationReview,
+  restoreQuestionPunctuation
 } from './srt-source-restoration.ts'
 import type { RestorationDraft } from './srt-source-restoration.ts'
 import { numericFactsChanged as sourceNumericFactsChanged } from './srt-number-literals.ts'
@@ -379,6 +380,8 @@ function mergeAuditedCue(
   const modelConfidence = (audited.confidence as RestoredCue['confidence']) || 'high'
   const reverted = decision === 'revert'
   const rawCorrectedZh = reverted ? original.originalZh : String(audited.correctedZh || original.correctedZh).trim()
+  const auditedMeaningVi = String(audited.meaningVi || original.meaningVi).trim()
+  const correctedZh = restoreQuestionPunctuation(original.originalZh, rawCorrectedZh, evidence, original.n)
   const basis = original.basis ?? []
   const tailRisk = sourceCue ? isLikelyTailHallucination(sourceCue, original.n, evidence) : false
   const numericRepresentation = isNumericRepresentationOnlyChange(original.originalZh, rawCorrectedZh)
@@ -401,7 +404,7 @@ function mergeAuditedCue(
         {
           id: `${original.n}:tail-proposal`,
           correctedZh: rawCorrectedZh,
-          meaningVi: String(audited.meaningVi || original.meaningVi).trim(),
+          meaningVi: auditedMeaningVi,
           evidenceVi
         },
         {
@@ -425,7 +428,7 @@ function mergeAuditedCue(
     const next: RestoredCue = {
       ...original,
       correctedZh: original.originalZh,
-      meaningVi: String(audited.meaningVi || original.meaningVi).trim(),
+      meaningVi: auditedMeaningVi,
       changed: false,
       confidence: 'low',
       issue: 'number-or-currency',
@@ -440,7 +443,7 @@ function mergeAuditedCue(
         {
           id: `${original.n}:rejected-proposal`,
           correctedZh: rawCorrectedZh,
-          meaningVi: String(audited.meaningVi || original.meaningVi).trim(),
+          meaningVi: auditedMeaningVi,
           evidenceVi: makeEvidence(rawCorrectedZh, 'Phương án bị từ chối do không có căn cứ trong bất kỳ nguồn nào.')
         }
       ],
@@ -453,7 +456,6 @@ function mergeAuditedCue(
   }
 
   // 2. Not a hard failure: use AI corrected text
-  const correctedZh = rawCorrectedZh
   const strongOcrSupport = hasStrongOcrSupport(evidence, original.n, correctedZh)
   const boundaryRisk = numericRepresentation
     ? false
@@ -489,7 +491,7 @@ function mergeAuditedCue(
   const next: RestoredCue = {
     ...original,
     correctedZh,
-    meaningVi: String(audited.meaningVi || original.meaningVi).trim(),
+    meaningVi: auditedMeaningVi,
     changed: correctedZh !== original.originalZh,
     confidence: isPass ? 'high' : modelConfidence === 'high' ? 'medium' : modelConfidence,
     issue: numericRepresentation

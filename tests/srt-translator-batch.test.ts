@@ -9,9 +9,11 @@ import {
   validateLocalizedRows,
   type PreparedLocalizationCue
 } from '../src/main/services/srt-localization.ts'
+import * as localizationModule from '../src/main/services/srt-localization.ts'
 import { buildMeasurementInstructions } from '../src/main/services/measurement-conversion.ts'
 import { extractNumberLiterals } from '../src/main/services/srt-number-literals.ts'
 import type { GeminiGenerateRequest } from '../src/main/services/gemini-files.ts'
+import * as translatorLogging from '../src/main/services/srt-translator-logging.ts'
 import {
   createFakeGeminiTransport,
   jaTargetFixture,
@@ -36,6 +38,192 @@ const japaneseRows = [
   { n: 1, t: '[SPEAKER_00] この列車は人を噛みますか？' },
   { n: 2, t: '価格は [[MONEY_money:2:0]] です。' }
 ]
+
+test('localized titles use independent country-native clickbait briefs and the full localized script', async () => {
+  const generateLocalizedTitle = (localizationModule as Record<string, unknown>).generateLocalizedTitle
+  assert.equal(typeof generateLocalizedTitle, 'function')
+  const requests: GeminiGenerateRequest[] = []
+  const responses = [
+    { title: 'Đoàn tàu này đang khiến cả thế giới sửng sốt!' },
+    { title: '이 열차의 정체를 알면 모두가 놀랍니다!' }
+  ]
+  const transport = {
+    ...createFakeGeminiTransport([]),
+    generateJson: async <T>(request: GeminiGenerateRequest): Promise<T> => {
+      requests.push(request)
+      return responses.shift() as T
+    }
+  }
+  const koreanTarget = {
+    id: 'ko-kr',
+    profile: {
+      id: 'ko-kr',
+      languageLabel: 'Tiếng Hàn',
+      locale: 'ko-KR',
+      regionLabel: 'Hàn Quốc',
+      currencyCode: 'KRW',
+      unitSystem: 'metric' as const,
+      styleGuide: '자연스러운 한국어 보이스오버.'
+    }
+  }
+  const run = generateLocalizedTitle as (input: {
+    canonical: typeof resolvedCanonicalFixture
+    target: typeof viTargetFixture
+    localizedSrt: string
+    transport: typeof transport
+  }) => Promise<{ ok: boolean; title?: string; error?: string }>
+
+  const vietnamese = await run({
+    canonical: resolvedCanonicalFixture,
+    target: viTargetFixture,
+    localizedSrt: '1\n00:00:00,000 --> 00:00:02,000\nĐây là một đoàn tàu đặc biệt.\n',
+    transport
+  })
+  const korean = await run({
+    canonical: resolvedCanonicalFixture,
+    target: koreanTarget,
+    localizedSrt: '1\n00:00:00,000 --> 00:00:02,000\n이것은 특별한 열차입니다.\n',
+    transport
+  })
+
+  assert.equal(vietnamese.title, 'Đoàn tàu này đang khiến cả thế giới sửng sốt!')
+  assert.equal(korean.title, '이 열차의 정체를 알면 모두가 놀랍니다!')
+  assert.equal(requests.length, 2)
+  assert.notEqual(requests[0]?.systemInstruction, requests[1]?.systemInstruction)
+  assert.match(requests[0]?.systemInstruction ?? '', /Việt Nam/u)
+  assert.match(requests[1]?.systemInstruction ?? '', /Hàn Quốc/u)
+  assert.match(requests[0]?.userText ?? '', /Đây là một đoàn tàu đặc biệt/u)
+  assert.match(requests[1]?.userText ?? '', /이것은 특별한 열차입니다/u)
+})
+
+test('localized title retries multiline output once and isolates a transport failure', async () => {
+  const generateLocalizedTitle = (localizationModule as Record<string, unknown>).generateLocalizedTitle
+  assert.equal(typeof generateLocalizedTitle, 'function')
+  const run = generateLocalizedTitle as (input: {
+    canonical: typeof resolvedCanonicalFixture
+    target: typeof viTargetFixture
+    localizedSrt: string
+    transport: ReturnType<typeof createFakeGeminiTransport>
+  }) => Promise<{ ok: boolean; title?: string; error?: string }>
+  const repaired = await run({
+    canonical: resolvedCanonicalFixture,
+    target: viTargetFixture,
+    localizedSrt: '1\n00:00:00,000 --> 00:00:02,000\nNội dung kịch bản.\n',
+    transport: createFakeGeminiTransport([
+      { title: 'Dòng một\nDòng hai' },
+      { title: 'Sự thật khó tin đang khiến tất cả phải xem đến cuối!' }
+    ])
+  })
+
+  let calls = 0
+  const failed = await run({
+    canonical: resolvedCanonicalFixture,
+    target: viTargetFixture,
+    localizedSrt: '1\n00:00:00,000 --> 00:00:02,000\nNội dung kịch bản.\n',
+    transport: {
+      ...createFakeGeminiTransport([]),
+      generateJson: async (): Promise<never> => {
+        calls += 1
+        throw new Error('api_503')
+      }
+    }
+  })
+
+  assert.equal(repaired.ok, true)
+  assert.equal(repaired.title, 'Sự thật khó tin đang khiến tất cả phải xem đến cuối!')
+  assert.equal(failed.ok, false)
+  assert.match(failed.error ?? '', /api_503/u)
+  assert.equal(calls, 1)
+})
+
+test('localized title retries a short wrong-script Korean headline', async () => {
+  const generateLocalizedTitle = (localizationModule as Record<string, unknown>).generateLocalizedTitle
+  assert.equal(typeof generateLocalizedTitle, 'function')
+  const koreanTarget = {
+    id: 'ko-kr',
+    profile: {
+      id: 'ko-kr',
+      languageLabel: 'Tiếng Hàn',
+      locale: 'ko-KR',
+      regionLabel: 'Hàn Quốc',
+      currencyCode: 'KRW',
+      unitSystem: 'metric' as const,
+      styleGuide: '자연스러운 한국어 보이스오버.'
+    }
+  }
+  const result = await (generateLocalizedTitle as (input: {
+    canonical: typeof resolvedCanonicalFixture
+    target: typeof koreanTarget
+    localizedSrt: string
+    transport: ReturnType<typeof createFakeGeminiTransport>
+  }) => Promise<{ ok: boolean; title?: string; error?: string }>)({
+    canonical: resolvedCanonicalFixture,
+    target: koreanTarget,
+    localizedSrt: '1\n00:00:00,000 --> 00:00:02,000\n이것은 특별한 열차입니다.\n',
+    transport: createFakeGeminiTransport([
+      { title: 'Wow!' },
+      { title: '이 열차의 정체가 모두를 놀라게 했다!' }
+    ])
+  })
+
+  assert.equal(result.title, '이 열차의 정체가 모두를 놀라게 했다!')
+})
+
+test('localized title honors cancellation that happens while receiving the response', async () => {
+  const generateLocalizedTitle = (localizationModule as Record<string, unknown>).generateLocalizedTitle
+  assert.equal(typeof generateLocalizedTitle, 'function')
+  const controller = new AbortController()
+  const transport = {
+    ...createFakeGeminiTransport([]),
+    generateJson: async <T>(): Promise<T> => {
+      controller.abort(new DOMException('cancelled', 'AbortError'))
+      return { title: 'Tiêu đề không được xuất sau khi hủy!' } as T
+    }
+  }
+
+  await assert.rejects(
+    () => (generateLocalizedTitle as (input: {
+      canonical: typeof resolvedCanonicalFixture
+      target: typeof viTargetFixture
+      localizedSrt: string
+      transport: typeof transport
+      signal: AbortSignal
+    }) => Promise<unknown>)({
+      canonical: resolvedCanonicalFixture,
+      target: viTargetFixture,
+      localizedSrt: '1\n00:00:00,000 --> 00:00:02,000\nNội dung kịch bản.\n',
+      transport,
+      signal: controller.signal
+    }),
+    { name: 'AbortError' }
+  )
+})
+
+test('pipeline localization logs include target and batch context', () => {
+  const formatter = (translatorLogging as Record<string, unknown>).formatSubtitlePipelineLogLine
+  assert.equal(typeof formatter, 'function')
+  const line = (formatter as (
+    jobId: string,
+    event: Record<string, unknown>,
+    modelName: string
+  ) => string)('job-korean', {
+    phase: 'translating',
+    kind: 'operation-progress',
+    operation: 'validate-gemini-localization',
+    message: 'TARGET_OUTPUT_INVALID: unknown-token',
+    targetId: 'ko-kr',
+    targetIndex: 5,
+    targetCount: 10,
+    done: 2,
+    total: 2,
+    attempt: 2
+  }, 'gemini-test')
+
+  assert.match(line, /targetId=ko-kr/u)
+  assert.match(line, /target=5\/10/u)
+  assert.match(line, /step=2\/2/u)
+  assert.match(line, /TARGET_OUTPUT_INVALID: unknown-token/u)
+})
 
 test('prompt locks canonical meaning, social-video style and app conversion tokens', () => {
   const prompt = buildLocalizationSystemPrompt(viTargetFixture.profile)
@@ -256,6 +444,119 @@ test('invalid target output gets exactly one repair attempt', async () => {
   })
   assert.equal(calls, 2)
   assert.equal(result.translations[0]?.ok, true)
+})
+
+test('long targets are translated in bounded cue batches', async () => {
+  const cues = Array.from({ length: 25 }, (_, index) => ({
+    ...resolvedCanonicalFixture.cues[1]!,
+    n: index + 1,
+    time: '00:00:01,000 --> 00:00:02,000',
+    originalZh: '这是列车',
+    correctedZh: '这是列车',
+    meaningVi: 'Đây là một đoàn tàu.',
+    changed: false,
+    issue: 'none' as const,
+    evidenceVi: '',
+    candidates: [],
+    needsReview: false,
+    finalAction: 'keep' as const
+  }))
+  const canonical = {
+    ...resolvedCanonicalFixture,
+    cues,
+    entities: [],
+    moneyMentions: [],
+    measurementMentions: []
+  }
+  const requestCueCounts: number[] = []
+  const transport = {
+    ...createFakeGeminiTransport([]),
+    generateJson: async <T>(request: GeminiGenerateRequest): Promise<T> => {
+      const payload = JSON.parse(request.userText) as { cues: Array<{ n: number }> }
+      requestCueCounts.push(payload.cues.length)
+      return payload.cues.map((cue) => ({ n: cue.n, t: 'Đây là một đoàn tàu.' })) as T
+    }
+  }
+
+  const result = await runLocalizedTargetBatch({
+    canonical,
+    targets: [viTargetFixture],
+    transport,
+    rateSnapshot: null
+  })
+
+  assert.equal(result.translations[0]?.ok, true)
+  assert.deepEqual(requestCueCounts, [24, 1])
+})
+
+test('repair retries only invalid and missing Korean cues while preserving valid rows', async () => {
+  const thirdCue = {
+    ...resolvedCanonicalFixture.cues[1]!,
+    n: 3,
+    time: '00:00:05,000 --> 00:00:06,000',
+    originalZh: '这是列车',
+    correctedZh: '这是列车',
+    meaningVi: 'Đây là một đoàn tàu.',
+    changed: false,
+    issue: 'none' as const,
+    evidenceVi: '',
+    candidates: [],
+    needsReview: false,
+    finalAction: 'keep' as const
+  }
+  const canonical = {
+    ...resolvedCanonicalFixture,
+    cues: [...resolvedCanonicalFixture.cues, thirdCue]
+  }
+  const koreanTarget = {
+    id: 'ko-kr',
+    profile: {
+      id: 'ko-kr',
+      languageLabel: 'Tiếng Hàn',
+      locale: 'ko-KR',
+      regionLabel: 'Hàn Quốc',
+      currencyCode: 'KRW',
+      unitSystem: 'metric' as const,
+      styleGuide: '자연스러운 한국어 보이스오버.'
+    }
+  }
+  const responses = [
+    [
+      { n: 1, t: '[SPEAKER_00] 이 새는 사람을 무나요?' },
+      { n: 2, t: '가격은 [[MONEY_wrong]]입니다.' }
+    ],
+    [
+      { n: 2, t: '가격은 [[MONEY_money:2:0]]입니다.' },
+      { n: 3, t: '이것은 열차입니다.' }
+    ]
+  ]
+  const requests: GeminiGenerateRequest[] = []
+  const transport = {
+    ...createFakeGeminiTransport([]),
+    generateJson: async <T>(request: GeminiGenerateRequest): Promise<T> => {
+      requests.push(request)
+      return responses.shift() as T
+    }
+  }
+
+  const result = await runLocalizedTargetBatch({
+    canonical,
+    targets: [koreanTarget],
+    transport,
+    rateSnapshot: rateFixture
+  })
+
+  assert.equal(result.translations[0]?.ok, true)
+  assert.equal(requests.length, 2)
+  const repairPayloadText = requests[1]!.userText.split('\n').at(-1)
+  assert.ok(repairPayloadText)
+  const repairPayload = JSON.parse(repairPayloadText) as {
+    cues: Array<{ n: number }>
+    factTokens: Array<{ token: string }>
+  }
+  assert.deepEqual(repairPayload.cues.map((cue) => cue.n), [2, 3])
+  assert.deepEqual(repairPayload.factTokens.map((item) => item.token), ['[[MONEY_money:2:0]]'])
+  assert.match(result.translations[0]?.srt ?? '', /이것은 열차입니다/u)
 })
 
 test('transport error is not retried even when its message resembles a validator error', async () => {

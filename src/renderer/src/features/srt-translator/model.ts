@@ -29,8 +29,6 @@ export interface SrtTranslatorViewState {
   sourceText: string
   sourceCount: number
   lastCueEndSeconds: number
-  videoPath: string
-  videoDurationSeconds: number
   jobId: string
   retiredJobIds: string[]
   topicVi: string
@@ -55,7 +53,6 @@ export interface SrtTranslatorViewState {
 export type SrtTranslatorAction =
   | { type: 'gemini-status'; ready: boolean }
   | { type: 'source-loaded'; result: SrtLoadResult }
-  | { type: 'video-selected'; path: string }
   | { type: 'reset' }
   | { type: 'analyze-started' }
   | { type: 'analyze-succeeded'; result: SrtAnalyzeResult }
@@ -80,8 +77,6 @@ function clearDerivedState(state: SrtTranslatorViewState): SrtTranslatorViewStat
     : state.retiredJobIds
   return {
     ...state,
-    videoPath: '',
-    videoDurationSeconds: 0,
     jobId: '',
     retiredJobIds,
     topicVi: '',
@@ -150,7 +145,7 @@ function applyTranslationResults(
 export function createInitialSrtTranslatorState(): SrtTranslatorViewState {
   return {
     sourcePath: '', sourceText: '', sourceCount: 0, lastCueEndSeconds: 0,
-    videoPath: '', videoDurationSeconds: 0, jobId: '', retiredJobIds: [], topicVi: '',
+    jobId: '', retiredJobIds: [], topicVi: '',
     reviewCues: [], unresolvedCueNumbers: [], selections: {}, targets: [],
     targetViews: [], selectedTargetId: '', progress: null, running: false,
     geminiReady: null, unverified: false, error: '', analyzeErrorCode: '',
@@ -180,11 +175,6 @@ export function srtTranslatorReducer(
         sourceCount: action.result.count ?? 0,
         lastCueEndSeconds: action.result.lastCueEndSeconds ?? 0
       }
-    case 'video-selected':
-      return {
-        ...clearDerivedState(state), sourcePath: state.sourcePath, sourceText: state.sourceText,
-        sourceCount: state.sourceCount, lastCueEndSeconds: state.lastCueEndSeconds, videoPath: action.path
-      }
     case 'reset':
       return { ...clearDerivedState(state), sourcePath: '', sourceText: '', sourceCount: 0, lastCueEndSeconds: 0 }
     case 'analyze-started':
@@ -199,8 +189,6 @@ export function srtTranslatorReducer(
         sourcePath: action.result.sourcePath,
         sourceText: action.result.sourceText ?? state.sourceText,
         sourceCount: action.result.cueCount ?? state.sourceCount,
-        videoPath: action.result.videoPath ?? '',
-        videoDurationSeconds: action.result.videoDurationSeconds ?? 0,
         jobId: action.result.jobId ?? '', topicVi: action.result.topicVi ?? '',
         reviewCues: action.result.reviewCues ?? [], unresolvedCueNumbers: action.result.unresolvedCueNumbers ?? [], selections: {},
         targetViews: [], selectedTargetId: '', progress: null, running: false,

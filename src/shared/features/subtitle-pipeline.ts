@@ -154,6 +154,8 @@ export interface SubtitlePipelineOutputPaths {
   batchOutputs?: SubtitlePipelineBatchOutput[]
   /** One best successful SRT per selected locale, kept in the output root. */
   translatedOutputs?: SubtitlePipelineTranslatedOutput[]
+  /** One localized clickbait title file per successfully translated target country. */
+  titleOutputs?: SubtitlePipelineTitleOutput[]
   fusedSrt?: string
   /** AI proposal, including cues that still need review. */
   aiDraftSrt?: string
@@ -181,6 +183,40 @@ export interface SubtitlePipelineTranslatedOutput {
   target: SrtLocaleTargetInput
   path: string
   primary: boolean
+}
+
+export interface SubtitlePipelineTitleOutput {
+  target: SrtLocaleTargetInput
+  path: string
+}
+
+export type SubtitlePipelineOutputEntryKind = 'primarySrt' | 'translatedSrt' | 'titleFile' | 'batchDir' | 'draftDir'
+
+export interface SubtitlePipelineOutputEntry {
+  key: SubtitlePipelineOutputEntryKind
+  label: string
+  path: string
+}
+
+function outputBaseName(path: string): string {
+  return path.split(/[\\/]/u).pop() || path
+}
+
+export function buildSubtitlePipelineOutputEntries(outputs: SubtitlePipelineOutputPaths): SubtitlePipelineOutputEntry[] {
+  const entries: SubtitlePipelineOutputEntry[] = []
+  const primary = outputs.primarySrt ?? outputs.translatedSrt ?? outputs.finalSrt
+  if (primary) entries.push({ key: 'primarySrt', label: 'SRT nguồn tốt nhất', path: primary })
+  for (const translated of outputs.translatedOutputs ?? []) {
+    entries.push({ key: 'translatedSrt', label: `Bản dịch · ${translated.target.languageLabel}`, path: translated.path })
+  }
+  for (const title of outputs.titleOutputs ?? []) {
+    entries.push({ key: 'titleFile', label: `Tiêu đề · ${title.target.regionLabel}`, path: title.path })
+  }
+  for (const batch of outputs.batchOutputs ?? []) {
+    entries.push({ key: 'batchDir', label: `Thư mục Batch · ${outputBaseName(batch.srtPath)}`, path: batch.splitDir })
+  }
+  if (outputs.draftDir) entries.push({ key: 'draftDir', label: 'Thư mục draft', path: outputs.draftDir })
+  return entries
 }
 
 export interface SubtitlePipelineResult {

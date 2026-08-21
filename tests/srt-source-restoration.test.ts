@@ -10,7 +10,8 @@ import {
   restoreSource,
   RESTORATION_ENTITY_CATEGORY_VALUES,
   RESTORATION_ISSUE_VALUES,
-  RESTORATION_RESPONSE_SCHEMA
+  RESTORATION_RESPONSE_SCHEMA,
+  restoreQuestionPunctuation
 } from '../src/main/services/srt-source-restoration.ts'
 import type { GeminiGenerateRequest } from '../src/main/services/gemini-files.ts'
 import type { SubtitlePipelineEvidenceContext } from '../src/shared/features/subtitle-pipeline.ts'
@@ -102,6 +103,79 @@ test('source-only safety gate allows only mechanical suffix completion', () => {
   assert.equal(requiresRestorationReview('这是哪个城市业奖', '这是哪个城市夜景'), true)
   assert.equal(requiresRestorationReview('由四到八节车厢组', '由四到八节车厢组成'), false)
   assert.equal(hasSuspiciousCueTiming({ startSeconds: 1, endSeconds: 1.05, text: '尾部' }), true)
+  assert.equal(restoreQuestionPunctuation('这是哪国空姐？', '这是东京', undefined, 1), '这是东京')
+})
+
+test('restoration preserves an evidence-backed question mark when the model omits it', async () => {
+  const source = {
+    ...validatedSourceFixture,
+    cues: [
+      { ...validatedSourceFixture.cues[0]!, n: 1, text: '这是哪国空姐', speakerLabel: undefined },
+      { ...validatedSourceFixture.cues[1]!, n: 2, text: '这是泰国空姐' }
+    ]
+  }
+  const evidence: SubtitlePipelineEvidenceContext = {
+    sourceCounts: { srt: 2, asr: 2, ocr: 2 },
+    conflictCueNumbers: [1],
+    cues: source.cues.map((cue) => {
+      const ocrText = cue.n === 1 ? '这是哪国空姐？ DAX' : cue.text
+      const surfaces = cue.n === 1
+        ? [['asr', cue.text], ['ocr', ocrText]] as const
+        : [['asr', cue.text], ['ocr', cue.text]] as const
+      return {
+        n: cue.n,
+        startMs: cue.startSeconds * 1_000,
+        endMs: cue.endSeconds * 1_000,
+        text: cue.text,
+        primarySource: 'asr' as const,
+        confidence: cue.n === 1 ? 'low' as const : 'high' as const,
+        conflict: cue.n === 1,
+        sources: surfaces.map(([track, text]) => ({
+          id: `${track}:${cue.n}`,
+          source: track,
+          n: cue.n,
+          startMs: cue.startSeconds * 1_000,
+          endMs: cue.endSeconds * 1_000,
+          text,
+          confidence: null,
+          similarity: text === cue.text ? 1 : 0.9,
+          overlapMs: (cue.endSeconds - cue.startSeconds) * 1_000,
+          distanceMs: 0
+        }))
+      }
+    })
+  }
+  const response = {
+    ...validPassOneResponse,
+    cues: [
+      {
+        ...validPassOneResponse.cues[0],
+        n: 1,
+        correctedZh: '这是哪国空姐',
+        meaningVi: 'Đây là tiếp viên hàng không nước nào?',
+        changed: false,
+        issue: 'none',
+        candidates: []
+      },
+      {
+        ...validPassOneResponse.cues[1],
+        n: 2,
+        correctedZh: '这是泰国空姐',
+        meaningVi: 'Đây là tiếp viên hàng không Thái Lan.',
+        changed: false,
+        issue: 'none',
+        candidates: []
+      }
+    ],
+    entities: [],
+    moneyMentions: [],
+    measurementMentions: []
+  }
+
+  const result = await restoreSource({ source, evidence, transport: createFakeGeminiTransport([response]) })
+
+  assert.equal(result.cues[0]?.correctedZh, '这是哪国空姐？')
+  assert.equal(result.cues[1]?.correctedZh, '这是泰国空姐')
 })
 
 test('two independent evidence tracks can corroborate a semantic ASR repair', async () => {

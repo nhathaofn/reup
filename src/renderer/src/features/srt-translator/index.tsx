@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef, useState, type FormEvent, type JSX } from 'react'
+import { useEffect, useMemo, useReducer, useRef, useState, type JSX } from 'react'
 import {
   FEATURE_ID,
   FEATURE_META,
@@ -11,6 +11,7 @@ import {
 import GeminiHelp from '../../components/GeminiHelp'
 import type { RendererFeature } from '../contracts'
 import SourceStep from './components/SourceStep'
+import GeminiConnection from './components/GeminiConnection'
 import ReviewStep from './components/ReviewStep'
 import ResultStep from './components/ResultStep'
 import TargetStep from './components/TargetStep'
@@ -213,21 +214,6 @@ function SrtTranslatorPanel(): JSX.Element {
   const activeStep = visibleStep(state)
   const stepIndex = ['source', 'restoration', 'review', 'translation', 'export'].indexOf(activeStep)
   const successfulCount = useMemo(() => state.targetViews.filter((view) => view.status === 'done' && view.srt).length, [state.targetViews])
-  const geminiConnectionCard = (
-    <>
-      <div className="srt-translator-card-head"><div><strong>Kết nối Gemini</strong><span className="muted small">Dùng API key của bạn</span></div><span className={`srt-translator-connection ${state.geminiReady ? 'ok' : ''}`}>{state.geminiReady ? 'Đã kết nối' : 'Chưa kết nối'}</span></div>
-      <form className="srt-translator-key-row" onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); void checkGemini() }}>
-        <input type="password" value={keyInput} onChange={(event) => setKeyInput(event.target.value)} placeholder={state.geminiReady ? 'Dán key mới nếu cần' : 'Dán Gemini API key'} autoComplete="off" />
-        <button className="btn" type="submit" disabled={keyBusy || (!keyInput.trim() && state.geminiReady !== true)}>{keyBusy ? 'Đang kiểm tra…' : 'Kiểm tra'}</button>
-      </form>
-      <div className="srt-translator-connection-actions">
-        {state.geminiReady && <button className="btn small-btn" type="button" onClick={() => void disconnectGemini()} disabled={keyBusy}>Ngắt kết nối</button>}
-        <button className="srt-translator-help" type="button" onClick={() => setShowGeminiHelp(true)}>Cách lấy API key</button>
-      </div>
-      {keyMessage && <div className={`srt-translator-message ${keyMessageOk ? 'ok' : 'error'}`}>{keyMessage}</div>}
-    </>
-  )
-
   return (
     <div className="srt-translator-workspace">
       <div className="srt-translator-stepper" aria-label="Quy trình dịch SRT">
@@ -238,7 +224,27 @@ function SrtTranslatorPanel(): JSX.Element {
         ))}
       </div>
 
-      <SourceStep state={state} geminiConnectionCard={geminiConnectionCard} canAnalyze={canAnalyze(state)} loadingSource={loadingSource} onChooseSrt={() => void chooseSrtSource()} onAnalyze={() => void analyze()} onCancel={() => void cancelActive()} />
+      <SourceStep
+        state={state}
+        geminiConnection={
+          <GeminiConnection
+            ready={state.geminiReady}
+            keyInput={keyInput}
+            busy={keyBusy}
+            message={keyMessage}
+            messageOk={keyMessageOk}
+            onKeyInput={setKeyInput}
+            onCheck={() => void checkGemini()}
+            onDisconnect={() => void disconnectGemini()}
+            onOpenHelp={() => setShowGeminiHelp(true)}
+          />
+        }
+        canAnalyze={canAnalyze(state)}
+        loadingSource={loadingSource}
+        onChooseSrt={() => void chooseSrtSource()}
+        onAnalyze={() => void analyze()}
+        onCancel={() => void cancelActive()}
+      />
 
       {state.topicVi && <div className="srt-translator-topic card"><b>Chủ đề:</b> {state.topicVi}</div>}
       {state.unresolvedCueNumbers.length > 0 && (

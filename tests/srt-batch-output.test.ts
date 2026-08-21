@@ -4,6 +4,7 @@ import os from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
 import { materializeSrtBatchOutput } from '../src/main/services/srt-batch-output.ts'
+import * as batchOutputModule from '../src/main/services/srt-batch-output.ts'
 
 async function withTempDir<T>(run: (directory: string) => Promise<T>): Promise<T> {
   const directory = await mkdtemp(join(os.tmpdir(), 'tblao-srt-batch-'))
@@ -69,6 +70,36 @@ test('rejects a Batch output path that is already a file', async () => {
     await assert.rejects(
       () => materializeSrtBatchOutput(srtPath),
       /Đường dẫn thư mục Batch đã tồn tại nhưng không phải thư mục/u
+    )
+  })
+})
+
+test('writes one-line localized titles with concatenated accent-free country names', async () => {
+  const materializeLocalizedTitleOutput = (batchOutputModule as Record<string, unknown>).materializeLocalizedTitleOutput
+  assert.equal(typeof materializeLocalizedTitleOutput, 'function')
+  const writeTitle = materializeLocalizedTitleOutput as (
+    outputDir: string,
+    regionLabel: string,
+    title: string
+  ) => Promise<string>
+
+  await withTempDir(async (directory) => {
+    const koreanPath = await writeTitle(directory, 'Hàn Quốc', '이 열차의 비밀을 놓치지 마세요!')
+    const japanesePath = await writeTitle(directory, 'Nhật Bản', 'この列車の正体に誰もが驚く！')
+    const americanPath = await writeTitle(directory, 'Hoa Kỳ', 'This Train Changes Everything!')
+
+    assert.equal(koreanPath, join(directory, 'tieude_hanquoc.txt'))
+    assert.equal(japanesePath, join(directory, 'tieude_nhatban.txt'))
+    assert.equal(americanPath, join(directory, 'tieude_hoaky.txt'))
+    assert.equal(await readFile(koreanPath, 'utf8'), '이 열차의 비밀을 놓치지 마세요!\n')
+    await assert.rejects(
+      () => writeTitle(directory, 'Hàn Quốc', '두 번째 제목이 첫 번째 파일을 덮어쓰면 안 됩니다.'),
+      /đã tồn tại/u
+    )
+    assert.equal(await readFile(koreanPath, 'utf8'), '이 열차의 비밀을 놓치지 마세요!\n')
+    await assert.rejects(
+      () => writeTitle(directory, 'Việt Nam', 'Dòng một\nDòng hai'),
+      /đúng một dòng/u
     )
   })
 })

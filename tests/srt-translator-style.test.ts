@@ -39,10 +39,15 @@ test('local video URL uses the established b64 protocol', () => {
 })
 
 test('five-step UI classes preserve scroll and responsive review layout', () => {
-  for (const selector of ['.srt-translator-stepper', '.srt-translator-review-list', '.srt-translator-review-card', '.srt-translator-locale-grid', '.srt-translator-preview-card']) {
+  for (const selector of ['.srt-translator-stepper', '.srt-translator-review-list', '.srt-translator-review-card', '.srt-translator-country-option', '.srt-translator-preview-card']) {
     assert.match(featureStyles, new RegExp(selector.replace('.', '\\.') ))
   }
   assert.match(featureStyles, /overflow-y:\s*auto/)
   assert.match(featureStyles, /@media\s*\(max-width:\s*900px\)/)
 })
 
+test('Dịch SRT không giữ lại CSS của form locale thủ công đã bị thay thế', () => {
+  assert.doesNotMatch(featureStyles, /\.srt-translator-locale-grid\b/)
+  assert.doesNotMatch(featureStyles, /\.srt-translator-locale-card\b/)
+  assert.doesNotMatch(featureStyles, /\.srt-translator-custom-locale-grid\b/)
+})

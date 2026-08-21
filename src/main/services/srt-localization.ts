@@ -55,6 +55,12 @@ export interface LocalizationPromptPayload {
   factTokens: Array<{ token: string; cueNumber: number; mode: 'converted' | 'preserved' }>
 }
 
+export interface LocalizedTitleGenerationResult {
+  ok: boolean
+  title?: string
+  error?: string
+}
+
 export const LOCALIZATION_RESPONSE_SCHEMA = {
   type: 'ARRAY',
   items: {
@@ -62,6 +68,12 @@ export const LOCALIZATION_RESPONSE_SCHEMA = {
     properties: { n: { type: 'INTEGER' }, t: { type: 'STRING' } },
     required: ['n', 't']
   }
+} as const
+
+export const LOCALIZED_TITLE_RESPONSE_SCHEMA = {
+  type: 'OBJECT',
+  properties: { title: { type: 'STRING' } },
+  required: ['title']
 } as const
 
 const TOKEN_PATTERN = /\[\[(?:MONEY|MEASURE)_[A-Za-z0-9:_-]+\]\]/gu
@@ -87,11 +99,23 @@ const LOCALE_LANGUAGE_HINTS: Readonly<Record<string, string>> = {
   pt: 'Portuguese (Português)'
 }
 const VIETNAMESE_CONFUSION_LANGUAGES = new Set(['id', 'ja', 'th', 'ko', 'en', 'fr', 'de', 'es', 'pt'])
+const LOCALIZED_TITLE_MAX_CHARACTERS = 180
+const LOCALIZED_TITLE_STYLE_GUIDES: Readonly<Record<string, string>> = {
+  'vi-vn': 'Vietnamese short-video style: conversational, urgent and emotionally charged; create a sharp curiosity gap that sounds native to Vietnamese social media.',
+  'id-id': 'Indonesian short-video style: energetic, conversational and suspenseful; use a natural local hook rather than translating another market word for word.',
+  'ja-jp': 'Japanese short-video style: concise and high-impact with a strong reveal gap; sound polished and natural, not like exaggerated foreign advertising copy.',
+  'th-th': 'Thai short-video style: emotionally vivid, immediate and curiosity-led; use natural Thai social-video rhythm and an irresistible reveal hook.',
+  'ko-kr': 'Korean short-video style: punchy, trend-aware and dramatic; lead with a compelling mystery or reversal in natural Korean headline rhythm.',
+  'en-us': 'US short-video style: bold, fast and high-stakes; use a strong curiosity gap and a scroll-stopping promise without sounding translated.'
+}
 
 class LocalizationValidationError extends Error {
+  readonly code: string
+
   constructor(code: string) {
     super(`TARGET_OUTPUT_INVALID: ${code}`)
     this.name = 'LocalizationValidationError'
+    this.code = code
   }
 }
 
@@ -101,6 +125,13 @@ function validationError(code: string): never {
 
 function isLocalizationValidationError(reason: unknown): reason is LocalizationValidationError {
   return reason instanceof LocalizationValidationError
+}
+
+class LocalizedTitleValidationError extends Error {
+  constructor(code: string) {
+    super(`TITLE_OUTPUT_INVALID: ${code}`)
+    this.name = 'LocalizedTitleValidationError'
+  }
 }
 
 function countOccurrences(text: string, needle: string): number {
@@ -418,6 +449,158 @@ function targetLanguageHint(profile: Pick<LocaleProfile, 'locale'>): string {
   return LOCALE_LANGUAGE_HINTS[language] ?? profile.locale
 }
 
+function localizedTitleStyleGuide(profile: LocaleProfile): string {
+  return LOCALIZED_TITLE_STYLE_GUIDES[profile.locale.trim().toLowerCase()] ??
+    `Use current short-video headline conventions that feel native to ${profile.regionLabel}; do not imitate or translate another country's headline style.`
+}
+
+function buildLocalizedTitleSystemPrompt(profile: LocaleProfile): string {
+  return [
+    `Write exactly one viral short-video title for viewers in ${profile.regionLabel}.`,
+    `The title language must be ${targetLanguageHint(profile)} and the locale is ${profile.locale}.`,
+    localizedTitleStyleGuide(profile),
+    'Create this market\'s hook independently. Never translate or reuse a title written for another country.',
+    'Make it as sensational, curiosity-driven and click-enticing as possible, using surprise, urgency, mystery or FOMO when appropriate.',
+    'The framing may be dramatic, but every factual implication must be supported by the supplied script. Never invent a person, number, event, result or claim.',
+    `Return JSON only as {"title":"..."}. The title must be one non-empty line, contain no label or explanation, and stay within ${LOCALIZED_TITLE_MAX_CHARACTERS} Unicode characters.`
+  ].join('\n')
+}
+
+function localizedTitlePayload(input: {
+  canonical: CanonicalSource
+  target: LocalizedTarget
+  localizedSrt: string
+}): object {
+  return {
+    target: {
+      language: input.target.profile.languageLabel,
+      locale: input.target.profile.locale,
+      country: input.target.profile.regionLabel
+    },
+    topicVi: input.canonical.topicVi,
+    canonicalScript: input.canonical.cues.map((cue) => ({
+      n: cue.n,
+      canonicalZh: cue.correctedZh,
+      meaningVi: cue.meaningVi
+    })),
+    localizedScript: input.localizedSrt
+  }
+}
+
+function validateLocalizedTitle(value: unknown, profile: LocaleProfile): string {
+  if (!value || typeof value !== 'object') throw new LocalizedTitleValidationError('expected-object')
+  const rawTitle = (value as Record<string, unknown>).title
+  if (typeof rawTitle !== 'string') throw new LocalizedTitleValidationError('title-string')
+  const title = rawTitle.trim()
+  if (!title) throw new LocalizedTitleValidationError('empty-title')
+  if (/\r|\n/u.test(title)) throw new LocalizedTitleValidationError('multiple-lines')
+  if ([...title].length > LOCALIZED_TITLE_MAX_CHARACTERS) throw new LocalizedTitleValidationError('too-long')
+  const locale = profile.locale.trim().toLowerCase()
+  if (locale === 'ko-kr' && !HANGUL_SCRIPT_PATTERN.test(title)) {
+    throw new LocalizedTitleValidationError('wrong-language-ko-KR')
+  }
+  if (locale === 'ja-jp' && !HIRAGANA_KATAKANA_PATTERN.test(title)) {
+    throw new LocalizedTitleValidationError('wrong-language-ja-JP')
+  }
+  if (locale === 'th-th' && !THAI_SCRIPT_PATTERN.test(title)) {
+    throw new LocalizedTitleValidationError('wrong-language-th-TH')
+  }
+  try {
+    validateTargetLanguage([{ n: 1, t: title }], profile)
+  } catch (reason) {
+    if (isLocalizationValidationError(reason)) throw new LocalizedTitleValidationError(reason.code)
+    throw reason
+  }
+  return title
+}
+
+export async function generateLocalizedTitle(input: {
+  jobId?: string
+  canonical: CanonicalSource
+  target: LocalizedTarget
+  localizedSrt: string
+  transport: GeminiMultimodalTransport
+  targetIndex?: number
+  targetCount?: number
+  signal?: AbortSignal
+  onLog?: SrtTranslatorLog
+}): Promise<LocalizedTitleGenerationResult> {
+  const payload = localizedTitlePayload(input)
+  let lastError = 'TITLE_OUTPUT_INVALID: unknown'
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (input.signal?.aborted) throw input.signal.reason
+    const request = {
+      systemInstruction: buildLocalizedTitleSystemPrompt(input.target.profile),
+      userText: attempt === 0
+        ? JSON.stringify(payload)
+        : [
+            `Repair this invalid title response: ${lastError}`,
+            'Return one new country-native title that follows every rule. Output only the JSON object.',
+            JSON.stringify(payload)
+          ].join('\n'),
+      responseSchema: LOCALIZED_TITLE_RESPONSE_SCHEMA,
+      signal: input.signal
+    }
+    trace(input, {
+      jobId: input.jobId,
+      phase: 'translating',
+      kind: 'operation-progress',
+      operation: 'gemini-localize-title',
+      message: attempt === 0 ? 'Đang tạo tiêu đề bản địa hóa.' : 'Đang sửa tiêu đề chưa hợp lệ.',
+      targetId: input.target.id,
+      targetIndex: input.targetIndex,
+      targetCount: input.targetCount,
+      attempt: attempt + 1,
+      systemChars: request.systemInstruction.length,
+      inputChars: request.userText.length,
+      geminiPayload: { kind: 'request', content: serializeGeminiRequest(request) }
+    })
+
+    let value: unknown
+    try {
+      value = await input.transport.generateJson<unknown>(request)
+    } catch (reason) {
+      if (input.signal?.aborted) throw input.signal.reason
+      const error = reason instanceof Error ? reason.message : 'Gemini không tạo được tiêu đề.'
+      trace(input, {
+        jobId: input.jobId,
+        phase: 'translating',
+        kind: 'operation-error',
+        level: 'warn',
+        operation: 'gemini-localize-title',
+        message: error,
+        targetId: input.target.id,
+        targetIndex: input.targetIndex,
+        targetCount: input.targetCount,
+        attempt: attempt + 1
+      })
+      return { ok: false, error }
+    }
+    if (input.signal?.aborted) throw input.signal.reason
+
+    trace(input, {
+      jobId: input.jobId,
+      phase: 'translating',
+      kind: 'operation-progress',
+      operation: 'gemini-localize-title',
+      message: 'Đã nhận response tiêu đề từ Gemini.',
+      targetId: input.target.id,
+      targetIndex: input.targetIndex,
+      targetCount: input.targetCount,
+      attempt: attempt + 1,
+      geminiPayload: { kind: 'response', content: serializeGeminiTrace(value) }
+    })
+    try {
+      return { ok: true, title: validateLocalizedTitle(value, input.target.profile) }
+    } catch (reason) {
+      lastError = reason instanceof Error ? reason.message : 'TITLE_OUTPUT_INVALID: unknown'
+    }
+  }
+
+  return { ok: false, error: lastError }
+}
+
 export function buildLocalizationSystemPrompt(profile: LocaleProfile): string {
   return [
     `Target locale: ${profile.locale}. Use the natural language and regional conventions of that locale.`,
@@ -470,10 +653,73 @@ function buildSrt(cues: readonly PreparedLocalizationCue[], rows: readonly Local
   }).join('\n')
 }
 
+const LOCALIZATION_CUE_BATCH_SIZE = 24
+
+function splitLocalizationCues(cues: readonly PreparedLocalizationCue[]): PreparedLocalizationCue[][] {
+  const batches: PreparedLocalizationCue[][] = []
+  for (let offset = 0; offset < cues.length; offset += LOCALIZATION_CUE_BATCH_SIZE) {
+    batches.push(cues.slice(offset, offset + LOCALIZATION_CUE_BATCH_SIZE))
+  }
+  return batches
+}
+
+function buildLocalizationPayloadForCues(
+  canonical: CanonicalSource,
+  cues: readonly PreparedLocalizationCue[],
+  currencyInstructions: readonly CurrencyConversionInstruction[],
+  measurementInstructions: readonly MeasurementConversionInstruction[],
+  replacements: readonly FactTokenReplacement[]
+): LocalizationPromptPayload {
+  const cueNumbers = new Set(cues.map((cue) => cue.n))
+  return buildLocalizationPayload(
+    canonical,
+    cues,
+    currencyInstructions.filter((item) => cueNumbers.has(item.cueNumber)),
+    measurementInstructions.filter((item) => cueNumbers.has(item.cueNumber)),
+    replacements.filter((item) => cueNumbers.has(item.cueNumber))
+  )
+}
+
+function recoverValidLocalizedRows(
+  value: unknown,
+  cues: readonly PreparedLocalizationCue[],
+  profile: LocaleProfile
+): { rows: LocalizedRow[]; failedCues: PreparedLocalizationCue[] } {
+  if (!Array.isArray(value)) return { rows: [], failedCues: [...cues] }
+  const expectedNumbers = new Set(cues.map((cue) => cue.n))
+  const candidatesByNumber = new Map<number, unknown[]>()
+  for (const raw of value) {
+    if (!raw || typeof raw !== 'object') continue
+    const number = (raw as Record<string, unknown>).n
+    if (!Number.isSafeInteger(number) || !expectedNumbers.has(number as number)) continue
+    const candidates = candidatesByNumber.get(number as number) ?? []
+    candidates.push(raw)
+    candidatesByNumber.set(number as number, candidates)
+  }
+
+  const rows: LocalizedRow[] = []
+  const failedCues: PreparedLocalizationCue[] = []
+  for (const cue of cues) {
+    const candidates = candidatesByNumber.get(cue.n) ?? []
+    if (candidates.length !== 1) {
+      failedCues.push(cue)
+      continue
+    }
+    try {
+      rows.push(validateLocalizedRows(candidates, [cue], profile)[0]!)
+    } catch {
+      failedCues.push(cue)
+    }
+  }
+  return { rows, failedCues }
+}
+
 function repairLocalizationText(payload: LocalizationPromptPayload, errors: string): string {
   return [
     'Repair only these TARGET_OUTPUT_INVALID codes; return the same JSON row schema:',
     errors,
+    'This retry payload contains only failed or missing cues. Return exactly one {n,t} row for every cue in this payload and no other rows.',
+    'Copy every [[MONEY_*]] and [[MEASURE_*]] token from that cue canonicalZh exactly. Never borrow, rename, omit or duplicate a token from another cue.',
     'Do not change the approved meaning. A Chinese number word may become the same Arabic value (三分三十秒 = 3 minutes 30 seconds), but never round, replace, or invent a value. Keep every fact token exactly once.',
     'A classifier phrase such as 单节 may be rendered as one/1 when it means a single unit; keep that meaning.',
     JSON.stringify(payload)
@@ -486,6 +732,194 @@ function trace(input: { onLog?: SrtTranslatorLog }, event: SrtTranslatorLogEvent
   } catch {
     // Tracing is diagnostic only and must never change the model workflow.
   }
+}
+
+async function generateLocalizedCueBatch(input: {
+  jobId?: string
+  canonical: CanonicalSource
+  target: LocalizedTarget
+  targetIndex: number
+  targetCount: number
+  batchNumber: number
+  batchCount: number
+  cues: readonly PreparedLocalizationCue[]
+  currencyInstructions: readonly CurrencyConversionInstruction[]
+  measurementInstructions: readonly MeasurementConversionInstruction[]
+  replacements: readonly FactTokenReplacement[]
+  transport: GeminiMultimodalTransport
+  file?: GeminiRemoteFile
+  signal?: AbortSignal
+  onLog?: SrtTranslatorLog
+}): Promise<LocalizedRow[]> {
+  let attemptCues = [...input.cues]
+  let reusableRows: LocalizedRow[] = []
+  let lastError: LocalizationValidationError | null = null
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const attemptStartedAt = Date.now()
+    const payload = buildLocalizationPayloadForCues(
+      input.canonical,
+      attemptCues,
+      input.currencyInstructions,
+      input.measurementInstructions,
+      input.replacements
+    )
+    const request = {
+      systemInstruction: buildLocalizationSystemPrompt(input.target.profile),
+      userText: attempt === 0
+        ? JSON.stringify(payload)
+        : repairLocalizationText(payload, String(lastError)),
+      responseSchema: LOCALIZATION_RESPONSE_SCHEMA,
+      ...(input.file ? { file: input.file } : {}),
+      signal: input.signal
+    }
+    trace(input, {
+      jobId: input.jobId,
+      phase: 'translating',
+      kind: 'operation-progress',
+      operation: 'gemini-localize-attempt',
+      message: attempt === 0 ? 'Đang chờ Gemini trả bản dịch.' : 'Đang chờ Gemini sửa các cue chưa hợp lệ.',
+      targetId: input.target.id,
+      targetIndex: input.targetIndex,
+      targetCount: input.targetCount,
+      done: input.batchNumber,
+      total: input.batchCount,
+      attempt: attempt + 1,
+      systemChars: request.systemInstruction.length,
+      inputChars: request.userText.length,
+      cueCount: attemptCues.length,
+      hasMedia: Boolean(request.file)
+    })
+    trace(input, {
+      jobId: input.jobId,
+      phase: 'translating',
+      kind: 'operation-progress',
+      operation: 'gemini-localize-attempt',
+      message: 'Request đầy đủ gửi lên Gemini.',
+      targetId: input.target.id,
+      targetIndex: input.targetIndex,
+      targetCount: input.targetCount,
+      done: input.batchNumber,
+      total: input.batchCount,
+      attempt: attempt + 1,
+      systemChars: request.systemInstruction.length,
+      inputChars: request.userText.length,
+      cueCount: attemptCues.length,
+      hasMedia: Boolean(request.file),
+      geminiPayload: { kind: 'request', content: serializeGeminiRequest(request) }
+    })
+
+    let value: unknown
+    try {
+      value = await input.transport.generateJson<unknown>(request)
+    } catch (reason) {
+      if (input.signal?.aborted) throw input.signal.reason
+      trace(input, {
+        jobId: input.jobId,
+        phase: 'translating',
+        kind: 'operation-error',
+        level: 'error',
+        operation: 'gemini-localize-attempt',
+        message: 'Gemini không trả được JSON bản dịch.',
+        targetId: input.target.id,
+        targetIndex: input.targetIndex,
+        targetCount: input.targetCount,
+        done: input.batchNumber,
+        total: input.batchCount,
+        attempt: attempt + 1,
+        durationMs: Math.max(0, Date.now() - attemptStartedAt),
+        hasMedia: Boolean(request.file)
+      })
+      throw reason
+    }
+
+    trace(input, {
+      jobId: input.jobId,
+      phase: 'translating',
+      kind: 'operation-progress',
+      operation: 'gemini-localize-attempt',
+      message: 'Response đầy đủ nhận từ Gemini.',
+      targetId: input.target.id,
+      targetIndex: input.targetIndex,
+      targetCount: input.targetCount,
+      done: input.batchNumber,
+      total: input.batchCount,
+      attempt: attempt + 1,
+      outputCount: Array.isArray(value) ? value.length : undefined,
+      hasMedia: Boolean(request.file),
+      geminiPayload: { kind: 'response', content: serializeGeminiTrace(value) }
+    })
+
+    try {
+      let attemptRows: LocalizedRow[]
+      try {
+        attemptRows = validateLocalizedRows(value, attemptCues, input.target.profile)
+      } catch (reason) {
+        if (attempt !== 1 || !isLocalizationValidationError(reason)) throw reason
+        const recoveredRepair = recoverValidLocalizedRows(value, attemptCues, input.target.profile)
+        if (recoveredRepair.failedCues.length > 0) throw reason
+        attemptRows = recoveredRepair.rows
+      }
+      const rows = validateLocalizedRows(
+        [...reusableRows, ...attemptRows],
+        input.cues,
+        input.target.profile
+      )
+      trace(input, {
+        jobId: input.jobId,
+        phase: 'translating',
+        kind: 'operation-progress',
+        operation: 'validate-gemini-localization',
+        message: 'Gemini trả JSON bản dịch hợp lệ.',
+        targetId: input.target.id,
+        targetIndex: input.targetIndex,
+        targetCount: input.targetCount,
+        done: input.batchNumber,
+        total: input.batchCount,
+        attempt: attempt + 1,
+        durationMs: Math.max(0, Date.now() - attemptStartedAt),
+        outputCount: rows.length,
+        hasMedia: Boolean(request.file)
+      })
+      return rows
+    } catch (reason) {
+      if (!isLocalizationValidationError(reason)) throw reason
+      lastError = reason
+      trace(input, {
+        jobId: input.jobId,
+        phase: 'translating',
+        kind: 'operation-progress',
+        level: 'warn',
+        operation: 'validate-gemini-localization',
+        message: `JSON bản dịch chưa hợp lệ; mã lỗi: ${reason.message}.`,
+        targetId: input.target.id,
+        targetIndex: input.targetIndex,
+        targetCount: input.targetCount,
+        done: input.batchNumber,
+        total: input.batchCount,
+        attempt: attempt + 1,
+        durationMs: Math.max(0, Date.now() - attemptStartedAt),
+        hasMedia: Boolean(request.file)
+      })
+      if (attempt === 1) continue
+
+      if (reason.code.startsWith('wrong-language-')) {
+        reusableRows = []
+        attemptCues = [...input.cues]
+        continue
+      }
+      const recovered = recoverValidLocalizedRows(value, input.cues, input.target.profile)
+      if (recovered.failedCues.length === 0) {
+        reusableRows = []
+        attemptCues = [...input.cues]
+      } else {
+        reusableRows = recovered.rows
+        attemptCues = recovered.failedCues
+      }
+    }
+  }
+
+  throw lastError ?? new LocalizationValidationError('unknown')
 }
 
 export async function runLocalizedTargetBatch(input: {
@@ -513,133 +947,40 @@ export async function runLocalizedTargetBatch(input: {
       rateStatus = targetRateStatus(input.canonical, currencyInstructions, input.rateSnapshot)
       const replacements = buildFactTokenReplacements(input.canonical, target.profile, currencyInstructions, measurementInstructions)
       const preparedCues = buildPreparedLocalizationCues(input.canonical, replacements)
-      const payload = buildLocalizationPayload(input.canonical, preparedCues, currencyInstructions, measurementInstructions, replacements)
-      const request = {
-        systemInstruction: buildLocalizationSystemPrompt(target.profile),
-        userText: JSON.stringify(payload),
-        responseSchema: LOCALIZATION_RESPONSE_SCHEMA,
-        ...(effectiveUnverified ? {} : { file: input.file }),
-        signal: input.signal
-      }
+      const cueBatches = splitLocalizationCues(preparedCues)
       trace(input, {
         jobId: input.jobId,
         phase: 'translating',
         kind: 'operation-start',
         operation: 'gemini-localize-target',
-        message: 'Bắt đầu gửi target lên Gemini.',
+        message: `Bắt đầu dịch target theo ${cueBatches.length} batch.`,
         targetId: target.id,
         targetIndex: index + 1,
         targetCount: input.targets.length,
-        systemChars: request.systemInstruction.length,
-        inputChars: request.userText.length,
         cueCount: preparedCues.length,
-        hasMedia: Boolean(request.file)
+        hasMedia: Boolean(!effectiveUnverified && input.file)
       })
-      let rows: LocalizedRow[] | null = null
-      let lastError: unknown = null
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const attemptStartedAt = Date.now()
-        const attemptRequest = attempt === 0 ? request : { ...request, userText: repairLocalizationText(payload, String(lastError)) }
-        trace(input, {
+      const rows: LocalizedRow[] = []
+      for (let batchIndex = 0; batchIndex < cueBatches.length; batchIndex += 1) {
+        rows.push(...await generateLocalizedCueBatch({
           jobId: input.jobId,
-          phase: 'translating',
-          kind: 'operation-progress',
-          operation: 'gemini-localize-attempt',
-          message: attempt === 0 ? 'Đang chờ Gemini trả bản dịch.' : 'Đang chờ Gemini sửa lại JSON bản dịch.',
-          targetId: target.id,
+          canonical: input.canonical,
+          target,
           targetIndex: index + 1,
           targetCount: input.targets.length,
-          attempt: attempt + 1,
-          systemChars: attemptRequest.systemInstruction.length,
-          inputChars: attemptRequest.userText.length,
-          cueCount: preparedCues.length,
-          hasMedia: Boolean(request.file)
-        })
-        trace(input, {
-          jobId: input.jobId,
-          phase: 'translating',
-          kind: 'operation-progress',
-          operation: 'gemini-localize-attempt',
-          message: 'Request đầy đủ gửi lên Gemini.',
-          targetId: target.id,
-          targetIndex: index + 1,
-          targetCount: input.targets.length,
-          attempt: attempt + 1,
-          systemChars: attemptRequest.systemInstruction.length,
-          inputChars: attemptRequest.userText.length,
-          cueCount: preparedCues.length,
-          hasMedia: Boolean(request.file),
-          geminiPayload: { kind: 'request', content: serializeGeminiRequest(attemptRequest) }
-        })
-        try {
-          const value = await input.transport.generateJson<unknown>(attemptRequest)
-          trace(input, {
-            jobId: input.jobId,
-            phase: 'translating',
-            kind: 'operation-progress',
-            operation: 'gemini-localize-attempt',
-            message: 'Response đầy đủ nhận từ Gemini.',
-            targetId: target.id,
-            targetIndex: index + 1,
-            targetCount: input.targets.length,
-            attempt: attempt + 1,
-            outputCount: Array.isArray(value) ? value.length : undefined,
-            hasMedia: Boolean(request.file),
-            geminiPayload: { kind: 'response', content: serializeGeminiTrace(value) }
-          })
-          rows = validateLocalizedRows(value, preparedCues, target.profile)
-          trace(input, {
-            jobId: input.jobId,
-            phase: 'translating',
-            kind: 'operation-progress',
-            operation: 'validate-gemini-localization',
-            message: 'Gemini trả JSON bản dịch hợp lệ.',
-            targetId: target.id,
-            targetIndex: index + 1,
-            targetCount: input.targets.length,
-            attempt: attempt + 1,
-            durationMs: Math.max(0, Date.now() - attemptStartedAt),
-            outputCount: rows.length,
-            hasMedia: Boolean(request.file)
-          })
-          break
-        } catch (reason) {
-          if (input.signal?.aborted) throw input.signal.reason
-          if (!isLocalizationValidationError(reason)) {
-            trace(input, {
-              jobId: input.jobId,
-              phase: 'translating',
-              kind: 'operation-error',
-              level: 'error',
-              operation: 'gemini-localize-attempt',
-              message: 'Gemini không trả được JSON bản dịch.',
-              targetId: target.id,
-              targetIndex: index + 1,
-              targetCount: input.targets.length,
-              attempt: attempt + 1,
-              durationMs: Math.max(0, Date.now() - attemptStartedAt),
-              hasMedia: Boolean(request.file)
-            })
-            throw reason
-          }
-          trace(input, {
-            jobId: input.jobId,
-            phase: 'translating',
-            kind: 'operation-progress',
-            level: 'warn',
-            operation: 'validate-gemini-localization',
-            message: `JSON bản dịch chưa hợp lệ; mã lỗi: ${reason.message}.`,
-            targetId: target.id,
-            targetIndex: index + 1,
-            targetCount: input.targets.length,
-            attempt: attempt + 1,
-            durationMs: Math.max(0, Date.now() - attemptStartedAt),
-            hasMedia: Boolean(request.file)
-          })
-          lastError = reason
-        }
+          batchNumber: batchIndex + 1,
+          batchCount: cueBatches.length,
+          cues: cueBatches[batchIndex]!,
+          currencyInstructions,
+          measurementInstructions,
+          replacements,
+          transport: input.transport,
+          ...(!effectiveUnverified && input.file ? { file: input.file } : {}),
+          signal: input.signal,
+          onLog: input.onLog
+        }))
       }
-      if (!rows) throw lastError instanceof Error ? lastError : new Error('TARGET_OUTPUT_INVALID')
+      validateLocalizedRows(rows, preparedCues, target.profile)
       translations.push({ target: { ...target.profile, id: target.id }, ok: true, srt: buildSrt(preparedCues, rows, replacements), count: preparedCues.length, unverified: effectiveUnverified, rateStatus })
       trace(input, {
         jobId: input.jobId,
@@ -653,7 +994,7 @@ export async function runLocalizedTargetBatch(input: {
         cueCount: preparedCues.length,
         outputCount: rows.length,
         durationMs: Math.max(0, Date.now() - targetStartedAt),
-        hasMedia: Boolean(request.file)
+        hasMedia: Boolean(!effectiveUnverified && input.file)
       })
     } catch (reason) {
       if (input.signal?.aborted) {

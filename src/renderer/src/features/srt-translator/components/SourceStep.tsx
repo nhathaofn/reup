@@ -7,7 +7,7 @@ function fileName(filePath: string): string {
 
 export interface SourceStepProps {
   state: SrtTranslatorViewState
-  geminiConnectionCard: ReactNode
+  geminiConnection: ReactNode
   canAnalyze: boolean
   loadingSource: boolean
   onChooseSrt(): void
@@ -15,7 +15,7 @@ export interface SourceStepProps {
   onCancel(): void
 }
 
-export default function SourceStep({ state, geminiConnectionCard, canAnalyze, loadingSource, onChooseSrt, onAnalyze, onCancel }: SourceStepProps): JSX.Element {
+export default function SourceStep({ state, geminiConnection, canAnalyze, loadingSource, onChooseSrt, onAnalyze, onCancel }: SourceStepProps): JSX.Element {
   return (
     <section className="srt-translator-step-content">
       <div className="srt-translator-source-grid">
@@ -28,7 +28,7 @@ export default function SourceStep({ state, geminiConnectionCard, canAnalyze, lo
             {state.sourcePath ? 'Đổi file' : 'Chọn file'}
           </button>
         </div>
-        <div className="card srt-translator-source-card srt-translator-connection-card">{geminiConnectionCard}</div>
+        <div className="card srt-translator-source-card srt-translator-connection-card">{geminiConnection}</div>
       </div>
 
       <div className="card srt-translator-card srt-translator-source-summary">

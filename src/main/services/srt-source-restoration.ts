@@ -170,6 +170,53 @@ function supportsCanonicalSurface(sourceText: string, candidateText: string): bo
   return false
 }
 
+const TERMINAL_PUNCTUATION_PATTERN = /[。！？!?；;：:，,、…]$/u
+const QUESTION_MARK_PATTERN = /[?？]/gu
+const QUESTION_MARK_SUFFIX_PATTERN = /^[A-Za-z0-9 _./'"()[\]{}-]*$/u
+
+function trailingQuestionMark(value: string): '?' | '？' | null {
+  const text = value.trim()
+  const matches = [...text.matchAll(QUESTION_MARK_PATTERN)]
+  const last = matches.at(-1)
+  if (!last || last.index === undefined) return null
+  const suffix = text.slice(last.index + last[0].length).trim()
+  if (suffix && !QUESTION_MARK_SUFFIX_PATTERN.test(suffix)) return null
+  return last[0] as '?' | '？'
+}
+
+/**
+ * Keep a question mark that a source/evidence track proves, even when the
+ * restoration or audit model drops it while making an otherwise equivalent
+ * text-only correction. Punctuation is not semantic content, so this is a
+ * deterministic surface repair and never changes words or facts.
+ */
+export function restoreQuestionPunctuation(
+  sourceText: string,
+  candidateText: string,
+  evidence: SubtitlePipelineEvidenceContext | undefined,
+  cueNumber: number
+): string {
+  const candidate = candidateText.trim()
+  if (!candidate || TERMINAL_PUNCTUATION_PATTERN.test(candidate)) return candidateText
+
+  const evidenceCue = evidence?.cues.find((cue) => cue.n === cueNumber)
+  const evidenceSources = [...(evidenceCue?.sources ?? [])].sort((left, right) =>
+    Number(right.source === 'ocr') - Number(left.source === 'ocr') ||
+    (right.repeatCount ?? 1) - (left.repeatCount ?? 1)
+  )
+  const possibleSources = [
+    sourceText,
+    ...evidenceSources.map((source) => source.text)
+  ]
+  for (const possible of possibleSources) {
+    const mark = trailingQuestionMark(possible)
+    if (!mark) continue
+    if (supportsCanonicalSurface(possible, candidate)) return `${candidate}${mark}`
+  }
+
+  return candidateText
+}
+
 function bestEvidenceSource(
   evidence: SubtitlePipelineEvidenceContext | undefined,
   cueNumber: number,
@@ -847,10 +894,11 @@ function normalizeCues(
     const forceReview = forceReviewNumbers.has(source.n)
     const degraded = forceReview || !value || !nonEmpty(value.correctedZh) || !nonEmpty(value.meaningVi) ||
       typeof value.confidence !== 'string' || !CONFIDENCES.has(value.confidence)
-    const correctedZh = value && nonEmpty(value.correctedZh) ? value.correctedZh.trim() : source.text
+    const rawCorrectedZh = value && nonEmpty(value.correctedZh) ? value.correctedZh.trim() : source.text
     const meaningVi = value && nonEmpty(value.meaningVi)
       ? value.meaningVi.trim()
       : 'Giữ nguyên nội dung SRT nguồn; chưa đủ dữ liệu để xác minh ý.'
+    const correctedZh = restoreQuestionPunctuation(source.text, rawCorrectedZh, evidence, source.n)
     const modelEvidenceVi = value && nonEmpty(value.evidenceVi)
       ? value.evidenceVi.trim()
       : forceReview

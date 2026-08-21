@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent, type JSX } from 'react'
 import {
+  buildSubtitlePipelineOutputEntries,
   FEATURE_ID,
   FEATURE_META,
-  type SubtitlePipelineOutputPaths,
   type SubtitlePipelinePhase,
   type SubtitlePipelineProgress,
   type SubtitlePipelineResult
@@ -46,27 +46,6 @@ const PHASE_LABELS: Record<SubtitlePipelinePhase, string> = {
 }
 
 const baseName = (path: string): string => path.split(/[\\/]/u).pop() || path
-
-type OutputEntryKind = 'primarySrt' | 'translatedSrt' | 'batchDir' | 'draftDir'
-interface OutputEntry {
-  key: OutputEntryKind
-  label: string
-  path: string
-}
-
-function outputEntries(outputs: SubtitlePipelineOutputPaths): OutputEntry[] {
-  const entries: OutputEntry[] = []
-  const primary = outputs.primarySrt ?? outputs.translatedSrt ?? outputs.finalSrt
-  if (primary) entries.push({ key: 'primarySrt', label: 'SRT nguồn tốt nhất', path: primary })
-  for (const translated of outputs.translatedOutputs ?? []) {
-    entries.push({ key: 'translatedSrt', label: `Bản dịch · ${translated.target.languageLabel}`, path: translated.path })
-  }
-  for (const batch of outputs.batchOutputs ?? []) {
-    entries.push({ key: 'batchDir', label: `Thư mục Batch · ${baseName(batch.srtPath)}`, path: batch.splitDir })
-  }
-  if (outputs.draftDir) entries.push({ key: 'draftDir', label: 'Thư mục draft', path: outputs.draftDir })
-  return entries
-}
 
 function SubtitlePipelinePanel(): JSX.Element {
   const [outputDir, setOutputDir] = useTabOutputDir('tblao.outputDir.subtitlePipeline')
@@ -232,7 +211,7 @@ function SubtitlePipelinePanel(): JSX.Element {
     await window.api.cancelSubtitlePipeline(activeJobId ? { jobId: activeJobId } : {})
   }
 
-  const entries = useMemo(() => outputEntries(result?.outputs ?? {}), [result])
+  const entries = useMemo(() => buildSubtitlePipelineOutputEntries(result?.outputs ?? {}), [result])
 
   return (
     <section className="sp-shell">
@@ -401,7 +380,7 @@ function SubtitlePipelinePanel(): JSX.Element {
                 </button>
               ))}
             </div>
-            <div className="muted small sp-output-note">Thư mục gốc giữ SRT nguồn tốt nhất và một bản tốt nhất cho mỗi ngôn ngữ đích; các bản trung gian nằm trong `draft`.</div>
+            <div className="muted small sp-output-note">Thư mục gốc giữ SRT nguồn tốt nhất, một bản dịch và một file tiêu đề cho mỗi quốc gia đích; các bản trung gian nằm trong `draft`.</div>
             {result.warnings.length > 0 && (
               <div className="sp-alert warn"><b>Cần lưu ý</b><ul>{result.warnings.map((warning, index) => <li key={`${index}:${warning}`}>{warning}</li>)}</ul></div>
             )}

@@ -1,5 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { existsSync, readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import {
   canAnalyze,
   canResolve,
@@ -11,6 +13,7 @@ import {
   visibleStep,
   type SrtTranslatorViewState
 } from '../src/renderer/src/features/srt-translator/model.ts'
+import * as subtitlePipelineFeature from '../src/shared/features/subtitle-pipeline.ts'
 import {
   jaTargetInputFixture,
   successfulTranslationFixture,
@@ -18,11 +21,55 @@ import {
   viTargetInputFixture
 } from './helpers/srt-localization-fixtures.ts'
 
+const translatorIndexSource = readFileSync(
+  fileURLToPath(new URL('../src/renderer/src/features/srt-translator/index.tsx', import.meta.url)),
+  'utf8'
+)
+const translatorModelSource = readFileSync(
+  fileURLToPath(new URL('../src/renderer/src/features/srt-translator/model.ts', import.meta.url)),
+  'utf8'
+)
+const geminiConnectionPath = fileURLToPath(new URL('../src/renderer/src/features/srt-translator/components/GeminiConnection.tsx', import.meta.url))
+
 const reviewCueFixture = {
   ...unresolvedCanonicalFixture.cues[1]!,
   startSeconds: 3,
   endSeconds: 4
 }
+
+test('Dịch SRT tách phần kết nối Gemini khỏi panel điều phối', () => {
+  assert.doesNotMatch(translatorIndexSource, /const geminiConnectionCard\s*=/)
+  assert.equal(existsSync(geminiConnectionPath), true)
+  const geminiConnectionSource = readFileSync(geminiConnectionPath, 'utf8')
+  assert.match(geminiConnectionSource, /export default function GeminiConnection/)
+})
+
+test('model renderer Dịch SRT không còn state video legacy', () => {
+  assert.doesNotMatch(translatorModelSource, /video-selected/)
+  assert.doesNotMatch(translatorModelSource, /videoPath|videoDurationSeconds/)
+})
+
+test('smart subtitle output entries expose one title file for each successful target country', () => {
+  const buildOutputEntries = (subtitlePipelineFeature as Record<string, unknown>).buildSubtitlePipelineOutputEntries
+  assert.equal(typeof buildOutputEntries, 'function')
+  const entries = (buildOutputEntries as (outputs: Record<string, unknown>) => Array<{
+    key: string
+    label: string
+    path: string
+  }>)({
+    primarySrt: 'F:\\out\\batch_trung.srt',
+    translatedOutputs: [{ target: viTargetInputFixture, path: 'F:\\out\\batch_viet.srt', primary: true }],
+    titleOutputs: [{ target: viTargetInputFixture, path: 'F:\\out\\tieude_vietnam.txt' }],
+    draftDir: 'F:\\out\\draft'
+  })
+
+  assert.deepEqual(entries, [
+    { key: 'primarySrt', label: 'SRT nguồn tốt nhất', path: 'F:\\out\\batch_trung.srt' },
+    { key: 'translatedSrt', label: 'Bản dịch · Tiếng Việt', path: 'F:\\out\\batch_viet.srt' },
+    { key: 'titleFile', label: 'Tiêu đề · Việt Nam', path: 'F:\\out\\tieude_vietnam.txt' },
+    { key: 'draftDir', label: 'Thư mục draft', path: 'F:\\out\\draft' }
+  ])
+})
 
 function analyzedStateFixture(overrides: Partial<SrtTranslatorViewState> = {}): SrtTranslatorViewState {
   return {
@@ -31,8 +78,6 @@ function analyzedStateFixture(overrides: Partial<SrtTranslatorViewState> = {}): 
     sourceText: 'source',
     sourceCount: 2,
     lastCueEndSeconds: 4,
-    videoDurationSeconds: 5,
-    videoPath: 'clip.mp4',
     jobId: 'job-1',
     geminiReady: true,
     topicVi: 'Thử nghiệm',
@@ -42,9 +87,8 @@ function analyzedStateFixture(overrides: Partial<SrtTranslatorViewState> = {}): 
 }
 
 test('analyze requires only SRT, key and idle state', () => {
-  const ready = { ...createInitialSrtTranslatorState(), sourcePath: 'clip.srt', videoPath: 'clip.mp4', geminiReady: true }
+  const ready = { ...createInitialSrtTranslatorState(), sourcePath: 'clip.srt', geminiReady: true }
   assert.equal(canAnalyze(ready), true)
-  assert.equal(canAnalyze({ ...ready, videoPath: '' }), true)
   assert.equal(canAnalyze({ ...ready, running: true }), false)
 })
 
@@ -88,12 +132,11 @@ test('a retired job cannot be adopted after a replacement analyze starts', () =>
 })
 
 test('source replacement exposes the old job for release and resets derived state', () => {
-  const before = analyzedStateFixture({ jobId: 'job-old', videoPath: 'old.mp4', targets: [viTargetInputFixture], targetViews: [{ ...viTargetInputFixture, status: 'done', unverified: false }] })
+  const before = analyzedStateFixture({ jobId: 'job-old', targets: [viTargetInputFixture], targetViews: [{ ...viTargetInputFixture, status: 'done', unverified: false }] })
   assert.equal(jobIdToReleaseBeforeReplacement(before), 'job-old')
   const after = srtTranslatorReducer(before, { type: 'source-loaded', result: { ok: true, sourcePath: 'new.srt', sourceText: 'new', count: 1, lastCueEndSeconds: 2, fingerprint: { path: 'new.srt', size: 10, modifiedMs: 20 } } })
   assert.equal(after.sourcePath, 'new.srt')
   assert.equal(after.jobId, '')
-  assert.equal(after.videoPath, '')
   assert.deepEqual(after.targetViews, [])
   assert.equal(after.geminiReady, true)
 })

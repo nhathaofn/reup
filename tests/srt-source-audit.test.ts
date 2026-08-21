@@ -4,6 +4,7 @@ import { applyReviewSelections, auditRestoration, buildAuditSystemPrompt, buildE
 import type { GeminiGenerateRequest } from '../src/main/services/gemini-files.ts'
 import type { SubtitlePipelineEvidenceContext } from '../src/shared/features/subtitle-pipeline.ts'
 import { createFakeGeminiTransport, pipelineEvidenceFixture, restorationDraftFixture, sourceCuesFixture, unresolvedCanonicalFixture, validatedSourceFixture } from './helpers/srt-localization-fixtures.ts'
+import { buildCanonicalSrt } from '../src/main/services/subtitle-pipeline-output.ts'
 
 test('audit prompt is reviewer-only and checks taxonomy/numbers/aliases', () => {
   const prompt = buildAuditSystemPrompt()
@@ -58,6 +59,77 @@ test('high-confidence audit is accepted while low-confidence ambiguity remains u
   assert.deepEqual(canonical.unresolvedCueNumbers, [2])
   assert.equal(canonical.cues[0]?.needsReview, false)
   assert.equal(canonical.cues[1]?.needsReview, true)
+})
+
+test('audit restores an evidence-backed question mark before canonical export', async () => {
+  const source = {
+    ...validatedSourceFixture,
+    cues: [
+      { ...validatedSourceFixture.cues[0]!, n: 1, text: '这是哪国空姐', speakerLabel: undefined },
+      { ...validatedSourceFixture.cues[1]!, n: 2, text: '这是泰国空姐' }
+    ]
+  }
+  const draft = {
+    ...restorationDraftFixture,
+    cues: source.cues.map((cue) => ({
+      ...restorationDraftFixture.cues[cue.n - 1]!,
+      n: cue.n,
+      time: cue.time,
+      originalZh: cue.text,
+      correctedZh: cue.text,
+      meaningVi: cue.n === 1 ? 'Đây là tiếp viên hàng không nước nào?' : 'Đây là tiếp viên hàng không Thái Lan.',
+      changed: false,
+      confidence: 'high' as const,
+      issue: 'none' as const,
+      candidates: [],
+      needsReview: false
+    }))
+  }
+  const evidence: SubtitlePipelineEvidenceContext = {
+    sourceCounts: { srt: 2, asr: 2, ocr: 2 },
+    conflictCueNumbers: [1],
+    cues: source.cues.map((cue) => {
+      const ocrText = cue.n === 1 ? '这是哪国空姐？ DAX' : cue.text
+      const surfaces = cue.n === 1
+        ? [['asr', cue.text], ['ocr', ocrText]] as const
+        : [['asr', cue.text], ['ocr', cue.text]] as const
+      return {
+        n: cue.n,
+        startMs: cue.startSeconds * 1_000,
+        endMs: cue.endSeconds * 1_000,
+        text: cue.text,
+        primarySource: 'asr' as const,
+        confidence: cue.n === 1 ? 'low' as const : 'high' as const,
+        conflict: cue.n === 1,
+        sources: surfaces.map(([track, text]) => ({
+          id: `${track}:${cue.n}`,
+          source: track,
+          n: cue.n,
+          startMs: cue.startSeconds * 1_000,
+          endMs: cue.endSeconds * 1_000,
+          text,
+          confidence: null,
+          similarity: text === cue.text ? 1 : 0.9,
+          overlapMs: (cue.endSeconds - cue.startSeconds) * 1_000,
+          distanceMs: 0
+        }))
+      }
+    })
+  }
+  const canonical = await auditRestoration({
+    jobId: 'job-question-punctuation',
+    source,
+    draft,
+    evidence,
+    transport: createFakeGeminiTransport([{ cues: [
+      { n: 1, decision: 'accept', correctedZh: '这是哪国空姐', meaningVi: 'Đây là tiếp viên hàng không nước nào?', confidence: 'high', issue: 'none', evidenceVi: 'OCR khớp.', candidates: [] },
+      { n: 2, decision: 'accept', correctedZh: '这是泰国空姐', meaningVi: 'Đây là tiếp viên hàng không Thái Lan.', confidence: 'high', issue: 'none', evidenceVi: 'Khớp.', candidates: [] }
+    ] }])
+  })
+
+  assert.equal(canonical.cues[0]?.correctedZh, '这是哪国空姐？')
+  assert.deepEqual(canonical.unresolvedCueNumbers, [])
+  assert.match(buildCanonicalSrt(canonical), /这是哪国空姐？/u)
 })
 
 test('medium replace is retained but routed to review instead of invalidating the batch', async () => {
