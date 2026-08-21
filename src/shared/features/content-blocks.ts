@@ -244,6 +244,7 @@ export interface ContentBlockCapCutExportRequest {
 
 export interface ContentBlockCapCutExportResult {
   ok: boolean
+  cancelled?: boolean
   projectPath?: string
   portableManifestPath?: string
   provenanceManifestPath?: string
