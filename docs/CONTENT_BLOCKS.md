@@ -54,13 +54,14 @@ Lưu map tại `voice-map.json` rồi chọn trong ô `Voice map (tùy chọn)`.
 
 ## 4. Grouping và review boundary
 
-- Cues Q/A liền nhau được group thành một block; cue lẻ được đánh dấu `odd-unpaired-cue` và giữ review.
+- Cue có dấu hiệu là câu hỏi sẽ mở một block; mọi cue tiếp theo được giữ trong block đó cho tới trước câu hỏi kế tiếp. Cue thứ nhất nhận role `question`, cue thứ hai nhận `answer`, các cue còn lại nhận `statement` để giữ các dòng tiếp diễn như tiền lương.
+- Nếu một block chỉ có câu hỏi mà chưa có câu trả lời, block được đánh dấu `odd-unpaired-cue`. Nếu source không có anchor câu hỏi đủ tin cậy, các cue liên quan được giữ nguyên trong một block `grouping-review`, tắt `shuffleEligible` và buộc review thủ công.
 - `scene-splitter.json` được ưu tiên để chọn boundary gần SRT; nếu không đủ thì dùng SRT fallback và gắn `srt-fallback`.
 - `Merge` gộp hai block liền kề; `Split` tách sau cue được chọn.
 - Boundary editor dùng integer microseconds trong artifact; UI chỉ hiển thị giây. Khóa boundary tạo trạng thái `locked`.
-- `set-semantic` là thao tác chấp nhận có chủ đích cho cue lẻ/role/dependency; không tự động làm mất cảnh báo source.
+- `set-semantic` là thao tác chấp nhận có chủ đích cho block cần review/role/dependency; không tự động làm mất cảnh báo boundary hoặc các cảnh báo khác.
 
-Không tiếp tục sang locale/variant khi boundary còn `needs-review`, `odd-unpaired-cue` hoặc `srt-fallback` chưa được xử lý.
+Không tiếp tục sang locale/variant khi boundary còn `needs-review`, `odd-unpaired-cue`, `grouping-review` hoặc `srt-fallback` chưa được xử lý. V1 dùng heuristic deterministic; AI reviewer chỉ nên là lớp đề xuất tùy chọn, không được tự ghi đè manifest.
 
 ## 5. Chính sách speed
 
@@ -97,6 +98,7 @@ Template CapCut phải là project mẫu do chính phiên bản CapCut hiện t�
 | Stale fingerprint | Phân tích lại đúng video source; không sửa tay fingerprint trong artifact. |
 | Missing voice | Kiểm tra cue ID trong SRT, tên stem hoặc `voice-map.json`; import lại sau khi bổ sung file. |
 | Fallback boundary | Mở Review block, merge/split hoặc chỉnh boundary rồi khóa boundary hợp lệ. |
+| Grouping review | Kiểm tra cue đầu block và dùng `set-semantic`, merge/split hoặc chỉnh source grouping trước khi cho phép shuffle. |
 | Hard speed | Xem speed/adaptation trong Timeline; chỉnh grouping, voice hoặc loại block khỏi variant. `needs-review` không được export. |
 | Draft đang mở / project đã tồn tại | Đóng CapCut, đổi project name hoặc xóa project tạo dở theo quy trình vận hành của bạn; ứng dụng không tự xóa project cũ. |
 

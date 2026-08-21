@@ -14,7 +14,7 @@ import {
   validateSourceBlockManifest,
   writeArtifactAtomic
 } from './contentBlockManifest.ts'
-import { groupDialoguePairs } from './dialogueGrouper.ts'
+import { groupDialogueByQuestionBoundaries } from './dialogueGrouper.ts'
 import { resolveBlockBoundaries, type BoundaryResolverConfig } from './boundaryResolver.ts'
 import { probeVideoMetadata, type VideoProbeInfo } from './mediaProbe.ts'
 
@@ -85,7 +85,7 @@ export interface BuildSourceBlockManifestInput {
 }
 
 export function buildSourceBlockManifest(input: BuildSourceBlockManifestInput): SourceBlockManifest {
-  const draftGroups = groupDialoguePairs(input.cues, { makeBlockId: input.makeBlockId })
+  const draftGroups = groupDialogueByQuestionBoundaries(input.cues, { makeBlockId: input.makeBlockId })
   const priorIds = new Map(
     (input.previousManifest?.blocks ?? []).map((block) => [block.cueIds.join('\u0000'), block.id])
   )
@@ -183,7 +183,8 @@ export async function analyzeContentBlocks(
     await writeArtifactAtomic(manifestPath, manifest, validateSourceBlockManifest)
     const warnings = manifest.blocks.flatMap((block) => [
       ...(block.issues.includes('srt-fallback') ? [`Block ${block.id} dùng fallback theo SRT và cần review.`] : []),
-      ...(block.issues.includes('odd-unpaired-cue') ? [`Block ${block.id} có cue lẻ chưa ghép.`] : [])
+      ...(block.issues.includes('odd-unpaired-cue') ? [`Block ${block.id} có cue lẻ chưa ghép.`] : []),
+      ...(block.issues.includes('grouping-review') ? [`Block ${block.id} chưa xác định chắc chắn ranh giới nội dung và cần review.`] : [])
     ])
     return {
       ok: true,

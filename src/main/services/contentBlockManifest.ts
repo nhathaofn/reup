@@ -24,7 +24,7 @@ const BOUNDARY_REASONS: ReadonlySet<BoundaryReason> = new Set(['exact-scene-matc
 const REVIEW_STATES: ReadonlySet<ReviewState> = new Set(['accepted', 'needs-review', 'locked'])
 const BLOCK_ROLES: ReadonlySet<ContentBlockRole> = new Set(['normal', 'intro', 'outro', 'cta'])
 const CUE_ROLES: ReadonlySet<ContentCueRole> = new Set(['question', 'answer', 'statement'])
-const BLOCK_ISSUES: ReadonlySet<ContentBlockIssue> = new Set(['odd-unpaired-cue', 'srt-fallback', 'manual-adjusted'])
+const BLOCK_ISSUES: ReadonlySet<ContentBlockIssue> = new Set(['odd-unpaired-cue', 'grouping-review', 'srt-fallback', 'manual-adjusted'])
 const ADAPTATIONS: ReadonlySet<MediaAdaptation> = new Set(['stretch-within-soft-limit', 'stretch-with-warning', 'needs-review'])
 
 function isRecord(value: unknown): value is JsonRecord {

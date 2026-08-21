@@ -7,6 +7,7 @@ import {
   type SourceDialogueCue
 } from '../../shared/features/content-blocks.ts'
 import { validateSourceBlockManifest } from './contentBlockManifest.ts'
+import { isQuestionLikeCue } from './dialogueGrouper.ts'
 
 function findBlockIndex(blocks: readonly SourceContentBlock[], id: string): number {
   const index = blocks.findIndex((block) => block.id === id)
@@ -15,18 +16,29 @@ function findBlockIndex(blocks: readonly SourceContentBlock[], id: string): numb
 }
 
 function regroupDialogue(dialogue: readonly SourceDialogueCue[]): { dialogue: SourceDialogueCue[]; issues: SourceContentBlock['issues'] } {
-  if (dialogue.length === 2) {
+  const startsWithQuestion = dialogue.length > 0 && (
+    dialogue[0].role === 'question' || isQuestionLikeCue(dialogue[0])
+  )
+  if (startsWithQuestion && dialogue.length >= 2) {
     return {
       dialogue: [
-        { ...dialogue[0], role: 'question' },
-        { ...dialogue[1], role: 'answer' }
+        ...dialogue.map((cue, index) => ({
+          ...cue,
+          role: index === 0 ? 'question' as const : index === 1 ? 'answer' as const : 'statement' as const
+        }))
       ],
       issues: []
     }
   }
+  if (startsWithQuestion) {
+    return {
+      dialogue: dialogue.map((cue) => ({ ...cue, role: 'question' })),
+      issues: ['odd-unpaired-cue']
+    }
+  }
   return {
     dialogue: dialogue.map((cue) => ({ ...cue, role: 'statement' })),
-    issues: ['odd-unpaired-cue']
+    issues: ['grouping-review']
   }
 }
 
@@ -89,7 +101,7 @@ function splitAfterCue(
     cueIds: leftDialogue.map((cue) => cue.cueId),
     dialogue: leftRegrouped.dialogue,
     boundary: { targetUs: leftEndUs, selectedUs: leftEndUs, reason: 'srt-fallback', reviewState: 'needs-review' },
-    semantic: { role: 'normal', shuffleEligible: block.semantic.shuffleEligible, requiresPreviousBlockId: null },
+    semantic: { role: 'normal', shuffleEligible: block.semantic.shuffleEligible && leftRegrouped.issues.length === 0, requiresPreviousBlockId: null },
     issues: [...new Set([...leftRegrouped.issues, 'srt-fallback' as const])]
   }
   const right: SourceContentBlock = {
@@ -98,7 +110,7 @@ function splitAfterCue(
     cueIds: rightDialogue.map((cue) => cue.cueId),
     dialogue: rightRegrouped.dialogue,
     boundary: { ...block.boundary },
-    semantic: { role: 'normal', shuffleEligible: block.semantic.shuffleEligible, requiresPreviousBlockId: null },
+    semantic: { role: 'normal', shuffleEligible: block.semantic.shuffleEligible && rightRegrouped.issues.length === 0, requiresPreviousBlockId: null },
     issues: [...new Set([...block.issues, ...rightRegrouped.issues])]
   }
   const blocks = [...manifest.blocks]
@@ -164,7 +176,7 @@ function setSemantic(
       shuffleEligible: operation.role === 'intro' ? false : operation.shuffleEligible,
       requiresPreviousBlockId: dependency
     },
-    issues: blocks[index].issues.filter((issue) => issue !== 'odd-unpaired-cue')
+    issues: blocks[index].issues.filter((issue) => issue !== 'odd-unpaired-cue' && issue !== 'grouping-review')
   }
   return { ...manifest, blocks }
 }

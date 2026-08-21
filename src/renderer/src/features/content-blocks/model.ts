@@ -92,7 +92,7 @@ export function reviewIsComplete(manifest: SourceBlockManifest | null): boolean 
   if (!manifest) return false
   return manifest.blocks.every((block) =>
     block.boundary.reviewState !== 'needs-review' &&
-    !block.issues.some((issue) => issue === 'odd-unpaired-cue' || issue === 'srt-fallback')
+    !block.issues.some((issue) => issue === 'odd-unpaired-cue' || issue === 'grouping-review' || issue === 'srt-fallback')
   )
 }
 

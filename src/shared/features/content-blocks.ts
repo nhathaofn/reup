@@ -35,7 +35,7 @@ export type BoundaryReason =
   | 'srt-fallback'
   | 'manual-adjusted'
 export type ReviewState = 'accepted' | 'needs-review' | 'locked'
-export type ContentBlockIssue = 'odd-unpaired-cue' | 'srt-fallback' | 'manual-adjusted'
+export type ContentBlockIssue = 'odd-unpaired-cue' | 'grouping-review' | 'srt-fallback' | 'manual-adjusted'
 export type MediaAdaptation =
   | 'stretch-within-soft-limit'
   | 'stretch-with-warning'

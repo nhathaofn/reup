@@ -96,7 +96,8 @@ export async function detectOpenCapCutDraftLock(draftsDir: string): Promise<bool
 function warningList(manifest: { blocks: Array<{ id: string; issues: string[] }> }): string[] {
   return manifest.blocks.flatMap((block) => [
     ...(block.issues.includes('srt-fallback') ? [`Block ${block.id} dùng fallback theo SRT và cần review.`] : []),
-    ...(block.issues.includes('odd-unpaired-cue') ? [`Block ${block.id} có cue lẻ chưa ghép.`] : [])
+    ...(block.issues.includes('odd-unpaired-cue') ? [`Block ${block.id} có cue lẻ chưa ghép.`] : []),
+    ...(block.issues.includes('grouping-review') ? [`Block ${block.id} chưa xác định chắc chắn ranh giới nội dung và cần review.`] : [])
   ])
 }
 

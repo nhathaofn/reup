@@ -34,6 +34,12 @@ test('fallback and odd cue issues keep review open until manual correction', () 
   assert.equal(reviewIsComplete(manifest), true)
 })
 
+test('grouping review issue keeps review open until manual acceptance', () => {
+  const manifest = sourceManifestFixture()
+  manifest.blocks[0].issues = ['grouping-review']
+  assert.equal(reviewIsComplete(manifest), false)
+})
+
 test('boundary editor converts UI seconds to integer microseconds', () => {
   assert.deepEqual(makeBoundaryEdit('block-a', 3.875, true), {
     kind: 'set-boundary', blockId: 'block-a', selectedUs: 3_875_000, locked: true
