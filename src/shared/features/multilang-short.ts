@@ -29,8 +29,6 @@ export const FEATURE_CHANNELS = {
 export type MultiLangProvider = 'gemini' | 'openai' | 'ollama'
 export type MultiLangStyle = 'natural' | 'social' | 'news' | 'dramatic'
 export type MultiLangVoiceMode = 'auto' | 'manual'
-/** How the old-text mask is refreshed while the source video is streamed. */
-export type MultiLangBlurMaskPolicy = 'adaptive' | 'locked'
 
 export interface MultiLangTarget {
   language: string
@@ -82,8 +80,6 @@ export interface MultiLangRequest {
   voiceId: string
   voiceModel: string
   blurRegion: MultiLangRegion | null
-  /** Adaptive cache is safe for changing subtitles; locked is for static text/watermarks. */
-  blurMaskPolicy?: MultiLangBlurMaskPolicy
   /** Vùng hiển thị phụ đề, tọa độ chuẩn hóa 0..1 theo video preview. */
   subtitleRegion?: MultiLangRegion | null
   /** Style preset tương ứng với bộ chọn của tab Đọc chữ video. */

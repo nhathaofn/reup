@@ -1,0 +1,7 @@
+interface:
+  display_name: "External Runtime"
+  short_description: "Keep runtimes outside client and server binaries"
+  default_prompt: "Use $external-runtime to place and manage a Promedia runtime outside the shipped client or server binary."
+
+policy:
+  allow_implicit_invocation: true

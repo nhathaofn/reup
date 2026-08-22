@@ -1,0 +1,7 @@
+interface:
+  display_name: "Service Engine Boundary"
+  short_description: "Separate application workflows from engines"
+  default_prompt: "Use $service-engine-boundary to separate the application workflow from processing responsibilities in this change."
+
+policy:
+  allow_implicit_invocation: true

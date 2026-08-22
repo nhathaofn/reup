@@ -1,0 +1,7 @@
+interface:
+  display_name: "Infrastructure Boundary"
+  short_description: "Protect shared runtime and infrastructure owners"
+  default_prompt: "Use $infrastructure-boundary to place shared Promedia infrastructure behind a clear lifecycle owner."
+
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Change Impact"
+  short_description: "Trace affected code before and after edits"
+  default_prompt: "Use $change-impact to map every caller, contract, config, test, and boundary affected by this Promedia change."
+
+policy:
+  allow_implicit_invocation: true

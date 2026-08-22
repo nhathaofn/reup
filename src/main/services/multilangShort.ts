@@ -3,7 +3,6 @@ import { copyFile, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises
 import { basename, dirname, extname, isAbsolute, join } from 'node:path'
 import type {
   MultiLangCancelResult,
-  MultiLangBlurMaskPolicy,
   MultiLangKeyStatus,
   MultiLangOutput,
   MultiLangProgress,
@@ -30,7 +29,6 @@ import {
 import { parseSrt, readSrtFile } from './srt'
 import { parseCueText } from '../translate-shared'
 import { logInfo } from '../logger'
-import { cancelTextRemoval, removeTextFromVideo } from './textRemove'
 import {
   backoffMs,
   loadApiKeyPool,
@@ -108,6 +106,8 @@ let activeJob: ActiveJob | null = null
 let elevenKeyCursor = 0
 const ELEVEN_MIN_GAP_MS = 350
 let elevenNextRequestAt = 0
+let elevenPaceTail: Promise<void> = Promise.resolve()
+let elevenDisabledKeys = new Set<string>()
 
 function killProcessTree(processToKill: ChildProcess): void {
   if (!processToKill.pid) return
@@ -131,9 +131,16 @@ function killProcessTree(processToKill: ChildProcess): void {
 }
 
 async function paceElevenRequest(): Promise<void> {
-  const wait = elevenNextRequestAt - Date.now()
-  if (wait > 0) await sleep(wait)
-  elevenNextRequestAt = Date.now() + ELEVEN_MIN_GAP_MS
+  // Keep a single start-time queue even when several cue workers are active.
+  // A shared timestamp alone lets concurrent callers wake up together and can
+  // turn a safe rate into a burst that triggers 429s.
+  const scheduled = elevenPaceTail.then(async () => {
+    const wait = elevenNextRequestAt - Date.now()
+    if (wait > 0) await sleep(wait)
+    elevenNextRequestAt = Date.now() + ELEVEN_MIN_GAP_MS
+  })
+  elevenPaceTail = scheduled.catch(() => undefined)
+  await scheduled
 }
 
 export async function loadElevenLabsKeys(): Promise<string[]> {
@@ -423,6 +430,35 @@ async function fetchElevenJson<T>(keys: string[], endpoint: string): Promise<T |
   return null
 }
 
+/**
+ * Remove unusable keys once per pipeline. Without this probe, a revoked or
+ * exhausted key is retried for every single cue before the healthy key is
+ * reached, which turns a two-language run into minutes of avoidable backoff.
+ */
+async function usableElevenLabsKeys(keys: string[]): Promise<string[]> {
+  const checks = await Promise.all(keys.map(async (key, index) => {
+    try {
+      const response = await fetch(ELEVEN_VOICES_ENDPOINT, {
+        headers: { 'xi-api-key': key },
+        signal: AbortSignal.timeout(8_000)
+      })
+      if (response.ok) return { key, ok: true }
+      logInfo(`ElevenLabs key ${index + 1}/${keys.length} không sẵn sàng trong lượt này (HTTP ${response.status}), bỏ qua.`)
+      return { key, ok: false }
+    } catch {
+      logInfo(`ElevenLabs key ${index + 1}/${keys.length} không phản hồi trong lượt này, bỏ qua.`)
+      return { key, ok: false }
+    }
+  }))
+  const usable = checks.filter((item) => item.ok).map((item) => item.key)
+  // A transient voices probe must not make a valid TTS key unusable forever.
+  // If every probe failed, keep the original pool so the normal retry path can
+  // still recover from a temporary catalog outage.
+  if (!usable.length) return keys
+  if (usable.length !== keys.length) logInfo(`ElevenLabs: dùng ${usable.length}/${keys.length} key khỏe cho lượt này.`)
+  return usable
+}
+
 async function loadElevenCatalog(keys: string[]): Promise<ElevenCatalog> {
   if (cachedCatalog && cachedCatalog.expiresAt > Date.now()) return cachedCatalog.catalog
   const [voicesPayload, modelsPayload] = await Promise.all([
@@ -519,8 +555,6 @@ function validateRequest(raw: MultiLangRequest): MultiLangRequest {
     throw new Error('Vùng làm mờ quá nhỏ. Hãy kéo chọn lại vùng cần che.')
   }
 
-  const blurMaskPolicy: MultiLangBlurMaskPolicy = raw?.blurMaskPolicy === 'locked' ? 'locked' : 'adaptive'
-
   const subtitle = raw?.subtitleRegion
   const subtitleValues = subtitle ? [Number(subtitle.x0), Number(subtitle.x1), Number(subtitle.y0), Number(subtitle.y1)] : []
   if (subtitle && !subtitleValues.every((value) => Number.isFinite(value))) {
@@ -583,7 +617,6 @@ function validateRequest(raw: MultiLangRequest): MultiLangRequest {
     voiceId,
     voiceModel: raw?.voiceModel?.trim() || DEFAULT_VOICE_MODEL,
     blurRegion,
-    blurMaskPolicy,
     subtitleRegion,
     subtitleStyle,
     originalAudioVolume,
@@ -666,26 +699,30 @@ function regionPixels(region: MultiLangRegion | null, meta: VideoMeta): BlurRegi
 async function cleanSourceText(
   input: string,
   outputDir: string,
-  ffmpeg: string,
-  ffprobe: string,
   region: BlurRegion,
-  maskPolicy: MultiLangBlurMaskPolicy,
-  preferGpu: boolean,
   job: ActiveJob,
   onProgress: (progress: { percent: number; message: string }) => void
 ): Promise<string> {
   if (job.cancelled) throw new Error('Đã huỷ.')
   const output = join(outputDir, `${safeName(basename(input).replace(/\.[^.]+$/, ''), 'video')}-text-clean.mp4`)
-  const result = await removeTextFromVideo({
-    input,
-    output,
-    ffmpeg,
-    ffprobe,
-    region,
-    maskPolicy,
-    preferGpu,
-    onProgress
-  })
+  // Reuse the exact blur filter from the Đọc chữ video tab. This keeps the
+  // edge/light/dark text mask and hardware-encoder fallback identical across
+  // both features; the multi-language pipeline only supplies the region.
+  const result = await burnSubtitle(
+    {
+      video: input,
+      outputDir,
+      outputPath: output,
+      mode: 'burn',
+      blurRegions: [region],
+      lamMo: true,
+      batAmThanh: false
+    },
+    (progress) => onProgress({
+      percent: progress.percent,
+      message: 'Đang dùng bộ lọc BLUR của tab Đọc chữ video…'
+    })
+  )
   if (job.cancelled) throw new Error('Đã huỷ.')
   if (!result.ok) {
     throw new Error(result.error || `Không che được phần chữ trong video nguồn: ${basename(input)}`)
@@ -725,7 +762,10 @@ async function elevenLabsTts(
   signal: AbortSignal
 ): Promise<Buffer> {
   let lastError = 'ElevenLabs không trả về audio.'
-  for (const index of rotateIndices(keys.length, elevenKeyCursor)) {
+  const availableIndices = rotateIndices(keys.length, elevenKeyCursor)
+    .filter((index) => !elevenDisabledKeys.has(keys[index]))
+  const candidateIndices = availableIndices.length ? availableIndices : rotateIndices(keys.length, elevenKeyCursor)
+  for (const index of candidateIndices) {
     for (let attempt = 0; attempt < 3; attempt++) {
       if (signal.aborted) throw new Error('Đã huỷ.')
       try {
@@ -761,8 +801,22 @@ async function elevenLabsTts(
           : response.status === 429
             ? 'ElevenLabs đang giới hạn lượt gọi.'
             : `ElevenLabs lỗi HTTP ${response.status}${detail ? `: ${detail}` : '.'}`
-        const shouldRotate = response.status === 401 || response.status === 403 || response.status === 429 || response.status >= 500
+        const shouldRotate = response.status === 401 || response.status === 402 || response.status === 403 || response.status === 429 || response.status >= 500
         if (!shouldRotate) throw new Error(lastError)
+
+        // A key can pass /voices but still be blocked for TTS (quota, plan, or
+        // endpoint permissions). Once another key is available, quarantine it
+        // for this run so every following cue goes straight to a usable key.
+        const keyFailure = response.status === 401 || response.status === 402 || response.status === 403 || response.status === 429
+        const hasAlternative = keys.some((candidate, candidateIndex) =>
+          candidateIndex !== index && !elevenDisabledKeys.has(candidate)
+        )
+        if (keyFailure && hasAlternative) {
+          if (!elevenDisabledKeys.has(keys[index])) {
+            logInfo(`ElevenLabs key ${index + 1}/${keys.length} bị từ chối ở TTS (HTTP ${response.status}), tạm bỏ qua cho lượt này.`)
+          }
+          elevenDisabledKeys.add(keys[index])
+        }
 
         // 429 belongs to the current key: respect Retry-After, then move on.
         // 5xx is normally service-wide, so retry briefly with backoff before
@@ -804,17 +858,27 @@ async function generateVoiceFiles(
   const cues = parseSrt(readSrtFile(srtPath))
   if (!cues.length) throw new Error(`SRT không có câu hợp lệ: ${basename(srtPath)}`)
   await mkdir(voiceDir, { recursive: true })
-  for (const [index, cue] of cues.entries()) {
-    if (job.cancelled) throw new Error('Đã huỷ.')
-    const text = cue.chu.replace(/\\N/g, ' ').trim()
-    if (!text) throw new Error(`Cue ${index + 1} trong SRT bị trống.`)
-    const audio = await elevenLabsTts(keys, voiceId, voiceModel, text, language, job.abortController.signal)
-    if (job.cancelled) throw new Error('Đã huỷ.')
-    const output = join(voiceDir, `${String(index + 1).padStart(3, '0')}.mp3`)
-    await writeFile(output, audio)
-    await ensureFile(output)
-    onCue(index + 1, cues.length)
+  let nextIndex = 0
+  let completed = 0
+  const worker = async (): Promise<void> => {
+    while (true) {
+      if (job.cancelled) throw new Error('Đã huỷ.')
+      const index = nextIndex++
+      if (index >= cues.length) return
+      const cue = cues[index]
+      const text = cue.chu.replace(/\\N/g, ' ').trim()
+      if (!text) throw new Error(`Cue ${index + 1} trong SRT bị trống.`)
+      const audio = await elevenLabsTts(keys, voiceId, voiceModel, text, language, job.abortController.signal)
+      if (job.cancelled) throw new Error('Đã huỷ.')
+      const output = join(voiceDir, `${String(index + 1).padStart(3, '0')}.mp3`)
+      await writeFile(output, audio)
+      await ensureFile(output)
+      completed++
+      onCue(completed, cues.length)
+    }
   }
+  const workerCount = Math.min(3, cues.length)
+  await Promise.all(Array.from({ length: workerCount }, () => worker()))
 }
 
 async function writeJson(path: string, value: unknown): Promise<void> {
@@ -989,7 +1053,6 @@ export function cancelMultiLangShort(): MultiLangCancelResult {
   job.abortController.abort()
   cancelSceneSplitter()
   cancelBurn()
-  cancelTextRemoval()
   if (job.child) killProcessTree(job.child)
   return { ok: true, wasRunning: true }
 }
@@ -1023,10 +1086,16 @@ export async function runMultiLangShort(
     const ffmpeg = await resolveFfmpeg()
     if (!ffmpeg) throw new Error('Thiếu FFmpeg. Hãy hoàn tất bước thiết lập ứng dụng trước.')
     const ffprobe = ffprobePath(ffmpeg)
-    const keys = await loadElevenLabsKeys()
-    if (!keys.length) throw new Error('Chưa có ElevenLabs API key. Hãy lưu API key trong tab này trước khi chạy.')
+    const loadedKeys = await loadElevenLabsKeys()
+    if (!loadedKeys.length) throw new Error('Chưa có ElevenLabs API key. Hãy lưu API key trong tab này trước khi chạy.')
+    const keys = await usableElevenLabsKeys(loadedKeys)
+    elevenKeyCursor = 0
+    elevenDisabledKeys = new Set<string>()
     const needsAutoVoice = request.voiceMode === 'auto' || request.targets.some((target) => !target.voiceId || !target.voiceModel)
     const elevenCatalog = needsAutoVoice ? await loadElevenCatalog(keys) : { voices: [], models: [] }
+    // Catalog requests also rotate the cursor. Start the actual TTS batch from
+    // the first healthy key so the first cue is deterministic.
+    elevenKeyCursor = 0
 
     runDir = join(request.outputDir, `multilang-${Date.now()}-${process.pid}`)
     await mkdir(runDir, { recursive: true })
@@ -1225,9 +1294,9 @@ export async function runMultiLangShort(
       }
     }
 
-    // Phat hien hop sat dong chu va lam mo video nguon dung mot lan truoc khi
-    // tach scene. Khung user keo chi la vung tim kiem; khong lam mo toan bo
-    // khung do va khong chay phuc hoi/tai tao nen.
+    // Dùng chung filter BLUR của tab Đọc chữ video một lần trên video nguồn
+    // trước khi tách scene. Khung user kéo là vùng tìm chữ; nền ngoài mask
+    // vẫn được giữ nguyên.
     for (const [sourceIndex, video] of request.videos.entries()) {
       if (job.cancelled) return stopResult(request.outputDir, runDir, originalSubtitles, outputs, onProgress, totalOutputs)
       const meta = await probeVideo(ffprobe, video, job)
@@ -1247,7 +1316,7 @@ export async function runMultiLangShort(
         totalOutputs,
         gpuMode: gpu.canAccelerate ? 'encoder-gpu' : 'cpu-fallback'
       })
-      const cleaned = await cleanSourceText(video, sourceDir, ffmpeg, ffprobe, textRegions[0], request.blurMaskPolicy ?? 'adaptive', gpu.canAccelerate, job, (progress) => {
+      const cleaned = await cleanSourceText(video, sourceDir, textRegions[0], job, (progress) => {
         const local = progress.percent >= 0 ? progress.percent / 100 : 0
         report(onProgress, {
           phase: 'blurring',

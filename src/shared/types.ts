@@ -288,6 +288,8 @@ export interface BurnReq {
   video: string
   srt?: string | null
   outputDir: string
+  /** Optional exact output path for internal pipelines that reuse the burn filter. */
+  outputPath?: string
   mode: 'burn' | 'soft' // dot chu vao hinh | nhung SRT mem, khong doi hinh video
   // VUNG DAT CHU (pixel video, chi khi dot chet): chu se can giua quanh tam
   // vung nay. null -> khong co vung, chu ve vi tri phu de tieu chuan (sat day).

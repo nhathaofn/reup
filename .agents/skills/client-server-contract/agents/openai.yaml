@@ -1,0 +1,7 @@
+interface:
+  display_name: "Client Server Contract"
+  short_description: "Keep server and client contracts aligned"
+  default_prompt: "Use $client-server-contract to update the Go server and Electron client API contract together."
+
+policy:
+  allow_implicit_invocation: true

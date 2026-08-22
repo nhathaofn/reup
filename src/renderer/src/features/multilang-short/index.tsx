@@ -3,7 +3,6 @@ import { DICH_LANGS, type BlurRegion, type GpuInfo } from '../../../../shared/ty
 import {
   FEATURE_ID,
   FEATURE_META,
-  type MultiLangBlurMaskPolicy,
   type MultiLangProgress,
   type MultiLangRegion,
   type MultiLangResult,
@@ -89,7 +88,6 @@ function MultiLangPanel(): JSX.Element {
   const [variantShuffle, setVariantShuffle] = usePersistedState('tblao.multilang.variantShuffle', false)
   const [originalVolume, setOriginalVolume] = usePersistedState('tblao.multilang.originalVolume', 0)
   const [blurEnabled, setBlurEnabled] = usePersistedState('tblao.multilang.blurEnabled', true)
-  const [blurMaskPolicy, setBlurMaskPolicy] = usePersistedState<MultiLangBlurMaskPolicy>('tblao.multilang.blurMaskPolicy', 'adaptive')
   const [blurRegion, setBlurRegion] = useState<MultiLangRegion | null>({ x0: 0.12, x1: 0.88, y0: 0.72, y1: 0.96 })
   const [subtitleRegion, setSubtitleRegion] = usePersistedState<MultiLangRegion>(
     'tblao.multilang.subtitleRegion',
@@ -322,7 +320,6 @@ function MultiLangPanel(): JSX.Element {
         voiceId,
         voiceModel,
         blurRegion: blurEnabled ? blurRegion : null,
-        blurMaskPolicy,
         subtitleRegion,
         subtitleStyle,
         originalAudioVolume: Number(originalVolume),
@@ -381,9 +378,7 @@ function MultiLangPanel(): JSX.Element {
           <p className="muted small">Kéo trên khung xem trước để chọn vùng chung cho các video. Tọa độ được chuẩn hóa theo từng video.</p>
           <label className="gk-check"><input type="checkbox" checked={blurEnabled} onChange={(event) => setBlurEnabled(event.target.checked)} disabled={running} /><span>Chỉ che nét chữ cũ phát hiện trong vùng đã chọn</span></label>
           {blurEnabled && <>
-            <p className="muted small">BLUR động chỉ phủ lên phần giống chữ trong vùng chọn; video nguồn sẽ được làm mờ một lần trước khi tách scene.</p>
-            <label className="gk-check"><input type="checkbox" checked={blurMaskPolicy === 'locked'} onChange={(event) => setBlurMaskPolicy(event.target.checked ? 'locked' : 'adaptive')} disabled={running} /><span>Khóa mask sau lần phát hiện đầu tiên (watermark/chữ tĩnh)</span></label>
-            <p className="muted small">Mặc định dùng cache thích ứng: tự bỏ qua frame giống nhau và phát hiện lại khi cảnh/chữ thay đổi. Chỉ khóa mask khi chữ nằm cố định; phụ đề thay đổi từng câu nên để tắt.</p>
+            <p className="muted small">Dùng cùng bộ lọc BLUR của tab Đọc chữ video, chỉ phủ lên phần giống chữ trong vùng chọn; video nguồn được làm mờ một lần trước khi tách scene.</p>
           </>}
           {previewVideo ? (
             <div ref={previewRef} className="multilang-preview">
@@ -490,7 +485,7 @@ function MultiLangPanel(): JSX.Element {
             <label><span>Ngôn ngữ nguồn Whisper</span><select value={sourceLanguage} onChange={(event) => setSourceLanguage(event.target.value)} disabled={running}><option value="auto">Tự nhận diện</option>{DICH_LANGS.map((language) => <option key={language.code} value={language.code}>{language.label}</option>)}</select></label>
           </div>
           <div className="multilang-key-row">{provider === 'gemini' ? <textarea className="multilang-key-input" value={geminiKeys} onChange={(event) => setGeminiKeys(event.target.value)} placeholder="Gemini API keys… (mỗi key một dòng)" disabled={running} /> : provider === 'ollama' ? <><input value={translationModel} onChange={(event) => setTranslationModel(event.target.value)} placeholder="Model Ollama, ví dụ qwen2.5:7b" disabled={running} /><input value={translationBaseUrl} onChange={(event) => setTranslationBaseUrl(event.target.value)} placeholder="http://127.0.0.1:11434" disabled={running} /></> : <input type="password" value={translationKey} onChange={(event) => setTranslationKey(event.target.value)} placeholder="OpenAI API key mới…" disabled={running} />}<button className="btn small-btn" type="button" onClick={saveTranslationKey} disabled={running || (provider === 'gemini' ? !geminiKeys.trim() : provider === 'openai' ? !translationKey.trim() : !translationModel.trim())}>{provider === 'ollama' ? 'Kiểm tra Ollama' : `Lưu ${provider === 'gemini' ? 'pool Gemini' : 'khóa dịch'}`}</button></div>
-          <div className="muted small">{translationStatus} · {provider === 'ollama' ? 'Ollama chạy local, không dùng API quota. Có thể chọn model đã cài trong máy.' : 'Với Gemini, dán nhiều key mỗi dòng; khi gặp quota/429 hệ thống tự chuyển key.'} Timestamp SRT được giữ nguyên; nội dung được viết lại theo locale.</div>
+          <div className="muted small">{translationStatus} · {provider === 'ollama' ? 'Ollama chạy local hoặc qua IP LAN nội bộ, không dùng API quota. Có thể chọn model đã cài trong máy.' : 'Với Gemini, dán nhiều key mỗi dòng; khi gặp quota/429 hệ thống tự chuyển key.'} Timestamp SRT được giữ nguyên; nội dung được viết lại theo locale.</div>
         </section>
 
         <section className="card multilang-card">

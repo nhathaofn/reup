@@ -41,7 +41,12 @@ function fileExists(path: string): Promise<boolean> {
 }
 
 function scriptCandidates(): string[] {
-  const thisDir = dirname(fileURLToPath(import.meta.url))
+  // electron-vite runs the main process as CommonJS, while standalone E2E
+  // bundles may be ESM. Keep both paths valid instead of evaluating an empty
+  // import.meta.url in a CJS bundle before the cwd candidate is checked.
+  const thisDir = typeof __dirname === 'string'
+    ? __dirname
+    : dirname(fileURLToPath(import.meta.url))
   return [
     join(process.cwd(), 'scripts', 'text-remove-engine.py'),
     resolve(thisDir, '../../../scripts/text-remove-engine.py'),

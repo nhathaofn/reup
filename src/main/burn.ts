@@ -815,7 +815,7 @@ export async function burnSubtitle(
   }
 
   const goc = basename(req.video).replace(/\.[^.]+$/, '')
-  const output = join(req.outputDir, `${goc}${req.mode === 'burn' ? '-phude' : '-phude-mem'}.mp4`)
+  const output = req.outputPath?.trim() || join(req.outputDir, `${goc}${req.mode === 'burn' ? '-phude' : '-phude-mem'}.mp4`)
 
   const tam = join(tmpdir(), 'tblao-burn')
   await mkdir(tam, { recursive: true })

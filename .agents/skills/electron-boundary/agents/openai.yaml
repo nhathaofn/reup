@@ -1,0 +1,7 @@
+interface:
+  display_name: "Electron Boundary"
+  short_description: "Keep Electron privilege boundaries safe"
+  default_prompt: "Use $electron-boundary to design a narrow and safe main, preload, and renderer contract for this capability."
+
+policy:
+  allow_implicit_invocation: true

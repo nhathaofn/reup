@@ -1,0 +1,7 @@
+interface:
+  display_name: "Feature Placement"
+  short_description: "Place Promedia behavior in the right owner"
+  default_prompt: "Use $feature-placement to choose the smallest correct location and responsibility role for this Promedia behavior."
+
+policy:
+  allow_implicit_invocation: true

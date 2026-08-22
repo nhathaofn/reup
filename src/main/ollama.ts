@@ -1,4 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises'
+import { isIP } from 'node:net'
 import type { MultiLangKeyStatus } from '../shared/features/multilang-short'
 import { buildCueText, chiaText, huongDanDiaPhuong, loiHeChuDich, parseCueText } from './translate-shared'
 import { debugRaw, logInfo } from './logger'
@@ -6,6 +7,27 @@ import { debugRaw, logInfo } from './logger'
 const DEFAULT_BASE_URL = 'http://127.0.0.1:11434'
 const DEFAULT_MODEL = 'qwen2.5:7b'
 const HAN_DICH = 180_000
+
+function isLoopbackOrLanHost(hostname: string): boolean {
+  const host = hostname.replace(/^\[|\]$/g, '').toLowerCase()
+  if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return true
+
+  if (isIP(host) === 4) {
+    const parts = host.split('.').map(Number)
+    const [first, second] = parts
+    return first === 10 ||
+      (first === 172 && second >= 16 && second <= 31) ||
+      (first === 192 && second === 168) ||
+      (first === 169 && second === 254)
+  }
+
+  if (isIP(host) === 6) {
+    // fc00::/7 = IPv6 Unique Local Address; fe80::/10 = link-local LAN.
+    return /^(?:f[cd]|fe[89ab])/.test(host)
+  }
+
+  return false
+}
 
 interface OllamaTagResponse {
   models?: Array<{ name?: string }>
@@ -19,8 +41,8 @@ function baseUrl(value?: string): string {
   const candidate = value?.trim() || DEFAULT_BASE_URL
   const parsed = new URL(candidate)
   if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Ollama URL phải dùng HTTP hoặc HTTPS.')
-  if (!['127.0.0.1', 'localhost', '[::1]', '::1'].includes(parsed.hostname)) {
-    throw new Error('Ollama chỉ được phép chạy trên máy local (127.0.0.1/localhost).')
+  if (!isLoopbackOrLanHost(parsed.hostname)) {
+    throw new Error('Ollama chỉ được phép chạy trên máy local hoặc IP LAN nội bộ (10.x, 172.16–31.x, 192.168.x, 169.254.x, IPv6 ULA/link-local).')
   }
   return candidate.replace(/\/+$/, '')
 }

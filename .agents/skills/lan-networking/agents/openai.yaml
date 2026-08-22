@@ -1,0 +1,7 @@
+interface:
+  display_name: "LAN Networking"
+  short_description: "Configure and verify Promedia over a LAN"
+  default_prompt: "Use $lan-networking to configure or verify Promedia LAN communication with explicit security and evidence boundaries."
+
+policy:
+  allow_implicit_invocation: true

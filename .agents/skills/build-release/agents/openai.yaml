@@ -1,0 +1,7 @@
+interface:
+  display_name: "Build and Release"
+  short_description: "Build and inspect Promedia release artifacts"
+  default_prompt: "Use $build-release to build and verify Promedia Windows and Linux release artifacts."
+
+policy:
+  allow_implicit_invocation: true

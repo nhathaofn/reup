@@ -1,0 +1,7 @@
+interface:
+  display_name: "Architecture Audit"
+  short_description: "Audit architecture of Promedia changes"
+  default_prompt: "Use $architecture-audit to review the architecture and impact coverage of the current Promedia change."
+
+policy:
+  allow_implicit_invocation: true
