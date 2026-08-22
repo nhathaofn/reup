@@ -1,6 +1,6 @@
 ---
 name: client-server-contract
-description: Define and change the Promedia Go server and Electron client API contract without producer-consumer drift. Use when adding or modifying endpoints, methods, request or response fields, status/error semantics, authentication, CORS behavior, base URL configuration, timeouts, or client API consumption.
+description: Define and change the TediaPros Go server and Electron client API contract without producer-consumer drift. Use when adding or modifying endpoints, methods, request or response fields, status/error semantics, authentication, CORS behavior, base URL configuration, timeouts, or client API consumption.
 ---
 
 # Client-Server Contract
@@ -28,6 +28,10 @@ For the changed operation make these explicit:
 
 Do not require a universal response envelope unless current use cases need one.
 
+The startup contract is mandatory: the Electron shell remains unavailable until Electron Main validates the versioned TediaPros handshake. Persist a user-entered endpoint only after that handshake succeeds. The default loopback endpoint may be configured once; do not duplicate it across features.
+
+Protected logic uses named operation contracts. Do not expose a generic endpoint that accepts arbitrary system prompts or provider payloads from the client. Long operations define job identity, idempotency, progress/status, cancellation, expiry, and minimum-data upload rules explicitly.
+
 ## Server responsibilities
 
 - Use explicit request/response structures when the payload has a stable shape.
@@ -44,7 +48,7 @@ Do not require a universal response envelope unless current use cases need one.
 - Apply timeouts/cancellation deliberately and do not retry unsafe mutations without idempotency.
 - Check status and content before assuming a successful JSON shape.
 - Validate untrusted response data at runtime where fields drive behavior; a TypeScript cast alone is not validation.
-- Map technical failures to actionable i18n UI messages with both `vi` and `en`, without discarding diagnostic categories needed for logs.
+- Map technical failures to actionable Vietnamese i18n UI messages without discarding diagnostic categories needed for logs.
 
 ## Compatibility and source of truth
 

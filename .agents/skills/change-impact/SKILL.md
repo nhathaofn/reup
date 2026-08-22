@@ -1,6 +1,6 @@
 ---
 name: change-impact
-description: Analyze the impact radius of a non-trivial Promedia code change and identify related callers, consumers, contracts, configuration, tests, fixtures, and cross-process boundaries that may also require updates. Use before editing shared behavior, signatures, APIs, IPC, schemas, config, public exports, or cross-layer data flow, and recheck before completion. Do not use for isolated formatting or documentation-only changes.
+description: Analyze the impact radius of a non-trivial TediaPros code change and identify related callers, consumers, contracts, configuration, tests, fixtures, and cross-process boundaries that may also require updates. Use before editing shared behavior, signatures, APIs, IPC, schemas, config, public exports, or cross-layer data flow, and recheck before completion. Do not use for isolated formatting or documentation-only changes.
 ---
 
 # Change Impact

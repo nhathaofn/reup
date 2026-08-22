@@ -1,6 +1,6 @@
 ---
 name: algorithm-engineering
-description: Engineer non-trivial Promedia algorithms whose correctness, numerical behavior, complexity, determinism, or resource use must be explicit. Use before implementing or materially changing computation-heavy algorithms, optimization/search, media/ML/parsing kernels, concurrency-sensitive processing, or performance-critical data structures. Do not use for ordinary CRUD, orchestration, UI, simple mapping/validation, or a trivial library call.
+description: Engineer non-trivial TediaPros algorithms whose correctness, numerical behavior, complexity, determinism, or resource use must be explicit. Use before implementing or materially changing computation-heavy algorithms, optimization/search, media/ML/parsing kernels, concurrency-sensitive processing, or performance-critical data structures. Do not use for ordinary CRUD, orchestration, UI, simple mapping/validation, or a trivial library call.
 ---
 
 # Algorithm Engineering
@@ -72,7 +72,7 @@ Make performance claims only when requirements and appropriate measurements exis
 - Track time, allocation/memory, and degradation with input size when they are part of the constraints.
 - Profile before applying complex optimizations; keep an optimization only when tests remain correct and measurement evidence shows a meaningful benefit.
 
-## Promedia Runtime-Specific Rules
+## TediaPros Runtime-Specific Rules
 
 ### Go server
 
@@ -82,7 +82,7 @@ Make performance claims only when requirements and appropriate measurements exis
 
 ### TypeScript/Electron
 
-- Keep only lightweight calculations directly tied to presentation in the renderer. Heavy processing must be placed on the server or behind an appropriate boundary so it does not block the UI thread.
+- Keep only lightweight presentation calculations in the renderer. Conventional media compute runs through an Electron Main-owned worker/native process/GPU boundary; heavy AI/provider inference and protected planning run on the server. Neither may block the UI thread.
 - Define the limits of `number`, safe integers, `BigInt`, typed arrays, and serialization before porting an algorithm from Go or another library.
 - Use the existing test runner. Do not add a test/property/benchmark framework for only one feature without a sufficiently clear benefit; a small deterministic harness within the existing boundary may be used.
 

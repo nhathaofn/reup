@@ -1,6 +1,6 @@
 ---
 name: package-boundary
-description: Decide whether Promedia code should remain in its current Go package or TypeScript module/folder, or move behind a new package boundary. Use when a capability is mixing responsibilities, adding several cohesive modules, exposing unclear APIs, or creating dependency cycles.
+description: Decide whether TediaPros code should remain in its current Go package or TypeScript module/folder, or move behind a new package boundary. Use when a capability is mixing responsibilities, adding several cohesive modules, exposing unclear APIs, or creating dependency cycles.
 ---
 
 # Package Boundary

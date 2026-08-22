@@ -35,7 +35,7 @@ Read this entire reference when a feature uses goroutines, channels, `context`, 
 
 ## Verification Appropriate for Go 1.22
 
-- The Promedia server currently uses Go 1.22; do not rely on concurrency-testing APIs introduced in newer Go versions.
+- The TediaPros server currently uses Go 1.22; do not rely on concurrency-testing APIs introduced in newer Go versions.
 - Use controllable channels/barriers/hooks to force the interleaving under test. `time.Sleep` is not synchronization; a timeout only guards against an indefinitely hanging test.
 - Run targeted tests repeatedly when checking schedule-sensitive invariants, and run `go test -race` on the affected package.
 - Test cancellation while workers are blocked on admission, receive, send, and dependency calls as appropriate to the implementation.

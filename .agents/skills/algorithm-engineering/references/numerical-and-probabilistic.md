@@ -8,7 +8,7 @@ Read this reference when an algorithm uses floating point, fixed point, randomne
 - Choose `int`, fixed point, `float32`, `float64`, `number`, `BigInt`, or a decimal representation according to the data contract; do not choose solely for implementation convenience.
 - Do not use exact equality for floating point when calculations involve rounding. Tolerance must come from domain error or error analysis, not one arbitrary epsilon for every magnitude.
 - When scale varies widely, consider combining absolute and relative tolerances. Near-zero values need absolute tolerance; large values usually need relative tolerance.
-- Verify results on Linux and Windows when numerical behavior depends on architecture, compiler, native libraries, or parallel execution order.
+- Verify results on supported Windows architectures when numerical behavior depends on architecture, compiler, native libraries, or parallel execution order.
 
 ## Stability and Convergence
 

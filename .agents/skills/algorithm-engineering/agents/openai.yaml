@@ -1,7 +1,7 @@
 interface:
   display_name: "Algorithm Engineering"
   short_description: "Engineer correct, measurable algorithms"
-  default_prompt: "Use $algorithm-engineering to design and verify this Promedia algorithm before implementation."
+  default_prompt: "Use $algorithm-engineering to design and verify this TediaPros algorithm before implementation."
 
 policy:
   allow_implicit_invocation: true

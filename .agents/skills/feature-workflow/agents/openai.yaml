@@ -1,7 +1,7 @@
 interface:
   display_name: "Feature Workflow"
-  short_description: "Route and complete Promedia features safely"
-  default_prompt: "Use $feature-workflow to route the required Promedia skills, implement this feature, and verify its full impact."
+  short_description: "Route and complete TediaPros features safely"
+  default_prompt: "Use $feature-workflow to route the required TediaPros skills, implement this feature, and verify its full impact."
 
 policy:
   allow_implicit_invocation: true

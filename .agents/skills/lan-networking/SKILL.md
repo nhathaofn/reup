@@ -1,6 +1,6 @@
 ---
 name: lan-networking
-description: Configure, change, or verify Promedia communication over a local area network. Use when work involves LAN server binding, local IP addresses, client server selection, CORS for LAN origins, host firewall guidance, network discovery, or claims that another device can reach Promedia.
+description: Configure, change, or verify TediaPros communication over a local area network. Use when work involves LAN server binding, local IP addresses, client server selection, CORS for LAN origins, host firewall guidance, network discovery, or claims that another device can reach TediaPros.
 ---
 
 # LAN Networking
@@ -19,16 +19,17 @@ Make LAN behavior configurable, explicit, and testable without weakening the app
 - Put listen addresses, ports, server URLs, allowed browser origins, and timeouts in environment or user configuration; never duplicate a current IP address in source code.
 - A LAN server normally binds to an explicit all-interface address such as `0.0.0.0:<port>` while the client uses the server machine's real LAN IP or hostname.
 - Keep browser CORS origins as an exact allowlist. Do not use `*` as the default and do not confuse CORS with authentication.
-- Persist a user-entered server URL only after a real Promedia health/handshake response succeeds. Invalid or unreachable values remain editable and must not replace the last verified address.
+- Persist a user-entered server URL only after a real TediaPros health/handshake response succeeds. Invalid or unreachable values remain editable and must not replace the last verified address.
+- Plain HTTP is acceptable only for loopback/private/link-local LAN testing. A public host requires HTTPS and reviewed authentication before use.
 - Do not add subnet scanning, UDP broadcast, mDNS, UPnP, or automatic firewall mutation unless the user explicitly requests and reviews that behavior.
 
 ## Security and platform behavior
 
-- Treat the LAN as untrusted. Sensitive endpoints need authentication and authorization even when CORS is strict.
+- Treat the LAN as untrusted. The mandatory handshake gates ordinary client use but is not tamper-proof DRM; sensitive or multi-user endpoints still need authentication and authorization even when CORS is strict.
 - Recommend TLS when traffic crosses an untrusted Wi-Fi or routed network; never silently accept invalid certificates.
 - Keep renderer network or native access behind the narrowest existing boundary. Validate protocol, credentials, query, fragment, size, timeout, and response shape at the owning boundary.
 - Firewall changes are an explicit administrator operation. Scope guidance to the application port and private/trusted network profile; do not create broad inbound rules automatically.
-- Keep commands and path handling compatible with Windows and Linux. Do not add macOS packaging behavior.
+- Keep commands, firewall guidance, and path handling compatible with Windows. Do not add Linux or macOS packaging behavior.
 
 ## Verification levels
 

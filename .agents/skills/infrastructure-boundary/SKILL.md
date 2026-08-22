@@ -1,6 +1,6 @@
 ---
 name: infrastructure-boundary
-description: Protect shared Promedia infrastructure ownership for FFmpeg and media runtimes, AI runtimes/providers, storage, and queues. Use before a feature directly resolves, configures, starts, or calls shared infrastructure so each dependency has one lifecycle owner and features consume a narrow capability instead of creating private integrations.
+description: Protect shared TediaPros infrastructure ownership for FFmpeg and media runtimes, AI runtimes/providers, storage, and queues. Use before a feature directly resolves, configures, starts, or calls shared infrastructure so each dependency has one lifecycle owner and features consume a narrow capability instead of creating private integrations.
 ---
 
 # Infrastructure Boundary
@@ -49,10 +49,10 @@ Features must not independently:
 
 Reuse does not require one universal interface. Keep separate capability-oriented APIs when media execution, AI inference, storage and queueing have different lifecycles or security boundaries.
 
-## Promedia placement
+## TediaPros placement
 
-- Electron Main owns device runtime discovery, verified executable paths and process lifecycle. Renderer/preload expose only feature-oriented typed capabilities; use `electron-boundary` and `external-runtime`.
-- Server composition owns AI providers/runtimes, storage implementations and queue transports. Handler, Service and Engine consume narrow ports instead of constructing infrastructure clients.
+- Electron Main owns discovery of approved bundled/on-demand device runtimes, verified executable paths and process lifecycle. Renderer/preload expose only feature-oriented typed capabilities; use `electron-boundary` and `external-runtime` when lifecycle changes.
+- Server composition owns protected logic/system prompts, AI providers/runtimes, storage implementations and queue transports. Handler, Service and Engine consume narrow ports instead of constructing infrastructure clients.
 - A media Engine may build a validated processing request, but the shared media execution boundary owns executable selection/probe and safe process invocation.
 - A Service owns durable job semantics; the queue boundary owns transport connection, publish/consume mechanics and delivery diagnostics.
 - Repository/storage ports should be owned near their consumer when dependency inversion is real; concrete infrastructure wiring remains at the composition root.

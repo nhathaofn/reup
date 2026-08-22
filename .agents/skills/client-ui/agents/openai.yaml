@@ -1,7 +1,7 @@
 interface:
   display_name: "Client UI"
-  short_description: "Build consistent UI for Promedia client"
-  default_prompt: "Use $client-ui to implement this Promedia renderer UI consistently with the existing interaction and data boundaries."
+  short_description: "Build consistent UI for TediaPros client"
+  default_prompt: "Use $client-ui to implement this TediaPros renderer UI consistently with the existing interaction and data boundaries."
 
 policy:
   allow_implicit_invocation: true

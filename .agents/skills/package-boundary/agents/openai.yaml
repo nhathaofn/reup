@@ -1,7 +1,7 @@
 interface:
   display_name: "Package Boundary"
   short_description: "Define clear Go and TypeScript boundaries"
-  default_prompt: "Use $package-boundary to decide whether this Promedia code should remain in its current owner or move behind a new boundary."
+  default_prompt: "Use $package-boundary to decide whether this TediaPros code should remain in its current owner or move behind a new boundary."
 
 policy:
   allow_implicit_invocation: true

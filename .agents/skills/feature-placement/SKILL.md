@@ -1,6 +1,6 @@
 ---
 name: feature-placement
-description: "Decide where non-trivial Promedia behavior belongs using two separate decisions: code location and responsibility role. Use before changes that may add or move functions, files, packages, types, Services, or Engines. Do not use for formatting, documentation-only edits, or isolated literal changes."
+description: "Decide where non-trivial TediaPros behavior belongs using two separate decisions: code location and responsibility role. Use before changes that may add or move functions, files, packages, types, Services, or Engines. Do not use for formatting, documentation-only edits, or isolated literal changes."
 ---
 
 # Feature Placement

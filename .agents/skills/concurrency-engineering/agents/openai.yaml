@@ -1,7 +1,7 @@
 interface:
   display_name: "Concurrency Engineering"
   short_description: "Engineer safe concurrent processing"
-  default_prompt: "Use $concurrency-engineering to design and verify this Promedia concurrent workflow before implementation."
+  default_prompt: "Use $concurrency-engineering to design and verify this TediaPros concurrent workflow before implementation."
 
 policy:
   allow_implicit_invocation: true

@@ -1,6 +1,6 @@
 ---
 name: architecture-audit
-description: Review a completed non-trivial Promedia feature or refactor for readability, unnecessary abstractions, missing structure, misplaced responsibilities, dependency problems, boundary drift, and incomplete change impact. Use before declaring implementation complete; do not use for isolated formatting or documentation-only edits.
+description: Review a completed non-trivial TediaPros feature or refactor for readability, unnecessary abstractions, missing structure, misplaced responsibilities, dependency problems, boundary drift, and incomplete change impact. Use before declaring implementation complete; do not use for isolated formatting or documentation-only edits.
 ---
 
 # Architecture Audit

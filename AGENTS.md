@@ -1,18 +1,18 @@
-# Promedia Project Instructions
+# TediaPros Project Instructions
 
 ## Scope
 
 These rules apply to the entire repository:
 
-- `server/`: Go backend.
-- `promedia-client/`: Electron + Vite + TypeScript + Tailwind desktop client.
+- `server/`: Go backend that owns protected logic, system prompts, provider orchestration, and versioned API contracts.
+- Repository root (`src/`, `package.json`): Electron + Vite + React + TypeScript desktop client.
 
 ## Build Rules
 
 - Do not run builds automatically unless the user explicitly requests them.
 - Do not automatically run `go build`, `npm run build`, `npm run dist`, `electron-builder`, or equivalent packaging commands during normal coding work.
-- When the user requests a build, build and verify only for Linux and Windows.
-- Do not build or package for macOS.
+- When the user requests a build, build and verify only for Windows.
+- Do not build or package for Linux or macOS.
 - When reporting build results, clearly state which targets were run and which targets were not run.
 - When a request involves a build, package, installer, release artifact, package size, or a release file, use the `build-release` skill before running packaging commands.
 
@@ -25,13 +25,12 @@ These rules apply to the entire repository:
 
 ## Platform Compatibility
 
-New code must work on Linux and Windows:
+TediaPros targets Windows:
 
-- Do not use macOS-only APIs or paths unless there is a compelling reason.
-- Use cross-platform Go, Node.js, and Electron APIs.
-- Do not hardcode operating-system-specific paths; use the appropriate path APIs.
-- Do not add macOS build or packaging logic to the default workflow.
-- When platform differences exist, isolate them in a small, clearly named module.
+- Use Windows-compatible Go, Node.js, and Electron APIs and the appropriate path APIs.
+- Do not add Linux or macOS build, packaging, or product behavior to the default workflow.
+- Isolate unavoidable Windows-specific behavior in a small, clearly named module.
+- Do not claim Linux or macOS support from cross-platform source alone.
 
 ## Architecture Rules
 
@@ -60,11 +59,9 @@ New code must work on Linux and Windows:
 
 ## Client Styling Strategy
 
-- The client uses Tailwind CSS v4 through `@tailwindcss/vite`; do not switch entirely to plain CSS or add another styling framework.
-- Use Tailwind utilities for simple layout, flex/grid, spacing, sizing, and responsive breakpoints when the utilities remain readable.
-- Use colocated CSS in `assets/styles/` or the page/capability folder for design tokens, component/page visual styles, pseudo-states, animations, complex states, and rules that need reusable semantic classes.
-- `assets/main.css` is only a composition point; do not place page- or component-specific styles directly in this file.
-- Do not duplicate Tailwind utilities in custom CSS; do not use long or hard-to-read utility strings in place of a semantic class with a clear responsibility.
+- The client uses React TSX and semantic CSS; do not introduce Tailwind or another styling framework without an explicit product requirement.
+- Keep app-wide tokens and composition in `src/renderer/src/styles.css` while colocating substantial feature/page styles with the owning capability when a split improves ownership.
+- Use short semantic class names whose responsibility is clear; avoid long selector chains and one-off utility layers.
 - Do not use inline styles or create a separate design-system/utility layer without a concrete use case.
 
 ## Project Skill Routing
@@ -87,9 +84,9 @@ When implementing a new feature or non-trivial behavior change:
 7. Use `concurrency-engineering` before adding or changing goroutines, channels, locks, atomics, worker pools, task queues, parallel stages, shared mutable state, worker threads, message ports, or cancellation/ordering across concurrent work.
 8. Use `client-server-contract` when adding or changing endpoints, payloads, statuses/errors, auth/CORS, timeouts, or how the client calls the server.
 9. Use `electron-boundary` when changing IPC, preload APIs, filesystem access, processes, dialogs, credentials, notifications, window behavior, or native capabilities.
-10. Use `client-ui` when implementing or changing UI, layout, interaction, or UX in `promedia-client/`.
-11. Use `lan-networking` when changing listen addresses, LAN IP/hostname handling, CORS for a local network, firewall/discovery behavior, or when concluding that another device can access Promedia.
-12. Use `external-runtime` when a feature needs an on-demand external library, binary, model, codec, or engine that must not be bundled into the client.
+10. Use `client-ui` when implementing or changing UI, layout, interaction, or UX under `src/renderer/`.
+11. Use `lan-networking` when changing listen addresses, LAN IP/hostname handling, CORS for a local network, firewall/discovery behavior, or when concluding that another device can access TediaPros.
+12. Use `external-runtime` when changing the lifecycle of an engine or runtime. TediaPros currently preserves its existing bundled/on-demand behavior per runtime; do not relocate a runtime merely because the skill is selected.
 13. Use `build-release` when building/packaging/releasing, changing packaging configuration, optimizing size, or determining which artifact is released.
 14. After coding, use `architecture-audit` for a non-trivial feature/refactor to check abstractions, dependencies, boundaries, and any overlooked impact.
 
@@ -116,24 +113,26 @@ For small changes that clearly belong to an existing owner, use only the skills 
 - Code comments must be written in accented Vietnamese and added only when they explain a decision or non-obvious behavior.
 - Do not use comments to repeat a function name or statement.
 - User-facing UI text, labels, validation messages, and error messages must come from the i18n system; do not hardcode displayed text in feature logic or markup.
-- Every change with user-facing text must update both the Vietnamese (`vi`) and English (`en`) locales at the same time, with matching key sets and natural wording in each language.
-- Each locale must be in a separate file within the capability's locale folder; do not combine multiple languages into one dictionary or page file.
+- The current product locale is Vietnamese (`vi`) only. Every new or touched user-facing string must update its Vietnamese locale dictionary.
+- Keep each capability's locale dictionary in its own file when the capability is large enough to own one; do not put translation dictionaries inside page markup.
 - Technical logs may use English when needed for search and operations.
 - Do not mix technical English into the UI without a product reason.
 
 ## i18n and Language Settings
 
-- The client must support switching between Vietnamese and English from Settings.
-- The user's selected locale must be stored in the appropriate user configuration or storage so it persists after the application restarts.
-- When adding a new screen or flow, provide complete translations for both locales before considering the feature complete; do not use placeholder text, missing keys, or only one language.
-- The i18n system must have deterministic fallback behavior (prefer the current locale, then English) and must not expose raw i18n keys in the UI.
+- The initial locale set contains only Vietnamese (`vi`); do not add a language selector while no second locale exists.
+- The i18n system must use deterministic `vi` fallback and must never expose raw i18n keys in the UI.
+- When a second locale is explicitly requested later, keep it in a separate locale file, add locale persistence, and add the language selector in the same feature change.
+- New screens and flows are incomplete while they contain hardcoded user-facing text, placeholder text, or missing Vietnamese keys.
 
 ## Client and Server
 
-- The API contract between `server/` and `promedia-client/` must be clear, stable, and configurable.
+- The API contract between `server/` and the root Electron client must be clear, stable, versioned, and configurable.
 - Do not hardcode the server address in multiple places; use environment/configuration.
 - The client must not access the server database or infrastructure directly.
-- The server owns shared business logic and backend infrastructure; local media workflows and privileged process lifecycle belong to Electron Main, while the renderer handles only UI state and calls APIs through a boundary.
+- TediaPros is fail-closed: the application shell and every feature require a successful server handshake before use.
+- The server owns protected business logic, system prompts, provider calls, job planning, and backend infrastructure. Electron Main owns local files, packaged runtime/process lifecycle, and execution of typed media plans; the renderer handles only UI state and calls APIs through a boundary.
+- Do not expose a generic prompt proxy. Each protected operation must have a named request/response contract so the client cannot supply or reconstruct the server's system prompt.
 - Electron main/preload/renderer parts must communicate through clear boundaries; do not enable unnecessary Node.js privileges in the renderer.
 
 ## Infrastructure Boundary
@@ -151,15 +150,15 @@ For small changes that clearly belong to an existing owner, use only the skills 
 - By default, heavy AI/models, credentialed providers, durable jobs, shared storage, and batches that must continue after the client closes run on the server.
 - Hybrid flows must have the server return a structured transcript, timestamps, regions, timeline, or processing plan; the client applies the result to the original media through a local engine whenever possible.
 - Do not upload original media to the server solely to perform a local operation. When AI requires content, send only the minimum audio/frame/chunk/proxy under a contract with clear consent, size limits, retention, and cleanup.
-- Local media features must not depend on the server merely to forward engine commands and should continue working when the server is disconnected, unless an authorization/business rule is explicitly defined in the product requirements.
-- Move conventional media processing to the server only when the media is already on the server, centralized collaboration/reproducibility is required, background batching is needed, server resources are necessary, or the user explicitly selects server processing.
+- Every feature depends on the mandatory TediaPros server session. After authorization/planning, Electron Main still executes local media work and owns local progress, cancellation, and output files.
+- Conventional rendering/transcoding of user-owned original media always stays in Electron Main. Server-side media processing is limited to data already owned by the server or the minimum audio/frame/chunk/proxy required by a named AI contract; it must not become an alternate upload-and-render backend.
 
-## LAN and External Libraries/Engines
+## LAN and Libraries/Engines
 
 - LAN configuration must use an environment value or a URL entered by the user; do not hardcode the current IP, scan the subnet automatically, or modify the firewall automatically without an explicit request.
-- Store a server URL entered by the user only after a real Promedia endpoint responds successfully. Distinguish loopback checks, a LAN IP on the same machine, and a separate physical device when reporting results.
-- Large/optional libraries, binaries, models, codecs, and engines must not be placed in client source, `out`, ASAR, or packaged resources. Install them into an application-managed user-data directory on Windows/Linux.
-- Large models, AI runtimes, and server engines must not be embedded in the Go binary or client catalog; place them under a configurable server data directory/volume with a separate lifecycle owner.
+- Store a server URL entered by the user only after a real TediaPros handshake responds successfully. Distinguish loopback checks, a LAN IP on the same machine, and a separate physical device when reporting results.
+- Preserve the current project packaging and download behavior for FFmpeg/FFprobe, fonts, Python helpers, and feature engines. Do not move an existing bundled runtime outside the package or bundle a currently on-demand engine without an explicit request.
+- Provider credentials, protected prompts, large server models, AI runtimes, and server engines remain server-owned and must not be embedded in the Electron package. Server-side runtime paths are configurable and never returned to the client.
 - The engine download button belongs in the feature that needs the engine and appears only when the runtime is missing or invalid. It must disappear after a successful download and verification; if the user deletes or damages the runtime, the button must reappear on the next check.
 - All runtime metadata must come dynamically from a validated catalog; skills, UI, and shared lifecycle code must not hardcode feature/engine names, versions, sizes, URLs, checksums, install paths, or platform-specific filenames.
 - The client must have a Library route near Settings showing verified status and allowing runtimes to be installed/repaired through the same lifecycle as the feature CTA. A feature must check when opened, display complete version/size/processing-location/privacy/phase information, open the feature UI automatically after installation, and recheck immediately before execution.
@@ -183,7 +182,7 @@ For small changes that clearly belong to an existing owner, use only the skills 
 - A small function, module/package, algorithm core, config loader, repository, handler, or backend change that does not create/change a UI/E2E flow does not require `computer-use`; appropriate unit, integration, API, or contract tests may be the primary acceptance evidence.
 - Do not create fake UI or expand scope merely to provide a click-through path for an independent backend/package change. In reports that include a computer-use field, write `NOT REQUIRED` with a short reason.
 - When a backend/API/IPC behavior change is used by a real UI flow, verify the integration/contract first and run `computer-use` for that affected flow.
-- `computer-use` currently provides UI evidence on Windows; when a change has Linux-specific UI behavior, add an appropriate check and clearly state which target was verified.
+- `computer-use` provides the required Windows UI evidence for TediaPros flows.
 
 ## Verifying Changes
 
@@ -192,5 +191,5 @@ For small changes that clearly belong to an existing owner, use only the skills 
 - After each feature or behavior change, run `node verify-base.mjs` at the repository root by default to verify server and client together. Individual `server` or `client` stages may be run for diagnosis, but they do not replace the full-base gate before completion.
 - When a change creates or modifies a UI/E2E flow, start the required server/client and verify the affected flow with `computer-use`; do not disable unrelated routes, capabilities, or components merely to make the new flow run.
 - For a small function/package/backend change that does not alter UI/E2E, run unit/integration/API/contract tests appropriate to the boundary and do not treat the absence of `computer-use` as missing evidence.
-- When the user requests a build, run the correct Linux and Windows targets, then report errors separately for each target.
+- When the user requests a build, run and report the Windows target only; state that Linux and macOS are outside product scope and were not run.
 - Do not fix or clean up code outside the feature scope unless required for correctness, maintainability, or the direct request.

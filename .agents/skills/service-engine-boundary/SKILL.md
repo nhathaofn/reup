@@ -1,6 +1,6 @@
 ---
 name: service-engine-boundary
-description: Separate Promedia application workflow responsibilities from non-trivial processing responsibilities. Use when behavior coordinates repositories, storage, providers, job state, or authorization together with media, ML, parsing, rendering, or another processing pipeline.
+description: Separate TediaPros application workflow responsibilities from non-trivial processing responsibilities. Use when behavior coordinates repositories, storage, providers, job state, or authorization together with media, ML, parsing, rendering, or another processing pipeline.
 ---
 
 # Service vs Engine Boundary
@@ -33,16 +33,16 @@ An Engine owns complex processing. It may:
 
 An Engine should not decide authorization, own HTTP concerns, update application job records directly, or coordinate unrelated use cases.
 
-## Promedia's Default Processing Placement
+## TediaPros's Default Processing Placement
 
-Classifying a component as a Service or Engine does not by itself determine whether the process must run on the client or server. Before implementing a media capability, explicitly record `device`, `server`, or `hybrid` based on where the data lives, compute resources, whether work must continue after the client closes, privacy, and collaboration needs.
+Classifying a component as a Service or Engine does not by itself determine its process. Every capability requires the TediaPros server handshake. For media behavior, record `server-plan/device-execution`: protected calculation/planning runs on the server and Electron Main executes the typed plan against original media with local runtimes/GPU.
 
 - Non-AI media processing such as probes, thumbnails, waveforms, cutting, joining, cropping, resizing, transcoding, compression, audio splitting/merging, subtitles, watermarks, and conventional scene detection runs on the device by default. Electron Main owns the local use case and process lifecycle; the renderer owns only UI state.
 - Heavy AI/models, providers that require credentials, shared data, durable jobs, batches that must continue after the client closes, or processing that needs centralized resources run on the server by default.
 - Hybrid flows must have the server return structured analysis results such as transcripts, timestamps, regions, timelines, or processing plans; the client applies the results to the original media using a local engine whenever possible.
 - Do not upload original media to the server solely to perform a local operation. When server-side AI needs content, send only the minimum required by the contract, such as audio, frames, chunks, or a proxy; make consent, size limits, retention, and cleanup explicit.
-- A local feature must not depend on the server merely to forward an engine command. If authorization, presets, or business rules live on the server, the server returns a decision/plan; Electron Main still owns the filesystem, local process, progress, and output.
-- Move conventional media processing to the server only for a concrete product reason: the media is already on the server, collaboration, centralized reproducibility, background batching, insufficient device resources, or the user explicitly selects server processing. Record the upload, privacy, latency, and failure-mode trade-offs.
+- Protected calculations, system prompts, authorization, presets, and business rules live on the server. The server returns a typed decision/plan; Electron Main owns the filesystem, packaged local runtime, GPU process, progress, cancellation, and output. Do not reduce the server to a generic command or prompt forwarder.
+- Conventional rendering/transcoding of user-owned original media stays on the device. Server-side media processing is limited to data already owned by the server or the minimum audio/frame/chunk/proxy required by a named AI contract; it must not become an alternate upload-and-render backend.
 
 Use `electron-boundary` and `external-runtime` for engines that run on the device; use `client-server-contract` for server or hybrid flows. An engine/model that runs on the server must not be declared as a client runtime.
 

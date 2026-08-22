@@ -1,6 +1,6 @@
 ---
 name: concurrency-engineering
-description: Use when Promedia code introduces or changes goroutines, channels, locks, atomics, worker pools, parallel stages, shared mutable state, worker threads, message ports, concurrent cancellation, or behavior vulnerable to races, deadlocks, leaks, starvation, or nondeterministic ordering. Do not use for ordinary async I/O without shared state or parallel execution.
+description: Use when TediaPros code introduces or changes goroutines, channels, locks, atomics, worker pools, parallel stages, shared mutable state, worker threads, message ports, concurrent cancellation, or behavior vulnerable to races, deadlocks, leaks, starvation, or nondeterministic ordering. Do not use for ordinary async I/O without shared state or parallel execution.
 ---
 
 # Concurrency Engineering

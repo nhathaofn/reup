@@ -1,11 +1,11 @@
 ---
 name: feature-workflow
-description: Automatically plan and deliver any new Promedia feature or non-trivial behavior change from pre-edit skill routing through implementation and verification. Use whenever a prompt adds user-visible behavior, a screen, endpoint, workflow, integration, processing capability, IPC, schema/config change, or cross-file refactor, even when the user does not name a skill. Do not use for review-only, documentation-only, formatting, or an isolated literal correction.
+description: Automatically plan and deliver any new TediaPros feature or non-trivial behavior change from pre-edit skill routing through implementation and verification. Use whenever a prompt adds user-visible behavior, a screen, endpoint, workflow, integration, processing capability, IPC, schema/config change, or cross-file refactor, even when the user does not name a skill. Do not use for review-only, documentation-only, formatting, or an isolated literal correction.
 ---
 
 # Feature Workflow
 
-This is the mandatory gate before coding a Promedia feature. This skill coordinates the process; specialized rules remain the responsibility of the corresponding skills.
+This is the mandatory gate before coding a TediaPros feature. This skill coordinates the process; specialized rules remain the responsibility of the corresponding skills.
 
 ## Preflight Before the First Edit
 
@@ -27,7 +27,7 @@ This is the mandatory gate before coding a Promedia feature. This skill coordina
 - Electron main/preload/renderer, IPC, filesystem, processes, dialogs, credentials, notifications, or window/native capabilities: `electron-boundary`.
 - Renderer UI, layout, interaction, accessibility, i18n, or UX: `client-ui`.
 - Server binding, LAN IP, CORS for a local network, firewall, discovery, or evidence of access from another device: `lan-networking`.
-- On-demand libraries, binaries, models, codecs, or engines outside the client bundle: `external-runtime`.
+- Changes to bundled, on-demand, or server-managed library/binary/model/codec/engine lifecycle: `external-runtime`.
 - Builds, packages, installers, release artifacts, package size, Electron locales, or a single-file release request: `build-release`.
 
 Select only skills with actual triggers. A small feature with a clear owner does not require the entire skill set.
@@ -40,8 +40,8 @@ Select only skills with actual triggers. A small feature with a clear owner does
 - Before a feature touches FFmpeg, an AI runtime, storage, or a queue, identify the infrastructure owner and capability contract; the feature must not create a private path/client/connection/topic for direct access.
 - A triggered algorithm must have an algorithm note and an independent oracle before implementation; do not use benchmarks in place of correctness tests.
 - Triggered concurrency must have a concurrency note covering ownership, synchronization, bounds, cancellation, lifecycle, and ordering before implementation.
-- New UI must follow `client-ui`, include complete `vi`/`en` translations, avoid hardcoded text, and keep content within the app shell.
-- A media feature must record its processing placement as `device`, `server`, or `hybrid`. By default, non-AI media processing runs on the device, heavy AI/models run on the server, and hybrid flows transmit only the minimum data needed for analysis; every exception must have a clear product reason.
+- New UI must follow `client-ui`, include complete Vietnamese (`vi`) i18n keys, avoid hardcoded text, and keep content within the app shell.
+- Every feature is gated by the mandatory TediaPros server handshake. A media feature records `server-plan/device-execution`: protected logic and prompts run on the server, while Electron Main applies typed plans to original local media and transmits only the minimum data needed for a named analysis contract.
 
 ## Completion gate
 

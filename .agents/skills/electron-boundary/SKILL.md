@@ -1,6 +1,6 @@
 ---
 name: electron-boundary
-description: Design and implement safe Promedia Electron main, preload, and renderer boundaries. Use when adding or changing IPC, preload APIs, filesystem or process access, dialogs, credentials, notifications, native integrations, window behavior, or other privileged capabilities. Do not use for renderer-only visual changes.
+description: Design and implement safe TediaPros Electron main, preload, and renderer boundaries. Use when adding or changing IPC, preload APIs, filesystem or process access, dialogs, credentials, notifications, native integrations, window behavior, or other privileged capabilities. Do not use for renderer-only visual changes.
 ---
 
 # Electron Boundary
@@ -11,11 +11,11 @@ Keep privileged Electron/Node capabilities out of the renderer and expose only t
 
 | Boundary | Owns |
 |---|---|
-| Main | BrowserWindow lifecycle, filesystem/process/OS access, dialogs, credentials, native integrations, IPC handlers |
+| Main | BrowserWindow lifecycle, filesystem/process/OS access, dialogs, local credentials, TediaPros server transport/endpoint persistence, native integrations, IPC handlers |
 | Preload | Narrow typed bridge that translates renderer calls to approved main capabilities |
 | Renderer | UI state and interaction through browser APIs and the exposed bridge |
 
-Direct renderer HTTP calls are acceptable for non-privileged server communication when they do not expose secrets or require native resources. Do not route them through IPC solely for architectural symmetry.
+TediaPros server calls originate in Electron Main so endpoint validation, mandatory handshake state, timeouts, diagnostics, and future authentication have one owner. Renderer must not fetch the Go API directly.
 
 ## Before changing the bridge
 
@@ -49,9 +49,9 @@ Direct renderer HTTP calls are acceptable for non-privileged server communicatio
 - Define cleanup for temporary files, child processes, and partial outputs on success, failure, cancellation, and app shutdown.
 - When work uses worker threads, Web Workers, utility processes, MessagePorts, shared memory or bounded task pools, use `concurrency-engineering` for ownership, synchronization, backpressure, worker lifecycle and stale-result verification.
 
-## Cross-platform behavior
+## Windows behavior
 
-Use Node/Electron path and platform APIs. Isolate unavoidable Linux/Windows differences in a small named module. Do not add macOS packaging behavior to the default workflow, and do not assume shell syntax, drive layout, separators, or executable suffixes.
+Use Node/Electron path and platform APIs even though TediaPros targets Windows. Isolate native Windows behavior in a small named module and do not add Linux or macOS packaging behavior to the default workflow.
 
 ## Verification
 
