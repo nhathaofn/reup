@@ -35,17 +35,17 @@ function formatDuration(seconds: number): string {
 }
 
 function CapCutFactoryPanel(): JSX.Element {
-  const [videoPath, setVideoPath] = usePersistedState('tblao.capcut-factory.video', '')
-  const [sceneDir, setSceneDir] = usePersistedState('tblao.capcut-factory.scene-dir', '')
-  const [draftsDir, setDraftsDir] = usePersistedState('tblao.capcut-factory.drafts-dir', '')
-  const [templateDir, setTemplateDir] = usePersistedState('tblao.capcut-factory.template-dir', '')
-  const [projectPrefix, setProjectPrefix] = usePersistedState('tblao.capcut-factory.prefix', '')
+  const [videoPath, setVideoPath] = usePersistedState('tediapros.capcut-factory.video', '')
+  const [sceneDir, setSceneDir] = usePersistedState('tediapros.capcut-factory.scene-dir', '')
+  const [draftsDir, setDraftsDir] = usePersistedState('tediapros.capcut-factory.drafts-dir', '')
+  const [templateDir, setTemplateDir] = usePersistedState('tediapros.capcut-factory.template-dir', '')
+  const [projectPrefix, setProjectPrefix] = usePersistedState('tediapros.capcut-factory.prefix', '')
   const [muteOriginalVideo, setMuteOriginalVideo] = usePersistedState(
-    'tblao.capcut-factory.mute-video',
+    'tediapros.capcut-factory.mute-video',
     true
   )
   const [inputSets, setInputSets] = usePersistedState<CapCutFactoryInputSet[]>(
-    'tblao.capcut-factory.sets',
+    'tediapros.capcut-factory.sets',
     [newInputSet(1)]
   )
   const [environment, setEnvironment] = useState<CapCutFactoryEnvironment | null>(null)

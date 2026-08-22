@@ -13,7 +13,7 @@ function logDir(): string {
   return join(app.getPath('userData'), 'logs')
 }
 export function logFilePath(): string {
-  return join(logDir(), 'tblao.log')
+  return join(logDir(), 'tediapros.log')
 }
 
 let dirReady = false
@@ -91,7 +91,7 @@ export function errLabel(raw: unknown): string {
 export function debugRaw(ctx: string, raw: unknown): void {
   if (!process.env['ELECTRON_RENDERER_URL']) return // chi che do phat trien
   try {
-    console.error(`[tblao:debug] ${ctx}:`, raw)
+    console.error(`[tediapros:debug] ${ctx}:`, raw)
   } catch {
     /* ong dut — ke */
   }
@@ -118,7 +118,7 @@ export function log(level: LogLevel, msg: string): void {
   // khong ai bat -> SAP CA APP. Ghi nhat ky khong bao gio duoc lam sap app.
   try {
     const out = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log
-    out(`[tblao] ${msg}`)
+    out(`[tediapros] ${msg}`)
   } catch {
     /* mat dong log tren console — app van chay, van co file + UI Nhat ky */
   }

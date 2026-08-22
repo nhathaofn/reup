@@ -553,7 +553,7 @@ async function writeSceneLinkManifest(
 
   const manifest = {
     schemaVersion: 1,
-    kind: 'tblao.capcut.scene-links',
+    kind: 'tediapros.capcut.scene-links',
     projectName,
     mode: plan.mode,
     rules: {
@@ -567,7 +567,7 @@ async function writeSceneLinkManifest(
     cues: plan.cues,
     crossSceneCueCount: plan.crossSceneCueCount
   }
-  const manifestPath = join(projectPath, 'tblao-scene-links.json')
+  const manifestPath = join(projectPath, 'tediapros-scene-links.json')
   await writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf8')
   return { path: manifestPath, warnings }
 }
@@ -1065,7 +1065,7 @@ export async function runCapCutFactory(
       const videoItems = sceneClips
         ? sceneClips.map((scene, sceneIndex) => ({
             sourcePath: scene.filePath,
-            assetName: `tblao-video-${String(sceneIndex + 1).padStart(3, '0')}${extname(scene.filePath) || '.mp4'}`,
+            assetName: `tediapros-video-${String(sceneIndex + 1).padStart(3, '0')}${extname(scene.filePath) || '.mp4'}`,
             startSeconds: scene.startSeconds,
             durationSeconds: scene.durationSeconds,
             sourceDurationSeconds: scene.durationSeconds,
@@ -1076,7 +1076,7 @@ export async function runCapCutFactory(
         : [
             {
               sourcePath: preflight.video.path,
-              assetName: `tblao-video-001${extname(preflight.video.path) || '.mp4'}`,
+              assetName: `tediapros-video-001${extname(preflight.video.path) || '.mp4'}`,
               startSeconds: 0,
               durationSeconds: preflight.video.durationSeconds,
               sourceDurationSeconds: preflight.video.durationSeconds,
@@ -1089,7 +1089,7 @@ export async function runCapCutFactory(
         const cueDuration = Math.min(entry.endSeconds, preflight.video!.durationSeconds) - Math.max(0, entry.startSeconds)
         return {
           sourcePath: entry.filePath!,
-          assetName: `tblao-audio-${String(entryIndex + 1).padStart(3, '0')}${extname(entry.filePath!) || '.mp3'}`,
+          assetName: `tediapros-audio-${String(entryIndex + 1).padStart(3, '0')}${extname(entry.filePath!) || '.mp3'}`,
           startSeconds: Math.max(0, entry.startSeconds),
           durationSeconds: cueDuration,
           sourceDurationSeconds: entry.durationSeconds!,
@@ -1173,7 +1173,7 @@ export async function runCapCutFactory(
           )
           sceneLinkManifestPath = sceneLinkResult.path
           projectWarnings.push(
-            `Đã ghi tblao-scene-links.json: ${sceneLinkPlan.groups.length} nhóm logic, ` +
+            `Đã ghi tediapros-scene-links.json: ${sceneLinkPlan.groups.length} nhóm logic, ` +
               `${sceneLinkPlan.crossSceneCueCount} cue xuyên scene; voice không bị cắt.`
           )
           projectWarnings.push(...sceneLinkResult.warnings)
@@ -1185,7 +1185,7 @@ export async function runCapCutFactory(
       }
       try {
         portableManifestPath = await writePortableCapCutManifest(projectPath, prepared.projectName)
-        projectWarnings.push('Da ghi tblao-portable.json de co the di chuyen project sang may Windows khac.')
+        projectWarnings.push('Da ghi tediapros-portable.json de co the di chuyen project sang may Windows khac.')
       } catch (error) {
         projectWarnings.push(
           `Khong ghi duoc manifest portable; project van duoc tao nhung can relink thu cong: ${error instanceof Error ? error.message : String(error)}`

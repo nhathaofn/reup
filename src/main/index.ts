@@ -4,7 +4,7 @@ import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { Readable } from 'node:stream'
 
-// Kieu tep cho giao thuc tblao: — thieu Content-Type thi trinh phat doan mo, de sai.
+// Kieu tep cho giao thuc tediapros: — thieu Content-Type thi trinh phat doan mo, de sai.
 const KIEU_MEDIA: Record<string, string> = {
   '.mp4': 'video/mp4',
   '.webm': 'video/webm',
@@ -26,7 +26,7 @@ const KIEU_MEDIA: Record<string, string> = {
 // range request), user keo thanh thoi gian se dung hinh.
 protocol.registerSchemesAsPrivileged([
   {
-    scheme: 'tblao',
+    scheme: 'tediapros',
     privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true }
   }
 ])
@@ -121,7 +121,7 @@ import { registerMainFeatures } from './features/registry'
 
 // Cho phep smoke-test ban dong goi bang mot thu muc du lieu sach, tach biet
 // hoan toan voi du lieu that cua nguoi dung. Ban phat hanh khong dat bien nay.
-const userDataOverride = process.env['TBLAO_USER_DATA_DIR']?.trim()
+const userDataOverride = process.env['TEDIAPROS_USER_DATA_DIR']?.trim()
 const portableDirectory = process.env['PORTABLE_EXECUTABLE_DIR']?.trim()
 const localPortable = isLocalPortableBuild(process.env, app.isPackaged)
 if (userDataOverride) {
@@ -151,7 +151,7 @@ function createWindow(): void {
     minHeight: 620,
     show: false,
     autoHideMenuBar: true,
-    title: localPortable ? LOCAL_APP_NAME : 'T-blao',
+    title: localPortable ? LOCAL_APP_NAME : 'TediaPros',
     icon: join(__dirname, '../../build/icon.png'),
     backgroundColor: '#0f1115',
     webPreferences: {
@@ -213,10 +213,10 @@ app.whenReady().then(() => {
   // Mỗi phiên bắt đầu với nhật ký riêng. Đặt tại đây để không tranh chấp với
   // các lần ghi async trong lúc app đang thoát.
   wipeLogFileSync()
-  // tblao://b64/<duong-dan-ma-hoa-base64url>  ->  doc tep tren dia.
+  // tediapros://b64/<duong-dan-ma-hoa-base64url>  ->  doc tep tren dia.
   // !! Duong dan PHAI di qua base64 va PHAI co host "b64". Da do thuc te:
   //    voi standard:true, Chromium coi khuc dau sau "///" la TEN MIEN, nen
-  //    `tblao:///D:/phim/a.mp4` bi bien thanh `tblao://d/phim/a.mp4` — nuot mat
+  //    `tediapros:///D:/phim/a.mp4` bi bien thanh `tediapros://d/phim/a.mp4` — nuot mat
   //    o dia, handler nhan duong dan cut -> ERR_FILE_NOT_FOUND, ma trinh phat
   //    lai bao "Format error" nghe nhu video hong. Base64 con mien nhiem voi
   //    ten tep co dau cach, ngoac, dau tieng Viet, '#', '?'.
@@ -227,7 +227,7 @@ app.whenReady().then(() => {
   //    cu tra 200 tu byte 0 thi no nhan nham du lieu dau tep -> hong giai ma ->
   //    "Khong mo duoc video nay". Video nho nap tron 1 phat nen KHONG dinh loi,
   //    chi tep lon moi lo. Khong co 206 thi cung KHONG TUA duoc (nhay ve 0).
-  protocol.handle('tblao', async (req) => {
+  protocol.handle('tediapros', async (req) => {
     const ma = decodeURIComponent(new URL(req.url).pathname).replace(/^\//, '')
     const p = Buffer.from(ma, 'base64url').toString('utf8')
     const co = (await stat(p)).size
@@ -260,7 +260,7 @@ app.whenReady().then(() => {
     })
   })
   registerIpc()
-  logInfo(`T-blao ${app.getVersion()} khởi động · ${process.platform}`)
+  logInfo(`TediaPros ${app.getVersion()} khởi động · ${process.platform}`)
   createWindow()
   void maybeAutoUpdateYtDlp()
   initAutoUpdate(() => mainWindow)

@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Product name is `TediaPros`; no T-blao compatibility identifiers or data migration remain.
+- Product name is `TediaPros`; no legacy-product compatibility identifiers or data migration remain.
 - Target platform is Windows only.
 - Initial i18n locale is Vietnamese (`vi`) with deterministic `vi` fallback and no language selector.
 - The client application shell is unavailable until a TediaPros Go server handshake succeeds.
@@ -35,7 +35,7 @@
 - Consumes: approved product decisions in the design spec.
 - Produces: an implicitly discoverable TediaPros skill contract for all later tasks.
 
-- [ ] Replace Promedia/T-blao project assumptions with TediaPros and the actual root Electron layout.
+- [ ] Replace legacy project assumptions with TediaPros and the actual root Electron layout.
 - [ ] Set Windows-only build/release guidance and remove Linux/macOS requirements.
 - [ ] Set Vietnamese-only initial i18n and actual React/TSX/colocated-CSS guidance.
 - [ ] Preserve bundled FFmpeg/FFprobe and current engine lifecycle as an explicit project decision.
@@ -52,7 +52,7 @@
 - Modify: `src/main/index.ts`
 - Modify: `src/main/logger.ts`
 - Modify: `src/shared/build-variant.ts`
-- Modify: tracked source, tests, scripts, and documentation containing active T-blao identifiers.
+- Modify: tracked source, tests, scripts, and documentation containing active legacy identifiers.
 
 **Interfaces:**
 - Consumes: TediaPros naming contract.

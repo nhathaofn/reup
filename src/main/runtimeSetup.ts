@@ -6,7 +6,7 @@ type ProgressCb = (progress: SetupProgress) => void
 // Optional feature engines are installed from their own feature tabs. Keeping
 // them out of the first-boot gate makes the core app usable on a fresh PC even
 // when an optional engine asset is unavailable or the PC has no GPU.
-const devRuntimeBypass = process.env.TBLAO_DEV_ALLOW_MISSING_RUNTIME === '1'
+const devRuntimeBypass = process.env.TEDIAPROS_DEV_ALLOW_MISSING_RUNTIME === '1'
 
 export async function checkRuntimeDependencies(): Promise<DepStatus> {
   const core = await checkDependencies()

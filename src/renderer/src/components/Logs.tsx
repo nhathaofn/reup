@@ -48,7 +48,7 @@ export default function Logs(): JSX.Element {
       <div className={`support-summary ${errorCount > 0 ? 'has-errors' : ''}`}>
         <div>
           <div className="support-summary-title">
-            {errorCount > 0 ? `${errorCount} hoạt động cần chú ý` : 'T-blao đang hoạt động bình thường'}
+            {errorCount > 0 ? `${errorCount} hoạt động cần chú ý` : 'TediaPros đang hoạt động bình thường'}
           </div>
           <div className="muted small">
             {entries.length > 0

@@ -2,7 +2,7 @@
 
 **Ngày:** 2026-08-17  
 **Trạng thái:** Chờ duyệt đặc tả  
-**Phạm vi:** Thêm một tab mới vào ứng dụng T-blao để dịch một file SRT tiếng Trung sang nhiều ngôn ngữ đích bằng Gemini.
+**Phạm vi:** Thêm một tab mới vào ứng dụng TediaPros để dịch một file SRT tiếng Trung sang nhiều ngôn ngữ đích bằng Gemini.
 
 ## 1. Bối cảnh và mục tiêu
 

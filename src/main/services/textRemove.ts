@@ -57,7 +57,7 @@ function scriptCandidates(): string[] {
 function pythonCandidates(): Array<{ command: string; prefixArgs: string[] }> {
   const localAppData = process.env.LOCALAPPDATA || ''
   return [
-    ...(process.env.TBLAO_PYTHON ? [{ command: process.env.TBLAO_PYTHON, prefixArgs: [] }] : []),
+    ...(process.env.TEDIAPROS_PYTHON ? [{ command: process.env.TEDIAPROS_PYTHON, prefixArgs: [] }] : []),
     { command: 'python', prefixArgs: [] },
     { command: 'py', prefixArgs: ['-3.11'] },
     { command: join(localAppData, 'Programs/Python/Python311/python.exe'), prefixArgs: [] },

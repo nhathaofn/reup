@@ -24,7 +24,7 @@ function run(label, script, args) {
 }
 
 const stamp = new Date().toISOString().replace(/[-:.TZ]/g, '') + `-${process.pid}`
-const outputDir = process.env.TBLAO_PORTABLE_OUTPUT ?? `dist-local/releases/${stamp}`
+const outputDir = process.env.TEDIAPROS_PORTABLE_OUTPUT ?? `dist-local/releases/${stamp}`
 
 // Build into the normal app output, but always give electron-builder a fresh
 // artifact directory. A previously launched portable app can keep app.asar

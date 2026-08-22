@@ -3,7 +3,7 @@
 """
 whisper-engine — CLI phien am audio/video -> .srt / .txt / .vtt bang faster-whisper.
 
-Giao tiep voi app T-blao qua STDOUT dang JSON-lines (moi dong 1 JSON):
+Giao tiep voi app TediaPros qua STDOUT dang JSON-lines (moi dong 1 JSON):
   {"type":"status",  "message": "..."}                  # thong bao chung
   {"type":"info",    "language": "vi", "duration": 123} # sau khi nhan dien
   {"type":"progress","seconds": 12.3, "duration": 123}  # tien do (theo giay audio)

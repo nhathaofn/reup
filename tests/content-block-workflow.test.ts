@@ -8,7 +8,7 @@ import { fingerprintSourceManifest, writeArtifactAtomic, validateLocaleAssetMani
 import { localeManifestFixture, sourceManifestFixture } from './helpers/content-block-fixtures.ts'
 
 test('writes variant, locale timeline and regenerated SRT under canonical artifact folders', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'tblao-block-workflow-'))
+  const root = await mkdtemp(join(tmpdir(), 'tediapros-block-workflow-'))
   try {
     const source = sourceManifestFixture()
     const fingerprint = fingerprintSourceManifest(source)
@@ -35,7 +35,7 @@ test('writes variant, locale timeline and regenerated SRT under canonical artifa
 })
 
 test('source fingerprint mismatch blocks CapCut generation before writing a project', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'tblao-block-export-gate-'))
+  const root = await mkdtemp(join(tmpdir(), 'tediapros-block-export-gate-'))
   try {
     const source = sourceManifestFixture()
     source.source.path = join(root, 'source.mp4')
@@ -62,7 +62,7 @@ test('source fingerprint mismatch blocks CapCut generation before writing a proj
 })
 
 test('failed locale import never overwrites another locale artifact', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'tblao-locale-isolation-'))
+  const root = await mkdtemp(join(tmpdir(), 'tediapros-locale-isolation-'))
   try {
     const viPath = join(root, 'locales', 'vi-VN', 'assets.json')
     await mkdir(join(root, 'locales', 'vi-VN'), { recursive: true })
@@ -77,7 +77,7 @@ test('failed locale import never overwrites another locale artifact', async () =
 })
 
 test('detects an open CapCut draft lock before export', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'tblao-draft-lock-'))
+  const root = await mkdtemp(join(tmpdir(), 'tediapros-draft-lock-'))
   try {
     await mkdir(join(root, 'Open Project'), { recursive: true })
     await writeFile(join(root, 'Open Project', '.locked'), '', 'utf8')

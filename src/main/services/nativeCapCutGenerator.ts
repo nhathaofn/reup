@@ -253,7 +253,7 @@ function replaceTrackSegments(track: JsonRecord, segments: JsonRecord[]): void {
 }
 
 async function writeJsonAtomic(path: string, value: unknown): Promise<void> {
-  const temporary = `${path}.tblao-${process.pid}-${Date.now()}.tmp`
+  const temporary = `${path}.tediapros-${process.pid}-${Date.now()}.tmp`
   await writeFile(temporary, JSON.stringify(value), 'utf8')
   try {
     await rename(temporary, path)
@@ -377,14 +377,14 @@ async function copyAssets(
   }
   for (const [index, item] of videoItems.entries()) {
     const extension = extname(item.sourcePath) || '.mp4'
-    const name = item.assetName || `tblao-video-${String(index + 1).padStart(3, '0')}${extension}`
+    const name = item.assetName || `tediapros-video-${String(index + 1).padStart(3, '0')}${extension}`
     const target = join(projectPath, 'assets', 'video', name)
     await copyOnce(item.sourcePath, target)
     videoPaths.push(target)
   }
   for (const [index, item] of audioItems.entries()) {
     const extension = extname(item.sourcePath) || '.mp3'
-    const name = item.assetName || `tblao-audio-${String(index + 1).padStart(3, '0')}${extension}`
+    const name = item.assetName || `tediapros-audio-${String(index + 1).padStart(3, '0')}${extension}`
     const target = join(projectPath, 'assets', 'audio', name)
     await copyOnce(item.sourcePath, target)
     audioPaths.push(target)

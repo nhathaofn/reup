@@ -1,18 +1,18 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
 
-rem T-blao Ollama LAN starter.
+rem TediaPros Ollama LAN starter.
 rem Run this file once as Administrator to install the ONSTART task.
 
-set "TASK_NAME=T-blao Ollama LAN"
-set "FIREWALL_RULE=T-blao Ollama LAN 11434"
+set "TASK_NAME=TediaPros Ollama LAN"
+set "FIREWALL_RULE=TediaPros Ollama LAN 11434"
 set "OLLAMA_HOST=0.0.0.0:11434"
 
 fltmc >nul 2>&1
 if errorlevel 1 (
   echo Dang yeu cau quyen Administrator...
-  set "TBLAO_BAT=%~f0"
-  powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$p=$env:TBLAO_BAT; $q=[char]34; Start-Process -FilePath $env:ComSpec -ArgumentList @('/d','/k','call',($q+$p+$q)) -Verb RunAs"
+  set "TEDIAPROS_BAT=%~f0"
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$p=$env:TEDIAPROS_BAT; $q=[char]34; Start-Process -FilePath $env:ComSpec -ArgumentList @('/d','/k','call',($q+$p+$q)) -Verb RunAs"
   endlocal
   exit /b 0
 )
@@ -33,7 +33,7 @@ rem keep the schtasks command safe even when the Windows user name has spaces.
 set "OLLAMA_MODELS=%USERPROFILE%\.ollama\models"
 for %%I in ("%OLLAMA_EXE%") do set "OLLAMA_TASK_EXE=%%~sI"
 for %%I in ("%OLLAMA_MODELS%") do set "OLLAMA_TASK_MODELS=%%~sI"
-set "LOG_DIR=%ProgramData%\T-blao"
+set "LOG_DIR=%ProgramData%\TediaPros"
 set "LOG_FILE=%LOG_DIR%\ollama-lan-start.log"
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%" >nul 2>&1
 

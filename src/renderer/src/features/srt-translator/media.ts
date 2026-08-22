@@ -5,7 +5,7 @@ export function localMediaUrl(path: string): string {
   let binary = ''
   for (const byte of bytes) binary += String.fromCharCode(byte)
   const b64 = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
-  return `tblao://b64/${b64}`
+  return `tediapros://b64/${b64}`
 }
 
 export function reviewClipRange(cue: Pick<SrtReviewCue, 'startSeconds' | 'endSeconds'>): {

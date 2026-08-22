@@ -54,7 +54,7 @@ function sourceUrl(path: string): string {
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/, '')
-  return `tblao://b64/${encoded}`
+  return `tediapros://b64/${encoded}`
 }
 
 function initialTargets(): MultiLangTarget[] {
@@ -75,30 +75,30 @@ function defaultLocale(language: string): string {
 
 function MultiLangPanel(): JSX.Element {
   const [videos, setVideos] = useState<string[]>([])
-  const [outputDir, setOutputDir] = useTabOutputDir('tblao.outputDir.multilang-short')
-  const [targets, setTargets] = usePersistedState<MultiLangTarget[]>('tblao.multilang.targets', initialTargets())
-  const [provider, setProvider] = usePersistedState<MultiLangProvider>('tblao.multilang.provider', 'gemini')
-  const [voiceMode, setVoiceMode] = usePersistedState<MultiLangVoiceMode>('tblao.multilang.voiceMode', 'auto')
-  const [voiceId, setVoiceId] = usePersistedState('tblao.multilang.voiceId', '')
-  const [voiceModel, setVoiceModel] = usePersistedState('tblao.multilang.voiceModel', 'eleven_multilingual_v2')
-  const [sourceLanguage, setSourceLanguage] = usePersistedState('tblao.multilang.sourceLanguage', 'auto')
-  const [whisperModel, setWhisperModel] = usePersistedState('tblao.multilang.whisperModel', 'large-v3-turbo')
-  const [preferGpu, setPreferGpu] = usePersistedState('tblao.multilang.preferGpu', true)
-  const [sceneSplit, setSceneSplit] = usePersistedState('tblao.multilang.sceneSplit', false)
-  const [variantShuffle, setVariantShuffle] = usePersistedState('tblao.multilang.variantShuffle', false)
-  const [originalVolume, setOriginalVolume] = usePersistedState('tblao.multilang.originalVolume', 0)
-  const [blurEnabled, setBlurEnabled] = usePersistedState('tblao.multilang.blurEnabled', true)
+  const [outputDir, setOutputDir] = useTabOutputDir('tediapros.outputDir.multilang-short')
+  const [targets, setTargets] = usePersistedState<MultiLangTarget[]>('tediapros.multilang.targets', initialTargets())
+  const [provider, setProvider] = usePersistedState<MultiLangProvider>('tediapros.multilang.provider', 'gemini')
+  const [voiceMode, setVoiceMode] = usePersistedState<MultiLangVoiceMode>('tediapros.multilang.voiceMode', 'auto')
+  const [voiceId, setVoiceId] = usePersistedState('tediapros.multilang.voiceId', '')
+  const [voiceModel, setVoiceModel] = usePersistedState('tediapros.multilang.voiceModel', 'eleven_multilingual_v2')
+  const [sourceLanguage, setSourceLanguage] = usePersistedState('tediapros.multilang.sourceLanguage', 'auto')
+  const [whisperModel, setWhisperModel] = usePersistedState('tediapros.multilang.whisperModel', 'large-v3-turbo')
+  const [preferGpu, setPreferGpu] = usePersistedState('tediapros.multilang.preferGpu', true)
+  const [sceneSplit, setSceneSplit] = usePersistedState('tediapros.multilang.sceneSplit', false)
+  const [variantShuffle, setVariantShuffle] = usePersistedState('tediapros.multilang.variantShuffle', false)
+  const [originalVolume, setOriginalVolume] = usePersistedState('tediapros.multilang.originalVolume', 0)
+  const [blurEnabled, setBlurEnabled] = usePersistedState('tediapros.multilang.blurEnabled', true)
   const [blurRegion, setBlurRegion] = useState<MultiLangRegion | null>({ x0: 0.12, x1: 0.88, y0: 0.72, y1: 0.96 })
   const [subtitleRegion, setSubtitleRegion] = usePersistedState<MultiLangRegion>(
-    'tblao.multilang.subtitleRegion',
+    'tediapros.multilang.subtitleRegion',
     DEFAULT_SUBTITLE_REGION
   )
   const [subtitlePreset, setSubtitlePreset] = usePersistedState<SubtitlePreset>(
-    'tblao.multilang.subtitlePreset',
+    'tediapros.multilang.subtitlePreset',
     'clean'
   )
   const [subtitleStyle, setSubtitleStyle] = usePersistedState<MultiLangSubtitleStyle>(
-    'tblao.multilang.subtitleStyle',
+    'tediapros.multilang.subtitleStyle',
     SUBTITLE_PRESETS.clean
   )
   const [editingRegion, setEditingRegion] = useState<'remove' | 'subtitle'>('remove')
@@ -113,8 +113,8 @@ function MultiLangPanel(): JSX.Element {
   const [elevenKeyStatus, setElevenKeyStatus] = useState('')
   const [translationKey, setTranslationKey] = useState('')
   const [geminiKeys, setGeminiKeys] = useState('')
-  const [translationModel, setTranslationModel] = usePersistedState('tblao.multilang.translationModel', 'qwen2.5:7b')
-  const [translationBaseUrl, setTranslationBaseUrl] = usePersistedState('tblao.multilang.translationBaseUrl', 'http://127.0.0.1:11434')
+  const [translationModel, setTranslationModel] = usePersistedState('tediapros.multilang.translationModel', 'qwen2.5:7b')
+  const [translationBaseUrl, setTranslationBaseUrl] = usePersistedState('tediapros.multilang.translationBaseUrl', 'http://127.0.0.1:11434')
   const [translationStatus, setTranslationStatus] = useState('')
   const previewRef = useRef<HTMLDivElement | null>(null)
   const previewVideoRef = useRef<HTMLVideoElement | null>(null)
@@ -124,7 +124,7 @@ function MultiLangPanel(): JSX.Element {
     // Existing installations may have the old, expensive defaults persisted.
     // Migrate once so an upgrade immediately uses the fast source-timeline
     // path; users can still opt into either feature with its checkbox.
-    const migrationKey = 'tblao.multilang.performanceDefaults.v2'
+    const migrationKey = 'tediapros.multilang.performanceDefaults.v2'
     if (localStorage.getItem(migrationKey) === '1') return
     setSceneSplit(false)
     setVariantShuffle(false)

@@ -1,6 +1,6 @@
 # Bản portable local
 
-Bản local dùng để chạy song song với bản T-blao cài từ GitHub. Nó không tạo installer Windows, không dùng chung dữ liệu runtime và không tự cập nhật từ GitHub Releases.
+Bản local dùng để chạy song song với bản TediaPros cài từ GitHub. Nó không tạo installer Windows, không dùng chung dữ liệu runtime và không tự cập nhật từ GitHub Releases.
 
 ## Build
 
@@ -14,13 +14,13 @@ Mỗi lần chạy được đóng gói vào một thư mục release mới đ�
 `app.asar` của bản portable đang chạy:
 
 ```text
-dist-local/releases/<timestamp>-<pid>/T-blao Local-0.1.25-portable.exe
+dist-local/releases/<timestamp>-<pid>/TediaPros Local-0.1.25-portable.exe
 ```
 
 Tên version sẽ thay đổi theo `package.json`. Bản build release chuẩn vẫn dùng `npm.cmd run package:win` và không bị thay đổi bởi config local.
 
 Có thể chỉ định thư mục output riêng cho một lần chạy bằng biến môi trường
-`TBLAO_PORTABLE_OUTPUT`, nhưng không nên trỏ vào thư mục của một portable app
+`TEDIAPROS_PORTABLE_OUTPUT`, nhưng không nên trỏ vào thư mục của một portable app
 đang mở.
 
 ## Dữ liệu và cập nhật
@@ -28,12 +28,12 @@ Có thể chỉ định thư mục output riêng cho một lần chạy bằng b
 Khi chạy portable packaged, electron-builder cung cấp `PORTABLE_EXECUTABLE_DIR`. Main dùng biến này để đặt:
 
 ```text
-<thư mục chứa exe>/T-blao Local Data
+<thư mục chứa exe>/TediaPros Local Data
 ```
 
 Thư mục này chứa API key, cookies, logs, engine, lịch sử và cache của bản local. Nếu di chuyển bản portable sang thư mục khác, di chuyển cả thư mục dữ liệu nếu muốn giữ thiết lập.
 
-Bản local bỏ qua `check`, `download` và `install` của `electron-updater`, nên không liên quan đến bản phát hành GitHub. Biến `TBLAO_USER_DATA_DIR` vẫn được ưu tiên cho smoke test có chủ đích.
+Bản local bỏ qua `check`, `download` và `install` của `electron-updater`, nên không liên quan đến bản phát hành GitHub. Biến `TEDIAPROS_USER_DATA_DIR` vẫn được ưu tiên cho smoke test có chủ đích.
 
 ## Lưu ý
 

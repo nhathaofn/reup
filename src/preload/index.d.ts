@@ -1,8 +1,8 @@
-import type { TblaoApi } from './index'
+import type { TediaProsApi } from './index'
 
 declare global {
   interface Window {
-    api: TblaoApi
+    api: TediaProsApi
   }
 }
 

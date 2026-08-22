@@ -1,7 +1,7 @@
 {
-  "name": "t-blao",
+  "name": "tediapros",
   "version": "0.1.27",
-  "description": "T-blao - Trinh tai video/audio da nen tang",
+  "description": "TediaPros - Trinh tai video/audio da nen tang",
   "main": "./out/main/index.js",
   "author": "nhathaofn",
   "license": "SEE LICENSE IN LICENSE",
@@ -31,8 +31,7 @@
     "fonts:copy": "node scripts/copy-fonts.mjs",
     "prepare:ffmpeg:win": "node scripts/prepare-ffmpeg-win.mjs",
     "package:win": "npm run prepare:ffmpeg:win && electron-vite build && electron-builder --win -p never",
-    "package:win:local": "node scripts/package-win-local.mjs",
-    "package:mac": "electron-vite build && electron-builder --mac -p never"
+    "package:win:local": "node scripts/package-win-local.mjs"
   },
   "dependencies": {
     "electron-updater": "^6.3.9",

@@ -25,8 +25,8 @@ Một project Content Block điển hình:
 
 <drafts>/<project-name>/
 ├─ draft_content.json
-├─ tblao-content-blocks.json               # provenance: order + artifact paths
-├─ tblao-portable.json                     # portable asset manifest
+├─ tediapros-content-blocks.json               # provenance: order + artifact paths
+├─ tediapros-portable.json                     # portable asset manifest
 └─ assets/{video,audio}/                   # asset copy đã deduplicate
 ```
 
@@ -89,7 +89,7 @@ Cùng source manifest, constraints và seed sẽ cho cùng `blockOrder`. V1 ch�
 
 Template CapCut phải là project mẫu do chính phiên bản CapCut hiện tại tạo, có tối thiểu video, voice và subtitle segment để lấy schema/style. Hãy đóng CapCut trước khi export. Generator không ghi đè project có sẵn và phát hiện draft đang mở.
 
-`tblao-content-blocks.json` là provenance bắt buộc về source/locale/timeline path, fingerprint, locale, variant và block order. `tblao-portable.json` ghi asset files để hỗ trợ di chuyển draft.
+`tediapros-content-blocks.json` là provenance bắt buộc về source/locale/timeline path, fingerprint, locale, variant và block order. `tediapros-portable.json` ghi asset files để hỗ trợ di chuyển draft.
 
 ## 8. Troubleshooting
 

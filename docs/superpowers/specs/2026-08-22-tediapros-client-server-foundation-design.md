@@ -2,7 +2,7 @@
 
 ## Product decision
 
-TediaPros is a new Windows-only product. It does not preserve T-blao application data, identifiers, protocols, settings, update identity, or installer compatibility.
+TediaPros is a new Windows-only product. It does not preserve legacy application data, identifiers, protocols, settings, update identity, or installer compatibility.
 
 The Electron client is unusable until it completes a handshake with the TediaPros Go server. Development starts with both processes on one Windows machine. LAN deployment uses the same server binary with an explicit bind address. A later VPS deployment may require TLS and stronger authentication, but no VPS behavior is required by this phase.
 

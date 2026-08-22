@@ -1,4 +1,4 @@
-# T-blao
+# TediaPros
 
 Trình tải video & audio đa nền tảng — chạy trên **Windows** và **macOS**.
 
@@ -32,7 +32,7 @@ Quy trình UI gồm 5 bước:
 
 Không có video/audio nào được yêu cầu hoặc upload trong workflow này. Nhánh media cũ vẫn được giữ tương thích nội bộ nhưng không còn xuất hiện trong UI.
 
-Trong lúc chạy, tab **Hỗ trợ → Xem chi tiết kỹ thuật** có thể mở file `userData/logs/tblao.log`. Dịch SRT ghi phase, thao tác Gemini, request/response JSON đầy đủ theo từng attempt, số cue/target, retry, thời lượng và heartbeat mỗi 30 giây; phase chạy từ 3 phút trở lên sẽ có cảnh báo `warn`. Request/response có thể chứa toàn bộ SRT và prompt, nên hãy coi file log là dữ liệu riêng tư; API key và URI file Gemini được che.
+Trong lúc chạy, tab **Hỗ trợ → Xem chi tiết kỹ thuật** có thể mở file `userData/logs/tediapros.log`. Dịch SRT ghi phase, thao tác Gemini, request/response JSON đầy đủ theo từng attempt, số cue/target, retry, thời lượng và heartbeat mỗi 30 giây; phase chạy từ 3 phút trở lên sẽ có cảnh báo `warn`. Request/response có thể chứa toàn bộ SRT và prompt, nên hãy coi file log là dữ liệu riêng tư; API key và URI file Gemini được che.
 
 Tiền tệ được hiển thị theo locale đích, giữ giá trị nguồn trong ngoặc và dùng từ chỉ mức xấp xỉ. Đây chỉ là hỗ trợ lời thoại, không phải giá trị thanh toán, giao dịch, kế toán hay báo giá. Khi dùng tỷ giá, UI ghi công **Rates By ExchangeRate-API** ([ExchangeRate-API](https://www.exchangerate-api.com)); snapshot cũng giữ thời điểm cập nhật nguồn.
 
@@ -61,10 +61,10 @@ npm run package:mac   # đóng gói .dmg (cần macOS)
 Live smoke SRT là tùy chọn, không chạy trong `npm run test:unit` và không nên đặt key thật cố định trong shell profile. Khi có video/SRT mẫu đã duyệt và muốn chạy kiểm thử Gemini thật, cấu hình tạm thời:
 
 ```powershell
-$env:TBLAO_GEMINI_SMOKE_KEY = Read-Host 'Gemini API key dùng riêng cho smoke test'
-$env:TBLAO_SRT_SMOKE_VIDEO = Read-Host 'Đường dẫn tuyệt đối tới video mẫu'
-$env:TBLAO_SRT_SMOKE_SRT = Read-Host 'Đường dẫn tuyệt đối tới SRT tiếng Trung khớp video'
-$env:TBLAO_SRT_SMOKE_OUTPUT_DIR = Read-Host 'Thư mục output dùng một lần'
+$env:TEDIAPROS_GEMINI_SMOKE_KEY = Read-Host 'Gemini API key dùng riêng cho smoke test'
+$env:TEDIAPROS_SRT_SMOKE_VIDEO = Read-Host 'Đường dẫn tuyệt đối tới video mẫu'
+$env:TEDIAPROS_SRT_SMOKE_SRT = Read-Host 'Đường dẫn tuyệt đối tới SRT tiếng Trung khớp video'
+$env:TEDIAPROS_SRT_SMOKE_OUTPUT_DIR = Read-Host 'Thư mục output dùng một lần'
 npm run test:smoke:srt
 ```
 
@@ -111,7 +111,7 @@ Binary font **không** nằm trên GitHub (bản quyền). Khi build App trên m
 
 ## Giấy phép
 
-T-blao phát hành theo **PolyForm Noncommercial License 1.0.0** (source-available, **phi thương mại** + bắt buộc ghi công).
+TediaPros phát hành theo **PolyForm Noncommercial License 1.0.0** (source-available, **phi thương mại** + bắt buộc ghi công).
 
 - Toàn văn: [LICENSE](LICENSE)
 - Ghi công / NOTICE: [NOTICE](NOTICE)
@@ -122,7 +122,7 @@ T-blao phát hành theo **PolyForm Noncommercial License 1.0.0** (source-availab
 
 ### Ghi công (bên thứ ba)
 
-T-blao dùng các công cụ/thư viện bên thứ ba (tải khi cần hoặc đóng gói riêng), mỗi thành phần giữ giấy phép gốc — xem [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) và tab **Giấy phép** trong app. Ví dụ:
+TediaPros dùng các công cụ/thư viện bên thứ ba (tải khi cần hoặc đóng gói riêng), mỗi thành phần giữ giấy phép gốc — xem [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) và tab **Giấy phép** trong app. Ví dụ:
 
 - **ffmpeg** — LGPL/GPL: <https://ffmpeg.org/legal.html>
 - **Video2X** — AGPL-3.0: <https://github.com/k4yt3x/video2x>

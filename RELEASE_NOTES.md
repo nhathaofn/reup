@@ -1,4 +1,4 @@
-## T-blao v0.1.27
+## TediaPros v0.1.27
 
 ### Tải video YouTube
 
@@ -12,7 +12,7 @@
 - Installer đóng gói sẵn cặp `ffmpeg.exe` và `ffprobe.exe` đồng phiên bản trong `resources/ffmpeg`.
 - Bản đã đóng gói không còn lấy FFmpeg từ `PATH` của máy người dùng; runtime chỉ dùng cặp đã kiểm tra của app.
 
-## T-blao v0.1.26
+## TediaPros v0.1.26
 
 ### Tải audio YouTube
 
@@ -21,7 +21,7 @@
 - Bổ sung JavaScript runtime cho yt-dlp để xử lý các định dạng YouTube mới ổn định hơn.
 - Phân loại đúng lỗi HTTP 403 thay vì hiển thị nhầm là định dạng hoặc độ phân giải không khả dụng.
 
-## T-blao v0.1.25
+## TediaPros v0.1.25
 
 ### CapCut đa ngôn ngữ
 
@@ -31,7 +31,7 @@
 - Kế thừa style subtitle từ template như font, cỡ chữ, màu và typesetting.
 - Bắt buộc chọn template CapCut thật của máy để bám đúng schema phiên bản đang cài.
 
-## T-blao v0.1.23
+## TediaPros v0.1.23
 
 ### CapCut đa ngôn ngữ
 
@@ -40,7 +40,7 @@
 - Tự tạo draft store CapCut khi máy mới chưa có thư mục `com.lveditor.draft`.
 - Gỡ mục sửa project portable khỏi giao diện; project vẫn ghi manifest portable khi tạo.
 
-## T-blao v0.1.22
+## TediaPros v0.1.22
 
 ### Windows release
 
@@ -49,13 +49,13 @@
 - Cải thiện thay thế engine theo kiểu an toàn: bản đang chạy không bị xóa nếu tải hoặc kiểm tra bản mới thất bại.
 - Bổ sung pipeline phát hành installer và runtime asset Windows riêng.
 
-## T-blao v0.1.21
+## TediaPros v0.1.21
 
 ### CapCut Factory
 
 - Giữ liên kết cue/scene không phá huỷ khi neo subtitle và voice theo mốc scene.
 
-## T-blao v0.1.17
+## TediaPros v0.1.17
 
 ### Bản cài đặt gọn
 

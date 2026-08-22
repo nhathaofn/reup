@@ -1,4 +1,4 @@
-# Kiến trúc và bản đồ chức năng T-blao
+# Kiến trúc và bản đồ chức năng TediaPros
 
 Tài liệu này là kết quả đọc mã nguồn hiện có tại nhánh main, phiên bản 0.1.16,
 ngày 2026-08-12. Phạm vi gồm Electron/React/TypeScript, ba engine Python,
@@ -8,7 +8,7 @@ nguồn cần phân tích.
 
 ## 1. Kết luận kiến trúc
 
-T-blao là ứng dụng desktop theo mô hình bốn lớp:
+TediaPros là ứng dụng desktop theo mô hình bốn lớp:
 
 1. Renderer React giữ giao diện, hàng đợi và trạng thái tương tác.
 2. Preload là API công khai duy nhất cho Renderer.
@@ -38,7 +38,7 @@ flowchart LR
 
 ## 2. Luồng khởi động
 
-1. Main đăng ký protocol tblao để phát file cục bộ và hỗ trợ HTTP Range.
+1. Main đăng ký protocol tediapros để phát file cục bộ và hỗ trợ HTTP Range.
 2. Electron app sẵn sàng, tạo BrowserWindow 1320 x 820.
 3. Main đăng ký 60 IPC request/response của core.
 4. Main đăng ký các module trong feature registry. Registry rỗng nên hành vi
@@ -55,7 +55,7 @@ Thiết lập bảo mật cửa sổ hiện tại:
 - nodeIntegration tắt.
 - sandbox tắt.
 - Renderer chỉ dùng quyền hệ thống qua window.api.
-- Protocol tblao nhận đường dẫn file cục bộ được mã hóa base64; tầng protocol
+- Protocol tediapros nhận đường dẫn file cục bộ được mã hóa base64; tầng protocol
   chưa có allowlist thư mục riêng, nên mọi nơi tạo URL phải tiếp tục coi đường
   dẫn là dữ liệu tin cậy từ Main.
 
@@ -75,7 +75,7 @@ Thiết lập bảo mật cửa sổ hiện tại:
 | ocr.ts | Cầu nối OCR | Cài engine, gửi video/vùng quét bằng JSONL, nhận SRT, đổi sang TXT/VTT/JSON và hủy |
 | burn.ts | Hậu kỳ subtitle/video | Đọc SRT nhiều encoding, crop, sinh ASS, đo và xuống dòng, font/màu/nền, blur nhiều vùng, trộn audio, encode |
 | fontMeasure.ts | Đo chữ phụ đề | Dùng OpenType để đo chiều rộng chính xác trước khi wrap |
-| fonts.ts | Font bundled và hệ thống | Liệt kê font, tạo URL tblao và chọn fallback |
+| fonts.ts | Font bundled và hệ thống | Liệt kê font, tạo URL tediapros và chọn fallback |
 | video2x.ts | Nâng cấp/chuyển động video | Cài/kiểm tra engine, liệt kê device, RealESRGAN/RealCUGAN/libplacebo/RIFE, parse progress và hủy; macOS chưa hỗ trợ |
 | gemini.ts | Dịch subtitle bằng Gemini | Quản lý key, model/fallback, timeout, ép JSON schema và trả đoạn dịch giữ timestamp cục bộ |
 | openai.ts | Dịch subtitle bằng OpenAI | Luồng tương tự Gemini, dùng endpoint/model của OpenAI |

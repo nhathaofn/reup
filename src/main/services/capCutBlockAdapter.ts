@@ -47,7 +47,7 @@ export function adaptRenderTimelineToCapCut(input: CapCutBlockAdapterInput): Cap
     Object.values(input.locale.blocks).flatMap((block) => block.cues.map((cue) => [cue.cueId, cue] as const))
   )
   const videoExtension = extname(input.source.source.path) || '.mp4'
-  const videoAssetName = `tblao-source-video${videoExtension}`
+  const videoAssetName = `tediapros-source-video${videoExtension}`
   const videoItems: NativeCapCutVideoItem[] = []
   const audioItems: NativeCapCutAudioItem[] = []
   const textItems: NativeCapCutTextItem[] = []
@@ -75,7 +75,7 @@ export function adaptRenderTimelineToCapCut(input: CapCutBlockAdapterInput): Cap
       const extension = extname(localeCue.voicePath) || '.wav'
       audioItems.push({
         sourcePath: localeCue.voicePath,
-        assetName: `tblao-${cue.cueId}${extension}`,
+        assetName: `tediapros-${cue.cueId}${extension}`,
         startSeconds: cue.startUs / 1_000_000,
         durationSeconds,
         sourceDurationSeconds: durationSeconds,

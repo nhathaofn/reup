@@ -25,9 +25,9 @@ function formatDuration(seconds: number): string {
 
 function AutoShortPanel(): JSX.Element {
   const [videos, setVideos] = useState<string[]>([])
-  const [outputDir, setOutputDir] = useTabOutputDir('tblao.outputDir.auto-short')
-  const [clipSeconds, setClipSeconds] = usePersistedState<15 | 30 | 60>('tblao.auto-short.clip-seconds', 30)
-  const [layout, setLayout] = usePersistedState<AutoShortLayout>('tblao.auto-short.layout', 'vertical')
+  const [outputDir, setOutputDir] = useTabOutputDir('tediapros.outputDir.auto-short')
+  const [clipSeconds, setClipSeconds] = usePersistedState<15 | 30 | 60>('tediapros.auto-short.clip-seconds', 30)
+  const [layout, setLayout] = usePersistedState<AutoShortLayout>('tediapros.auto-short.layout', 'vertical')
   const [progress, setProgress] = useState<AutoShortProgress | null>(null)
   const [result, setResult] = useState<AutoShortResult | null>(null)
   const [error, setError] = useState('')

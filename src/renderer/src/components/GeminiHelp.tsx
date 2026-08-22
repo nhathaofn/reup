@@ -65,7 +65,7 @@ export default function GeminiHelp({ onClose }: { onClose: () => void }): JSX.El
               <b>Sao chép khóa</b>
               <p className="muted small">
                 Một đoạn mã dài hiện ra — đó là API Key của bạn. Bấm <b>“Copy”</b>, rồi dán vào ô
-                trong T-blao.
+                trong TediaPros.
               </p>
             </div>
           </div>

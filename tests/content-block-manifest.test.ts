@@ -36,7 +36,7 @@ test('validator rejects duplicate IDs, non-integer time and discontinuous ranges
 })
 
 test('atomic writer round-trips a validated source manifest', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'tblao-content-block-manifest-'))
+  const root = await mkdtemp(join(tmpdir(), 'tediapros-content-block-manifest-'))
   try {
     const path = join(root, 'source-blocks.json')
     await writeArtifactAtomic(path, sourceManifestFixture(), validateSourceBlockManifest)

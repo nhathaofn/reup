@@ -510,7 +510,7 @@ export async function runSubtitlePipeline(
     normalized = normalizeSubtitlePipelineRequest(request)
     assertNotAborted(options.signal)
     await mkdir(normalized.outputDir, { recursive: true })
-    workDir = join(normalized.outputDir, `.tblao-subtitle-pipeline-${jobId}`)
+    workDir = join(normalized.outputDir, `.tediapros-subtitle-pipeline-${jobId}`)
     assertSafeWorkDirectory(normalized.outputDir, workDir)
     await mkdir(workDir, { recursive: true })
     draftDir = join(normalized.outputDir, 'draft')

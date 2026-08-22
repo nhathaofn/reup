@@ -91,7 +91,7 @@ jobs:
           token: ${{ secrets.RELEASE_REPO_TOKEN }}
           tag_name: ${{ github.ref_name }}
           target_commitish: main
-          name: T-blao ${{ github.ref_name }}
+          name: TediaPros ${{ github.ref_name }}
           body_path: RELEASE_NOTES.md
           draft: false
           fail_on_unmatched_files: true

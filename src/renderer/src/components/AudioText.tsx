@@ -51,24 +51,24 @@ export default function AudioText({
 }: {
   subInbox: { path: string; id: string } | null
 }): JSX.Element {
-  const [outputDir, setOutputDir] = useTabOutputDir('tblao.outputDir.audiotext')
+  const [outputDir, setOutputDir] = useTabOutputDir('tediapros.outputDir.audiotext')
   const [hasEngine, setHasEngine] = useState<boolean | null>(null)
   const [installing, setInstalling] = useState(false)
   const [installPct, setInstallPct] = useState(0)
   const [installErr, setInstallErr] = useState<string | null>(null)
 
-  const [model, setModel] = usePersistedState('tblao.wh.model', 'small')
-  const [language, setLanguage] = usePersistedState('tblao.wh.lang', 'auto')
-  const [translateEn, setTranslateEn] = usePersistedState('tblao.wh.translate', false)
-  const [accurate, setAccurate] = usePersistedState('tblao.wh.accurate', true)
-  const [diarize, setDiarize] = usePersistedState('tblao.wh.diarize', false)
-  const [numSpeakers, setNumSpeakers] = usePersistedState('tblao.wh.speakers', 0)
-  const [fmtSrt, setFmtSrt] = usePersistedState('tblao.wh.srt', true)
-  const [fmtTxt, setFmtTxt] = usePersistedState('tblao.wh.txt', true)
-  const [fmtVtt, setFmtVtt] = usePersistedState('tblao.wh.vtt', false)
+  const [model, setModel] = usePersistedState('tediapros.wh.model', 'small')
+  const [language, setLanguage] = usePersistedState('tediapros.wh.lang', 'auto')
+  const [translateEn, setTranslateEn] = usePersistedState('tediapros.wh.translate', false)
+  const [accurate, setAccurate] = usePersistedState('tediapros.wh.accurate', true)
+  const [diarize, setDiarize] = usePersistedState('tediapros.wh.diarize', false)
+  const [numSpeakers, setNumSpeakers] = usePersistedState('tediapros.wh.speakers', 0)
+  const [fmtSrt, setFmtSrt] = usePersistedState('tediapros.wh.srt', true)
+  const [fmtTxt, setFmtTxt] = usePersistedState('tediapros.wh.txt', true)
+  const [fmtVtt, setFmtVtt] = usePersistedState('tediapros.wh.vtt', false)
 
   // Dich phu de bang API key cua user — 'none' = khong dich
-  const [dich, setDich] = usePersistedState('tblao.wh.dich', 'none')
+  const [dich, setDich] = usePersistedState('tediapros.wh.dich', 'none')
   const [dichErr, setDichErr] = useState<string | null>(null)
 
   const [items, setItems] = useState<WhItem[]>([])
@@ -81,7 +81,7 @@ export default function AudioText({
   const [cudaInstalling, setCudaInstalling] = useState(false)
   const [cudaPct, setCudaPct] = useState(0)
   const [cudaErr, setCudaErr] = useState<string | null>(null)
-  const [useGpu, setUseGpu] = usePersistedState('tblao.wh.useGpu', true)
+  const [useGpu, setUseGpu] = usePersistedState('tediapros.wh.useGpu', true)
 
   const unlocked = hasFeature('audio2text')
   // Thuc su chay GPU khi: card du dieu kien + da tai goi + user bat cong tac
@@ -453,7 +453,7 @@ export default function AudioText({
           <div>
             <div className="cookie-title">Tăng tốc xử lý</div>
             <div className="muted small">
-              Nếu máy tương thích, T-blao có thể xử lý nhanh hơn đáng kể.
+              Nếu máy tương thích, TediaPros có thể xử lý nhanh hơn đáng kể.
             </div>
           </div>
           {gpu &&
@@ -503,7 +503,7 @@ export default function AudioText({
                   ? 'Đang dùng chế độ tăng tốc ⚡'
                   : 'Gói tăng tốc đã cài và hiện đang tắt.'
                 : 'Máy này hỗ trợ tăng tốc.'
-              : 'T-blao sẽ dùng chế độ tiêu chuẩn.'}
+              : 'TediaPros sẽ dùng chế độ tiêu chuẩn.'}
             <details className="tech-details compact">
               <summary>Chi tiết phần cứng</summary>
               {gpu.reason && gpu.hasNvidia && <div className="qwarn small">{gpu.reason}</div>}
@@ -615,7 +615,7 @@ export default function AudioText({
       {items.length === 0 && (
         <p className="hint muted small">
           💡 Chọn file (hoặc bấm <b>Lấy sub</b> ở tab Tải xuống) → chọn định dạng → <b>Bắt đầu</b>.
-          Lần đầu dùng một mức nhận diện, T-blao có thể cần tải thêm dữ liệu rồi sẽ xử lý ngay trên máy.
+          Lần đầu dùng một mức nhận diện, TediaPros có thể cần tải thêm dữ liệu rồi sẽ xử lý ngay trên máy.
         </p>
       )}
       </div>

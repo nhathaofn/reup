@@ -1,6 +1,6 @@
 extends: electron-builder.yml
-appId: com.nhathaofn.tblao.local
-productName: T-blao Local
+appId: com.nhathaofn.tediapros.local
+productName: TediaPros Local
 directories:
   output: dist-local
 win:

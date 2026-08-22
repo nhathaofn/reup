@@ -144,7 +144,7 @@ export default function App(): JSX.Element {
       <div className="boot">
         <div className="center">
           <div className="spinner" />
-          <p>Đang chuẩn bị T-blao…</p>
+          <p>Đang chuẩn bị TediaPros…</p>
         </div>
       </div>
     )
@@ -214,7 +214,7 @@ export default function App(): JSX.Element {
     <div className={`shell journey-${journeyTone}`}>
       <aside className="sidebar">
         <div className="side-brand">
-          <span className="side-logo">T-blao</span>
+          <span className="side-logo">TediaPros</span>
         </div>
         <nav className="side-nav">{TOP_TABS.map(renderTab)}</nav>
         <div className="side-hint muted small">Công cụ video gọn trong một nơi</div>

@@ -81,5 +81,5 @@ console.log(
 )
 console.log('OK: native CapCut generator duoc dong goi trong app.asar.')
 console.log(
-  'Luu y: ffmpeg.dll o thu muc goc la thanh phan media cua Electron/Chromium, khong phai FFmpeg runtime cua T-blao.'
+  'Luu y: ffmpeg.dll o thu muc goc la thanh phan media cua Electron/Chromium, khong phai FFmpeg runtime cua TediaPros.'
 )

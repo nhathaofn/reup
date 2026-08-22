@@ -23,7 +23,7 @@ interface DyItem {
 const isChannelUrl = (u: string): boolean => /\/user\//i.test(u)
 
 export default function Douyin(): JSX.Element {
-  const [outputDir, setOutputDir] = useTabOutputDir('tblao.outputDir.douyin')
+  const [outputDir, setOutputDir] = useTabOutputDir('tediapros.outputDir.douyin')
   const [hasEngine, setHasEngine] = useState<boolean | null>(null)
   const [installing, setInstalling] = useState(false)
   const [installPct, setInstallPct] = useState(0)
@@ -33,16 +33,16 @@ export default function Douyin(): JSX.Element {
   const [cookieBusy, setCookieBusy] = useState(false)
   const [cookieMsg, setCookieMsg] = useState<string | null>(null)
 
-  const [music, setMusic] = usePersistedState('tblao.dy.music', true)
-  const [cover, setCover] = usePersistedState('tblao.dy.cover', true)
-  const [avatar, setAvatar] = usePersistedState('tblao.dy.avatar', false)
-  const [metaJson, setMetaJson] = usePersistedState('tblao.dy.metaJson', true)
-  const [folderstyle, setFolderstyle] = usePersistedState('tblao.dy.folderstyle', true)
-  const [proxy, setProxy] = usePersistedState('tblao.dy.proxy', '')
+  const [music, setMusic] = usePersistedState('tediapros.dy.music', true)
+  const [cover, setCover] = usePersistedState('tediapros.dy.cover', true)
+  const [avatar, setAvatar] = usePersistedState('tediapros.dy.avatar', false)
+  const [metaJson, setMetaJson] = usePersistedState('tediapros.dy.metaJson', true)
+  const [folderstyle, setFolderstyle] = usePersistedState('tediapros.dy.folderstyle', true)
+  const [proxy, setProxy] = usePersistedState('tediapros.dy.proxy', '')
 
   const [urlInput, setUrlInput] = useState('')
-  const [mode, setMode] = usePersistedState<DyMode>('tblao.dy.mode', 'all')
-  const [batchSize, setBatchSize] = usePersistedState('tblao.dy.batchSize', 15)
+  const [mode, setMode] = usePersistedState<DyMode>('tediapros.dy.mode', 'all')
+  const [batchSize, setBatchSize] = usePersistedState('tediapros.dy.batchSize', 15)
 
   const [items, setItems] = useState<DyItem[]>([])
   const runner = useQueueRunner<DyItem>()
@@ -243,7 +243,7 @@ export default function Douyin(): JSX.Element {
               <>Đã có bản công cụ mới — đang tải và cài đè bản cũ.</>
             ) : (
               <>
-                T-blao cần tải thêm một thành phần nhỏ (~21 MB) để tải video và kênh Douyin.
+                TediaPros cần tải thêm một thành phần nhỏ (~21 MB) để tải video và kênh Douyin.
               </>
             )}
           </p>
@@ -280,7 +280,7 @@ export default function Douyin(): JSX.Element {
           <div>
             <div className="cookie-title">Tài khoản Douyin</div>
             <div className="muted small">
-              Hầu hết nội dung cần đăng nhập. T-blao sẽ lưu riêng phiên đăng nhập của Douyin.
+              Hầu hết nội dung cần đăng nhập. TediaPros sẽ lưu riêng phiên đăng nhập của Douyin.
             </div>
           </div>
           {cookie?.has ? (
@@ -409,7 +409,7 @@ export default function Douyin(): JSX.Element {
         </button>
       </div>
       <p className="hint muted small">
-        T-blao tự nhận biết link video hoặc link kênh và hiển thị lựa chọn phù hợp.
+        TediaPros tự nhận biết link video hoặc link kênh và hiển thị lựa chọn phù hợp.
       </p>
       </div>
 

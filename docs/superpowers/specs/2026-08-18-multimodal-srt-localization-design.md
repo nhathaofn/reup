@@ -587,7 +587,7 @@ Card nguồn hiển thị video, SRT, số cue, thời lượng và trạng thá
 
 ### 13.3. Video review
 
-Renderer dùng pattern video local hiện có qua `tblao://b64/...`. Nút xem cue seek tới `max(0, cueStart - 1.5s)` và tự dừng ở `cueEnd + 2s`; người dùng vẫn có thể phát/seek thủ công. Không gửi local path trực tiếp tới web origin hoặc đưa path vào Gemini logs.
+Renderer dùng pattern video local hiện có qua `tediapros://b64/...`. Nút xem cue seek tới `max(0, cueStart - 1.5s)` và tự dừng ở `cueEnd + 2s`; người dùng vẫn có thể phát/seek thủ công. Không gửi local path trực tiếp tới web origin hoặc đưa path vào Gemini logs.
 
 ### 13.4. Review card
 

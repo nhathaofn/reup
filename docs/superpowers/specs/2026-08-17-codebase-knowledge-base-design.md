@@ -6,7 +6,7 @@
 
 ## Bối cảnh
 
-Repository là ứng dụng desktop T-blao, dùng Electron, React, TypeScript và các engine Python cho tải Douyin, OCR và Whisper. Ngoài mã nguồn runtime còn có script build, workflow phát hành, tài liệu hiện có và dữ liệu thử nghiệm CapCut.
+Repository là ứng dụng desktop TediaPros, dùng Electron, React, TypeScript và các engine Python cho tải Douyin, OCR và Whisper. Ngoài mã nguồn runtime còn có script build, workflow phát hành, tài liệu hiện có và dữ liệu thử nghiệm CapCut.
 
 Repository đã có `docs/PROJECT_ARCHITECTURE.md`, `docs/ADDING_A_FEATURE.md` và `docs/CAPCUT_FACTORY.md`. Tuy nhiên tài liệu kiến trúc là một snapshot cũ hơn version hiện tại và một số mô tả cần đối chiếu lại với code. Bộ tài liệu mới phải bổ sung điểm vào duy nhất, chia nội dung theo miền và ghi rõ các điểm cần kiểm tra khi code thay đổi.
 

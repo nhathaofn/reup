@@ -100,33 +100,33 @@ export default function Downloader({
 }: {
   onGetSub: (filePath: string) => void
 }): JSX.Element {
-  const [outputDir, setOutputDir] = useTabOutputDir('tblao.outputDir.download')
+  const [outputDir, setOutputDir] = useTabOutputDir('tediapros.outputDir.download')
   // Tuy chon chung ap dung cho ca hang doi (tu nho qua cac lan mo app)
-  const [kind, setKind] = usePersistedState<DownloadKind>('tblao.dl.kind', 'video')
-  const [height, setHeight] = usePersistedState<number | null>('tblao.dl.height', 1080)
-  const [audioFormat, setAudioFormat] = usePersistedState('tblao.dl.audioFormat', 'mp3')
-  const [embedThumbnail, setEmbedThumbnail] = usePersistedState('tblao.dl.embedThumbnail', true)
-  const [embedMetadata, setEmbedMetadata] = usePersistedState('tblao.dl.embedMetadata', true)
-  const [folderMode, setFolderMode] = usePersistedState<FolderMode>('tblao.dl.folderMode', 'flat')
+  const [kind, setKind] = usePersistedState<DownloadKind>('tediapros.dl.kind', 'video')
+  const [height, setHeight] = usePersistedState<number | null>('tediapros.dl.height', 1080)
+  const [audioFormat, setAudioFormat] = usePersistedState('tediapros.dl.audioFormat', 'mp3')
+  const [embedThumbnail, setEmbedThumbnail] = usePersistedState('tediapros.dl.embedThumbnail', true)
+  const [embedMetadata, setEmbedMetadata] = usePersistedState('tediapros.dl.embedMetadata', true)
+  const [folderMode, setFolderMode] = usePersistedState<FolderMode>('tediapros.dl.folderMode', 'flat')
 
   // Tuy chon nang cao (tu nho)
-  const [showAdvanced, setShowAdvanced] = usePersistedState('tblao.dl.showAdvanced', false)
-  const [container, setContainer] = usePersistedState('tblao.dl.container', 'mp4')
+  const [showAdvanced, setShowAdvanced] = usePersistedState('tediapros.dl.showAdvanced', false)
+  const [container, setContainer] = usePersistedState('tediapros.dl.container', 'mp4')
   const [outputTemplate, setOutputTemplate] = usePersistedState(
-    'tblao.dl.outputTemplate',
+    'tediapros.dl.outputTemplate',
     '%(title)s [%(id)s].%(ext)s'
   )
-  const [customName, setCustomName] = usePersistedState('tblao.dl.customName', false)
-  const [writeSubs, setWriteSubs] = usePersistedState('tblao.dl.writeSubs', false)
-  const [autoSubs, setAutoSubs] = usePersistedState('tblao.dl.autoSubs', false)
-  const [subLangs, setSubLangs] = usePersistedState('tblao.dl.subLangs', 'vi,en')
-  const [embedSubs, setEmbedSubs] = usePersistedState('tblao.dl.embedSubs', true)
-  const [useArchive, setUseArchive] = usePersistedState('tblao.dl.useArchive', false)
-  const [forceOverwrite, setForceOverwrite] = usePersistedState('tblao.dl.forceOverwrite', false)
-  const [ensureH264, setEnsureH264] = usePersistedState('tblao.dl.ensureH264', false)
+  const [customName, setCustomName] = usePersistedState('tediapros.dl.customName', false)
+  const [writeSubs, setWriteSubs] = usePersistedState('tediapros.dl.writeSubs', false)
+  const [autoSubs, setAutoSubs] = usePersistedState('tediapros.dl.autoSubs', false)
+  const [subLangs, setSubLangs] = usePersistedState('tediapros.dl.subLangs', 'vi,en')
+  const [embedSubs, setEmbedSubs] = usePersistedState('tediapros.dl.embedSubs', true)
+  const [useArchive, setUseArchive] = usePersistedState('tediapros.dl.useArchive', false)
+  const [forceOverwrite, setForceOverwrite] = usePersistedState('tediapros.dl.forceOverwrite', false)
+  const [ensureH264, setEnsureH264] = usePersistedState('tediapros.dl.ensureH264', false)
 
   // Proxy (vuot khoa vung) — nho lai chuoi da nhap
-  const [proxyVal, setProxyVal] = usePersistedState('tblao.dl.proxy', '')
+  const [proxyVal, setProxyVal] = usePersistedState('tediapros.dl.proxy', '')
   const [proxyMsg, setProxyMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [proxyBusy, setProxyBusy] = useState(false)
   const [proxyGuide, setProxyGuide] = useState(false)
@@ -167,16 +167,16 @@ export default function Downloader({
 
   // Cookie rieng theo website: tranh dung cookie Facebook cho Bilibili va nguoc lai.
   const [domainCookieStats, setDomainCookieStats] = useState<CookieStatus[]>([])
-  const [useCookies, setUseCookies] = usePersistedState('tblao.dl.useCookies', false)
+  const [useCookies, setUseCookies] = usePersistedState('tediapros.dl.useCookies', false)
   const [siteCookieStats, setSiteCookieStats] = useState<
     Record<CookieSite, SiteCookieStatus | null>
   >({ facebook: null, bilibili: null })
   const [useFacebookCookies, setUseFacebookCookies] = usePersistedState(
-    'tblao.dl.useFacebookCookies',
+    'tediapros.dl.useFacebookCookies',
     false
   )
   const [useBilibiliCookies, setUseBilibiliCookies] = usePersistedState(
-    'tblao.dl.useBilibiliCookies',
+    'tediapros.dl.useBilibiliCookies',
     false
   )
   const [cookieBusy, setCookieBusy] = useState<CookieSite | 'generic' | null>(null)
@@ -828,7 +828,7 @@ export default function Downloader({
             <div className="adv-checks">
               <label
                 className={`check ${kind === 'video' ? '' : 'disabled'}`}
-                title="T-blao sẽ ưu tiên định dạng phát được trên nhiều thiết bị."
+                title="TediaPros sẽ ưu tiên định dạng phát được trên nhiều thiết bị."
               >
                 <input
                   type="checkbox"
@@ -863,7 +863,7 @@ export default function Downloader({
             </div>
             {kind === 'video' && ensureH264 && (
               <div className="muted small" style={{ marginTop: -8 }}>
-                Nếu cần, T-blao sẽ chuyển đổi video sau khi tải. Quá trình có thể lâu hơn.
+                Nếu cần, TediaPros sẽ chuyển đổi video sau khi tải. Quá trình có thể lâu hơn.
               </div>
             )}
             {useArchive && (
@@ -1009,7 +1009,7 @@ export default function Downloader({
         </div>
 
         <div className="muted small cookie-tip">
-          T-blao tự dùng đúng phiên đăng nhập cho từng website khi cần.
+          TediaPros tự dùng đúng phiên đăng nhập cho từng website khi cần.
         </div>
 
         <details className="generic-cookie">
@@ -1136,7 +1136,7 @@ export default function Downloader({
       </div>
 
       <p className="hint muted small">
-        Dán link video để thêm vào hàng đợi. Với playlist, T-blao sẽ cho bạn chọn các video cần tải.
+        Dán link video để thêm vào hàng đợi. Với playlist, TediaPros sẽ cho bạn chọn các video cần tải.
       </p>
       </div>
 

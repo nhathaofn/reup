@@ -208,14 +208,14 @@ export default function License(): JSX.Element {
         </p>
       </div>
 
-      {/* Giay phep T-blao */}
+      {/* Giay phep TediaPros */}
       <section className="lic-section">
-        <h3>Giấy phép T-blao</h3>
+        <h3>Giấy phép TediaPros</h3>
         <p className="muted small">
           Source-available: phi thương mại + bắt buộc ghi công. Bấm để xem tóm tắt; toàn văn trong
           file LICENSE.
         </p>
-        <LicCard title="T-blao" badge="PolyForm-NC">
+        <LicCard title="TediaPros" badge="PolyForm-NC">
           <>
             <pre className="license-text">{POLYFORM_NC_SUMMARY}</pre>
             <button
@@ -236,7 +236,7 @@ export default function License(): JSX.Element {
       <section className="lic-section">
         <h3>Thành phần bên thứ ba</h3>
         <p className="muted small">
-          T-blao được dựng trên các công trình mã nguồn mở dưới đây. Bản quyền thuộc về tác giả gốc.
+          TediaPros được dựng trên các công trình mã nguồn mở dưới đây. Bản quyền thuộc về tác giả gốc.
           Bấm từng mục để xem chi tiết.
         </p>
         {GROUPS.map((g) => (

@@ -1,8 +1,8 @@
-T-blao — Third-Party Notices
+TediaPros — Third-Party Notices
 ============================
 
-T-blao sử dụng các thành phần mã nguồn mở sau. Bản quyền và giấy phép của
-từng thành phần thuộc về tác giả gốc. T-blao không chỉnh sửa mã nguồn của
+TediaPros sử dụng các thành phần mã nguồn mở sau. Bản quyền và giấy phép của
+từng thành phần thuộc về tác giả gốc. TediaPros không chỉnh sửa mã nguồn của
 các thành phần này, trừ khi có ghi chú riêng.
 
 Giấy phép dưới đây được lấy từ chính siêu dữ liệu của gói / thẻ model tại
@@ -65,13 +65,13 @@ LICENSE và thư mục giấy phép thirdparty đi kèm bản phân phối chín
 A6) Native CapCut generator
 --------------------------------------------------------------------------
 Vai trò: clone template và tạo draft CapCut native.
-Mã nguồn: nằm trong T-blao, không có runtime bên thứ ba riêng.
+Mã nguồn: nằm trong TediaPros, không có runtime bên thứ ba riêng.
 
 
 ==========================================================================
 B. THƯ VIỆN TRONG BỘ XỬ LÝ ÂM THANH
 ==========================================================================
-Các thư viện sau được đóng gói sẵn trong bộ xử lý âm thanh của T-blao.
+Các thư viện sau được đóng gói sẵn trong bộ xử lý âm thanh của TediaPros.
 
 --------------------------------------------------------------------------
 B1) faster-whisper — MIT License
@@ -214,9 +214,9 @@ Các thành phần B4 (Tokenizers), B5 (huggingface_hub), B9 (FlatBuffers),
 C3 (CAM++ / 3D-Speaker) dùng Apache License phiên bản 2.0.
 Toàn văn: http://www.apache.org/licenses/LICENSE-2.0
 
-Theo mục 4 của giấy phép này, T-blao ghi nhận: các tệp nêu trên được phân
+Theo mục 4 của giấy phép này, TediaPros ghi nhận: các tệp nêu trên được phân
 phối "AS IS", không kèm bảo đảm dưới bất kỳ hình thức nào; bản quyền thuộc
-về tác giả gốc đã liệt kê; T-blao không chỉnh sửa mã nguồn của chúng.
+về tác giả gốc đã liệt kê; TediaPros không chỉnh sửa mã nguồn của chúng.
 
 --------------------------------------------------------------------------
 E3) MIT License — các thành phần MIT khác

@@ -683,7 +683,7 @@ test('validator rejects duplicate IDs, non-integer time and discontinuous ranges
 })
 
 test('atomic writer round-trips a validated source manifest', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'tblao-content-block-manifest-'))
+  const root = await mkdtemp(join(tmpdir(), 'tediapros-content-block-manifest-'))
   try {
     const path = join(root, 'source-blocks.json')
     await writeArtifactAtomic(path, sourceManifestFixture(), validateSourceBlockManifest)
@@ -2294,7 +2294,7 @@ Create the test:
 
 ```ts
 test('native generator writes video speed/full asset duration/source range and copies shared source once', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'tblao-native-block-'))
+  const root = await mkdtemp(join(tmpdir(), 'tediapros-native-block-'))
   try {
     const templateDir = await writeMinimalCapCutTemplate(root)
     const video = join(root, 'source.mp4')
@@ -2305,8 +2305,8 @@ test('native generator writes video speed/full asset duration/source range and c
     const result = await generateNativeCapCutProject({
       projectPath, projectName: 'Block Test', templateDir, width: 1920, height: 1080, fps: 30,
       videoItems: [
-        { sourcePath: video, assetName: 'tblao-source.mp4', startSeconds: 0, durationSeconds: 3.9, sourceStartSeconds: 4, sourceDurationSeconds: 4, assetDurationSeconds: 8, speed: 4 / 3.9, width: 1920, height: 1080, volume: 0 },
-        { sourcePath: video, assetName: 'tblao-source.mp4', startSeconds: 3.9, durationSeconds: 3.9, sourceStartSeconds: 0, sourceDurationSeconds: 4, assetDurationSeconds: 8, speed: 4 / 3.9, width: 1920, height: 1080, volume: 0 }
+        { sourcePath: video, assetName: 'tediapros-source.mp4', startSeconds: 0, durationSeconds: 3.9, sourceStartSeconds: 4, sourceDurationSeconds: 4, assetDurationSeconds: 8, speed: 4 / 3.9, width: 1920, height: 1080, volume: 0 },
+        { sourcePath: video, assetName: 'tediapros-source.mp4', startSeconds: 3.9, durationSeconds: 3.9, sourceStartSeconds: 0, sourceDurationSeconds: 4, assetDurationSeconds: 8, speed: 4 / 3.9, width: 1920, height: 1080, volume: 0 }
       ],
       audioItems: [{ sourcePath: voice, assetName: 'voice.wav', startSeconds: 0, durationSeconds: 1, sourceDurationSeconds: 1, speed: 1, volume: 1 }],
       textItems: [{ startSeconds: 0, durationSeconds: 1, text: 'Caption' }]
@@ -2317,7 +2317,7 @@ test('native generator writes video speed/full asset duration/source range and c
     assert.deepEqual(videoSegments[0].source_timerange, { start: 4_000_000, duration: 4_000_000 })
     const videoMaterial = draft.materials.videos[0]
     assert.equal(videoMaterial.duration, 8_000_000)
-    assert.equal(result.assetFiles.filter((path) => path.endsWith('tblao-source.mp4')).length, 1)
+    assert.equal(result.assetFiles.filter((path) => path.endsWith('tediapros-source.mp4')).length, 1)
   } finally {
     await rm(root, { recursive: true, force: true })
   }
@@ -2387,7 +2387,7 @@ export function adaptRenderTimelineToCapCut(input: CapCutBlockAdapterInput): Cap
 
 Validate source/locale/timeline, require matching fingerprint and locale, require positive integer dimensions, and reject non-empty `reviewBlockIds`. Index source blocks and locale cues by ID. Map:
 
-- One video item per timeline block using the same asset name `tblao-source-video<original extension>`, source full duration as `assetDurationSeconds`, item source range as `sourceDurationSeconds`, target range from timeline, and timeline `mediaSpeed`.
+- One video item per timeline block using the same asset name `tediapros-source-video<original extension>`, source full duration as `assetDurationSeconds`, item source range as `sourceDurationSeconds`, target range from timeline, and timeline `mediaSpeed`.
 - One audio item per subtitle cue, with target/source duration equal `voiceDurationUs / 1e6`, `speed: 1`, and a unique cue-ID asset name.
 - One text item per subtitle cue with the same target range and localized text.
 - Add warnings only for `stretch-with-warning`; never downgrade `needs-review` to a warning.
@@ -2451,7 +2451,7 @@ import { fingerprintSourceManifest, writeArtifactAtomic, validateLocaleAssetMani
 import { localeManifestFixture, sourceManifestFixture } from './helpers/content-block-fixtures.ts'
 
 test('writes variant, locale timeline and regenerated SRT under canonical artifact folders', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'tblao-block-workflow-'))
+  const root = await mkdtemp(join(tmpdir(), 'tediapros-block-workflow-'))
   try {
     const source = sourceManifestFixture()
     const fingerprint = fingerprintSourceManifest(source)
@@ -2478,7 +2478,7 @@ test('writes variant, locale timeline and regenerated SRT under canonical artifa
 })
 
 test('source fingerprint mismatch blocks CapCut generation before writing a project', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'tblao-block-export-gate-'))
+  const root = await mkdtemp(join(tmpdir(), 'tediapros-block-export-gate-'))
   try {
     const source = sourceManifestFixture()
     source.source.path = join(root, 'source.mp4')
@@ -2505,7 +2505,7 @@ test('source fingerprint mismatch blocks CapCut generation before writing a proj
 })
 
 test('failed locale import never overwrites another locale artifact', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'tblao-locale-isolation-'))
+  const root = await mkdtemp(join(tmpdir(), 'tediapros-locale-isolation-'))
   try {
     const viPath = join(root, 'locales', 'vi-VN', 'assets.json')
     await mkdir(join(root, 'locales', 'vi-VN'), { recursive: true })
@@ -2520,7 +2520,7 @@ test('failed locale import never overwrites another locale artifact', async () =
 })
 
 test('detects an open CapCut draft lock before export', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'tblao-draft-lock-'))
+  const root = await mkdtemp(join(tmpdir(), 'tediapros-draft-lock-'))
   try {
     await mkdir(join(root, 'Open Project'), { recursive: true })
     await writeFile(join(root, 'Open Project', '.locked'), '', 'utf8')
@@ -2604,7 +2604,7 @@ Execute gates in this exact order:
 5. Validate absolute drafts/template paths, reject any `.locked` file found in the first 500 non-hidden draft directories with a “đóng CapCut” error, validate template via `validateNativeCapCutTemplate`, safe project name and non-existing project path.
 6. Probe source video; require probed duration within `±50_000 us` and fps within `±0.01` of source manifest.
 7. Adapt items and call native generator. Attempt the Windows portable manifest; if the platform/helper does not support it, keep the successful draft and return that message in `warnings` with `portableManifestPath` omitted.
-8. Write `<projectPath>/tblao-content-blocks.json` with `schemaVersion: 1`, kind `tblao.content-blocks.capcut`, source/locale/timeline paths, source manifest fingerprint, variant ID, locale and block order. `generatedAt` is allowed only in this export provenance artifact.
+8. Write `<projectPath>/tediapros-content-blocks.json` with `schemaVersion: 1`, kind `tediapros.content-blocks.capcut`, source/locale/timeline paths, source manifest fingerprint, variant ID, locale and block order. `generatedAt` is allowed only in this export provenance artifact.
 9. Return segment counts and adapter warnings.
 
 Do not call `inspectCapCutFactory` or `runCapCutFactory`; the adapter path talks directly to the native generator.
@@ -3279,7 +3279,7 @@ Safety gates before any write:
 - source/locale input files and template are read-only inputs;
 - project contains at least three Q+A blocks.
 
-The smoke executes analyze → import both locales → create one variant → build both timelines → export two projects named `Smoke <locale>`. Parse each generated `draft_content.json` and assert video segments equal block count, audio/text segments equal six, every material path exists, subtitle/audio target ranges for each cue match, and both locale drafts share the same block order in `tblao-content-blocks.json`. Re-run `createVariantPlan` in memory and assert the same order.
+The smoke executes analyze → import both locales → create one variant → build both timelines → export two projects named `Smoke <locale>`. Parse each generated `draft_content.json` and assert video segments equal block count, audio/text segments equal six, every material path exists, subtitle/audio target ranges for each cue match, and both locale drafts share the same block order in `tediapros-content-blocks.json`. Re-run `createVariantPlan` in memory and assert the same order.
 
 Use this executable test skeleton; helper `loadSmokeConfig` performs the safety checks above and throws before `createContentBlockWorkflow()` is called:
 

@@ -8,7 +8,7 @@
 
 **Architecture:** Tạo một vertical slice feature có namespace 'srt-translator' ở Shared/Main/Preload/Renderer. Main đọc file, gọi lại nghiệp vụ Gemini/SRT hiện có qua hàm dịch nội dung ở bộ nhớ, phát tiến trình và chịu trách nhiệm ghi file qua dialog; Renderer chỉ quản lý state, preview và gọi API an toàn đã expose. Giữ nguyên các IPC core đang phục vụ tab Phụ đề và Đọc chữ video.
 
-**Tech Stack:** Electron 34, React 19, TypeScript strict, Electron IPC/contextBridge, Node built-in test runner với --experimental-strip-types, CSS hiện có của T-blao.
+**Tech Stack:** Electron 34, React 19, TypeScript strict, Electron IPC/contextBridge, Node built-in test runner với --experimental-strip-types, CSS hiện có của TediaPros.
 
 ## Global Constraints
 
@@ -609,7 +609,7 @@ npm run typecheck:node
 npm run typecheck:web
 ~~~
 
-Expected: registry nhận feature ID không reserved; preload API có type inference qua TblaoApi = typeof api; không có channel ngoài namespace srt-translator:.
+Expected: registry nhận feature ID không reserved; preload API có type inference qua TediaProsApi = typeof api; không có channel ngoài namespace srt-translator:.
 
 ---
 

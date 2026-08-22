@@ -289,10 +289,10 @@ export function createContentBlockWorkflow(
       } catch (error) {
         warnings.push(error instanceof Error ? error.message : String(error))
       }
-      const provenanceManifestPath = join(projectPath, 'tblao-content-blocks.json')
+      const provenanceManifestPath = join(projectPath, 'tediapros-content-blocks.json')
       await writeFile(provenanceManifestPath, `${JSON.stringify({
         schemaVersion: 1,
-        kind: 'tblao.content-blocks.capcut',
+        kind: 'tediapros.content-blocks.capcut',
         sourceManifestPath: resolve(request.sourceManifestPath),
         localeManifestPath: resolve(request.localeManifestPath),
         timelinePath: resolve(request.timelinePath),

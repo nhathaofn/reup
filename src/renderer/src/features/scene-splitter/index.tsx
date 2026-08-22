@@ -32,17 +32,17 @@ function formatDuration(seconds: number): string {
 
 function SceneSplitterPanel(): JSX.Element {
   const [sourceVideos, setSourceVideos] = useState<string[]>([])
-  const [outputDir, setOutputDir] = useTabOutputDir('tblao.outputDir.scene-splitter')
+  const [outputDir, setOutputDir] = useTabOutputDir('tediapros.outputDir.scene-splitter')
   const [detectorMode, setDetectorMode] = usePersistedState<SceneSplitterDetectorMode>(
-    'tblao.scene-splitter.detectorMode',
+    'tediapros.scene-splitter.detectorMode',
     SCENE_SPLITTER_DEFAULTS.detectorMode
   )
   const [thresholdValue, setThresholdValue] = usePersistedState<number>(
-    'tblao.scene-splitter.thresholdValue',
+    'tediapros.scene-splitter.thresholdValue',
     SCENE_SPLITTER_DEFAULTS.contentThreshold
   )
   const [minSceneDuration, setMinSceneDuration] = usePersistedState<number>(
-    'tblao.scene-splitter.minSceneDuration',
+    'tediapros.scene-splitter.minSceneDuration',
     SCENE_SPLITTER_DEFAULTS.minSceneDuration
   )
   const [engineStatus, setEngineStatus] = useState<SceneSplitterEngineStatus | null>(null)

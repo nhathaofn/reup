@@ -29,9 +29,9 @@ export function resolveFontsDir(): string | null {
   return null
 }
 
-function pathToTblaoUrl(absPath: string): string {
+function pathToTediaProsUrl(absPath: string): string {
   const b64 = Buffer.from(absPath, 'utf8').toString('base64url')
-  return `tblao://b64/${b64}`
+  return `tediapros://b64/${b64}`
 }
 
 export function listBurnFonts(): BurnFontEntry[] {
@@ -49,7 +49,7 @@ export function listBurnFonts(): BurnFontEntry[] {
       const abs = join(dir, f.file)
       return {
         ...f,
-        previewUrl: existsSync(abs) ? pathToTblaoUrl(abs) : undefined
+        previewUrl: existsSync(abs) ? pathToTediaProsUrl(abs) : undefined
       }
     })
   } catch {

@@ -1,4 +1,4 @@
-# Bản đồ module và entrypoint T-blao
+# Bản đồ module và entrypoint TediaPros
 
 > Đọc tài liệu này sau [CODEBASE.md](../CODEBASE.md) khi task cần biết file nào sở hữu một luồng hoặc một loại state. Snapshot được đối chiếu ngày **2026-08-17**, version **0.1.25**.
 
@@ -51,14 +51,14 @@ Root configuration quan trọng:
 
 | File | Trách nhiệm | State/process đáng chú ý |
 | --- | --- | --- |
-| `src/main/index.ts` | đăng ký privileged `tblao` protocol, single-instance lock, BrowserWindow, lifecycle, 68 core IPC handler và đăng ký feature Main | giữ `mainWindow`; gửi log/progress về Renderer; `registerIpc()` chứa core boundary |
+| `src/main/index.ts` | đăng ký privileged `tediapros` protocol, single-instance lock, BrowserWindow, lifecycle, 68 core IPC handler và đăng ký feature Main | giữ `mainWindow`; gửi log/progress về Renderer; `registerIpc()` chứa core boundary |
 | `src/main/logger.ts` | log memory/file/UI, làm sạch nhãn lỗi và mở log | `logEmitter`, log file trong userData |
-| `src/main/runtimeSetup.ts` | gate khởi động cho yt-dlp + FFmpeg core; optional feature engine cài on-demand | `TBLAO_DEV_ALLOW_MISSING_RUNTIME=1` bypass gate cho dev |
+| `src/main/runtimeSetup.ts` | gate khởi động cho yt-dlp + FFmpeg core; optional feature engine cài on-demand | `TEDIAPROS_DEV_ALLOW_MISSING_RUNTIME=1` bypass gate cho dev |
 | `src/main/deps.ts` | resolve/cài managed yt-dlp, FFmpeg/FFprobe, asset download, zip staging/rollback | `userData/bin`, `ASSET_BASE`, managed binary ưu tiên |
 | `src/main/updater.ts` | electron-updater và trạng thái check/download/install | bản local portable bỏ qua updater; release vẫn dùng GitHub |
 | `src/main/engines-update.ts` | đọc manifest remote, so version local, đánh dấu engine đã cài | `userData/bin/engines-local.json` |
 
-`app.whenReady()` trong `src/main/index.ts` đăng ký `tblao` handler, gọi `registerIpc()`, tạo window, khởi động auto-update yt-dlp và updater. `registerMainFeatures(() => mainWindow)` được gọi sau khi core IPC đã sẵn sàng.
+`app.whenReady()` trong `src/main/index.ts` đăng ký `tediapros` handler, gọi `registerIpc()`, tạo window, khởi động auto-update yt-dlp và updater. `registerMainFeatures(() => mainWindow)` được gọi sau khi core IPC đã sẵn sàng.
 
 ### Main domain adapters
 
@@ -73,7 +73,7 @@ Root configuration quan trọng:
 | GPU | `src/main/gpu.ts` | probe NVIDIA/driver/CUDA trước khi cho dùng device `cuda` |
 | OCR | `src/main/ocr.ts` | cài engine, spawn theo args, đọc JSON-lines, chuyển SRT sang TXT/VTT/JSON, cancel |
 | Burn subtitle | `src/main/burn.ts` | đọc SRT, preview, ASS/style/wrap, crop/blur/audio filter graph, FFmpeg encode và cancel |
-| Font | `src/main/fonts.ts`, `src/main/fontMeasure.ts` | catalog font, URL `tblao://`, đo chữ OpenType và fallback |
+| Font | `src/main/fonts.ts`, `src/main/fontMeasure.ts` | catalog font, URL `tediapros://`, đo chữ OpenType và fallback |
 | Video enhance | `src/main/video2x.ts` | cài/resolve Video2X, list device, build args, parse progress line, cancel |
 | Translation | `src/main/gemini.ts`, `src/main/openai.ts`, `src/main/translate-shared.ts` | safeStorage key, model fallback, timeout/schema, chia SRT và progress |
 | Dedicated SRT translation | `src/main/features/srt-translator.ts`, `src/main/services/srt-translator-job.ts` và các service SRT | verified video + SRT, restoration/audit/review tiếng Việt, bản địa hóa locale tuần tự, dialog xuất |
@@ -135,7 +135,7 @@ Service CapCut có các boundary riêng:
 | File | Vai trò |
 | --- | --- |
 | `src/preload/index.ts` | `coreApi` typed adapter cho toàn bộ core IPC; merge với `featureApi`; expose duy nhất `window.api` |
-| `src/preload/index.d.ts` | khai báo global `Window.api` từ `TblaoApi` |
+| `src/preload/index.d.ts` | khai báo global `Window.api` từ `TediaProsApi` |
 | `src/preload/features/contracts.ts` | merge API feature và phát hiện method collision |
 | `src/preload/features/registry.ts` | đăng ký preload adapter của 5 feature |
 | `src/preload/features/*.ts` | invoke/listener adapter, không đưa object Electron thô sang Renderer |
@@ -253,7 +253,7 @@ So sánh SHA-256 hiện tại cho thấy 93 file chung, 91 file giống hệt, k
 | `.github/workflows/build-mac-engines.yml` | build Douyin/Whisper/OCR asset trên macOS |
 | `.github/workflows/release-app.yml` | typecheck, package Windows, verify package và publish app release |
 
-Package có script `test:unit` dùng Node built-in test runner với TypeScript strip-types cho các test offline; boundary Gemini/rate/FFprobe phải được fake, không gọi dịch vụ thật. Live SRT smoke dùng `npm run test:smoke:srt` theo cơ chế opt-in, với `TBLAO_GEMINI_SMOKE_KEY`, `TBLAO_SRT_SMOKE_VIDEO`, `TBLAO_SRT_SMOKE_SRT` và `TBLAO_SRT_SMOKE_OUTPUT_DIR`; xóa các biến sau khi chạy. `npm.cmd run package:win:local` tạo Windows portable trong `dist-local`; dữ liệu local nằm cạnh executable trong `T-blao Local Data`. Python test được khai báo trong `engines/douyin-engine/pyproject.toml`; snapshot có 30 test file trong cây Douyin hoạt động, 30 trong cây lồng và 1 file test cho Whisper subtitle segments.
+Package có script `test:unit` dùng Node built-in test runner với TypeScript strip-types cho các test offline; boundary Gemini/rate/FFprobe phải được fake, không gọi dịch vụ thật. Live SRT smoke dùng `npm run test:smoke:srt` theo cơ chế opt-in, với `TEDIAPROS_GEMINI_SMOKE_KEY`, `TEDIAPROS_SRT_SMOKE_VIDEO`, `TEDIAPROS_SRT_SMOKE_SRT` và `TEDIAPROS_SRT_SMOKE_OUTPUT_DIR`; xóa các biến sau khi chạy. `npm.cmd run package:win:local` tạo Windows portable trong `dist-local`; dữ liệu local nằm cạnh executable trong `TediaPros Local Data`. Python test được khai báo trong `engines/douyin-engine/pyproject.toml`; snapshot có 30 test file trong cây Douyin hoạt động, 30 trong cây lồng và 1 file test cho Whisper subtitle segments.
 
 ## State và process ownership
 

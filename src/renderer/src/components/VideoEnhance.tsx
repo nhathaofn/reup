@@ -186,7 +186,7 @@ function TaskConfigPanel({
 }): JSX.Element {
   const [tab, setTab] = useState<'processing' | 'encoder'>('processing')
   const [showHelp, setShowHelp] = useState(false)
-  const [expert, setExpert] = usePersistedState('tblao.v2x.expert', false)
+  const [expert, setExpert] = usePersistedState('tediapros.v2x.expert', false)
 
   const patch = (partial: Partial<Video2xTaskConfig>): void => {
     onChange({ ...config, ...partial })
@@ -241,7 +241,7 @@ function TaskConfigPanel({
       <div className="v2x-cfg-head">
         <div className="v2x-cfg-title">
           <b>Kết quả mong muốn</b>
-          <span className="muted small">Áp dụng cho cả hàng đợi · T-blao tự nhớ</span>
+          <span className="muted small">Áp dụng cho cả hàng đợi · TediaPros tự nhớ</span>
         </div>
         <button
           type="button"
@@ -587,8 +587,8 @@ function TaskConfigPanel({
 }
 
 export default function VideoEnhance(): JSX.Element {
-  const [outputDir, setOutputDir] = useTabOutputDir('tblao.outputDir.enhance')
-  const [cfg, setCfg] = usePersistedState('tblao.v2x.config', defaultConfig())
+  const [outputDir, setOutputDir] = useTabOutputDir('tediapros.outputDir.enhance')
+  const [cfg, setCfg] = usePersistedState('tediapros.v2x.config', defaultConfig())
   const [tasks, setTasks] = useState<EnhanceTask[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [devices, setDevices] = useState<Video2xDevice[]>([])
@@ -796,7 +796,7 @@ export default function VideoEnhance(): JSX.Element {
         <div className="card" style={{ marginBottom: 12 }}>
           <div className="cot-tieude">Cài tính năng nâng cấp video</div>
           <p className="muted small">
-            T-blao cần tải thêm thành phần xử lý để làm nét và tăng độ mượt video.
+            TediaPros cần tải thêm thành phần xử lý để làm nét và tăng độ mượt video.
           </p>
           <button className="btn primary" disabled={installing} onClick={() => void install()}>
             {installing ? `Đang tải… ${installPct}%` : 'Cài tính năng nâng cấp'}

@@ -1,6 +1,6 @@
 import type { DichProvider } from '../../../shared/types'
 
-const KEY = 'tblao.dich.provider'
+const KEY = 'tediapros.dich.provider'
 
 /** Doc provider dang chon (localStorage) — luon lay gia tri moi nhat luc goi dich. */
 export function readDichProvider(): DichProvider {

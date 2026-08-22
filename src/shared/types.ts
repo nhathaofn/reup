@@ -17,7 +17,7 @@ export interface DepStatus {
   ffmpeg: boolean
   engines: boolean
   platform: NodeJS.Platform
-  /** Chi co khi dev bat TBLAO_DEV_ALLOW_MISSING_RUNTIME=1 de test UI. */
+  /** Chi co khi dev bat TEDIAPROS_DEV_ALLOW_MISSING_RUNTIME=1 de test UI. */
   devRuntimeBypass?: boolean
 }
 
@@ -280,7 +280,7 @@ export interface BurnFontEntry {
   /** Ten noi bo dung trong ASS Style Fontname. */
   family: string
   group: string
-  /** URL tblao:// de @font-face preview trong renderer (main gan khi list). */
+  /** URL tediapros:// de @font-face preview trong renderer (main gan khi list). */
   previewUrl?: string
 }
 

@@ -36,7 +36,7 @@ app.getPath('userData')
 
 - Setup gate yêu cầu **managed** `yt-dlp` và cả `ffmpeg` + `ffprobe` trong `userData/bin`.
 - Resolve khi chạy ưu tiên managed binary; một số operation có thể fallback sang PATH (`yt-dlp`, `ffmpeg/ffprobe`) sau khi setup hoặc trong môi trường dev.
-- `TBLAO_DEV_ALLOW_MISSING_RUNTIME=1` đánh dấu `devRuntimeBypass`, cho phép Renderer vào app dù core runtime thiếu; đây là test UI, không phải release mode.
+- `TEDIAPROS_DEV_ALLOW_MISSING_RUNTIME=1` đánh dấu `devRuntimeBypass`, cho phép Renderer vào app dù core runtime thiếu; đây là test UI, không phải release mode.
 - Optional engine (`Douyin`, `Whisper`, `OCR`, `Video2X`, PySceneDetect) được cài từ tab/feature riêng, không chặn lần boot đầu.
 
 ### Asset base và version
@@ -45,7 +45,7 @@ app.getPath('userData')
 
 - `ASSET_TAG = 'assets-v1'`;
 - mặc định `https://github.com/nhathaofn/releases/releases/download/assets-v1`;
-- override dev bằng `TBLAO_ASSET_BASE`.
+- override dev bằng `TEDIAPROS_ASSET_BASE`.
 
 `src/main/engines-update.ts` đọc `${ASSET_BASE}/engines-manifest.json`, so version remote với `userData/bin/engines-local.json`. Engine key hiện được code định nghĩa là `ocr`, `whisper`, `douyin`, `whisperCuda`, `video2x`; manifest hiện tại có đủ 5 key với giá trị `2, 2, 2, 1, 1` tương ứng.
 
@@ -74,7 +74,7 @@ Khi cài thành công, adapter ghi version remote nếu đọc được; nếu k
 - gọi `-J --flat-playlist` để thăm dò playlist/nested playlist;
 - truyền cookie Netscape theo domain khi bật cookie;
 - truyền proxy nếu có;
-- parse progress marker `TBLAOPROG`/`TBLAOFILE` và postprocess tags;
+- parse progress marker `TEDIAPROSPROG`/`TEDIAPROSFILE` và postprocess tags;
 - resolve output theo sidecar/ID và validate file vẫn nằm trong output dir;
 - có archive, subtitle/metadata/thumbnail, H.264 conversion và phân loại error theo site.
 
@@ -167,7 +167,7 @@ Workflow này không build Video2X từ source repo vì adapter tải upstream p
 
 `electron-builder.yml` khai báo cả NSIS Windows và DMG/ZIP macOS, nhưng workflow release hiện không có job `package:mac`.
 
-Build local portable dùng `electron-builder.local.yml` và lệnh `npm run package:win:local`. Nó tạo một `.exe` trong `dist-local`, dùng app ID/tên riêng, đặt `userData` vào `T-blao Local Data` cạnh executable qua `PORTABLE_EXECUTABLE_DIR`, và tắt electron-updater. Lệnh `npm run package:win` cùng config release không thay đổi.
+Build local portable dùng `electron-builder.local.yml` và lệnh `npm run package:win:local`. Nó tạo một `.exe` trong `dist-local`, dùng app ID/tên riêng, đặt `userData` vào `TediaPros Local Data` cạnh executable qua `PORTABLE_EXECUTABLE_DIR`, và tắt electron-updater. Lệnh `npm run package:win` cùng config release không thay đổi.
 
 ## Packaging invariants
 

@@ -26,7 +26,7 @@ const srcVideo = (p: string): string => {
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/, '')
-  return `tblao://b64/${b64}`
+  return `tediapros://b64/${b64}`
 }
 
 const PALETTE = [
@@ -44,14 +44,14 @@ type Buoc = 'idle' | 'doc' | 'dich' | 'xong' | 'loi'
 type SubtitleMode = 'burn' | 'soft'
 
 export default function ScreenText(): JSX.Element {
-  const [outputDir, setOutputDir] = useTabOutputDir('tblao.outputDir.screen')
+  const [outputDir, setOutputDir] = useTabOutputDir('tediapros.outputDir.screen')
   const [video, setVideo] = useState<string | null>(null)
   const [videoH, setVideoH] = useState(0)
   const [videoW, setVideoW] = useState(0)
   const [boxH, setBoxH] = useState(0)
   const [boxW, setBoxW] = useState(0)
 
-  const [dich, setDich] = usePersistedState('tblao.ocr.dich', 'none')
+  const [dich, setDich] = usePersistedState('tediapros.ocr.dich', 'none')
   const [buoc, setBuoc] = useState<Buoc>('idle')
   const [pct, setPct] = useState(0)
   const [dongChu, setDongChu] = useState('')
@@ -60,10 +60,10 @@ export default function ScreenText(): JSX.Element {
   const [loi, setLoi] = useState<string | null>(null)
 
   const [batLamMo, setBatLamMo] = useState(true)
-  const [moTheoSrt, setMoTheoSrt] = usePersistedState('tblao.burn.moTheoSrt', true)
+  const [moTheoSrt, setMoTheoSrt] = usePersistedState('tediapros.burn.moTheoSrt', true)
   const [batPhuDe, setBatPhuDe] = useState(false)
   const [subtitleMode, setSubtitleMode] = usePersistedState<SubtitleMode>(
-    'tblao.burn.subtitleMode',
+    'tediapros.burn.subtitleMode',
     'burn'
   )
   const [blurRegions, setBlurRegions] = useState<BlurRegion[]>([])
@@ -77,24 +77,24 @@ export default function ScreenText(): JSX.Element {
   const [previewTime, setPreviewTime] = useState(0)
   const [previewPlaying, setPreviewPlaying] = useState(false)
   const [subRegion, setSubRegion] = useState<Region | undefined>(undefined)
-  const [fontId, setFontId] = usePersistedState('tblao.burn.fontId', 'auto')
+  const [fontId, setFontId] = usePersistedState('tediapros.burn.fontId', 'auto')
   const [burnFonts, setBurnFonts] = useState<BurnFontEntry[]>([])
   const [previewFontFamily, setPreviewFontFamily] = useState('')
   const [subtitlePreset, setSubtitlePreset] = usePersistedState<SubtitlePreset>(
-    'tblao.burn.subtitlePreset',
+    'tediapros.burn.subtitlePreset',
     'custom'
   )
-  const [textColor, setTextColor] = usePersistedState('tblao.burn.textColor', '#ffffff')
-  const [outlineColor, setOutlineColor] = usePersistedState('tblao.burn.outlineColor', '#111827')
-  const [outlinePx, setOutlinePx] = usePersistedState('tblao.burn.outlinePx', 2)
-  const [bgEnabled, setBgEnabled] = usePersistedState('tblao.burn.bgEnabled', false)
-  const [bgColor, setBgColor] = usePersistedState('tblao.burn.bgColor', '#111827')
-  const [bgOpacity, setBgOpacity] = usePersistedState('tblao.burn.bgOpacity', 84)
-  const [fontScale, setFontScale] = usePersistedState('tblao.burn.fontScale', 100)
-  const [bold, setBold] = usePersistedState('tblao.burn.bold', true)
-  const [italic, setItalic] = usePersistedState('tblao.burn.italic', false)
-  const [shadowPx, setShadowPx] = usePersistedState('tblao.burn.shadowPx', 1)
-  const [bgPaddingPx, setBgPaddingPx] = usePersistedState('tblao.burn.bgPaddingPx', 10)
+  const [textColor, setTextColor] = usePersistedState('tediapros.burn.textColor', '#ffffff')
+  const [outlineColor, setOutlineColor] = usePersistedState('tediapros.burn.outlineColor', '#111827')
+  const [outlinePx, setOutlinePx] = usePersistedState('tediapros.burn.outlinePx', 2)
+  const [bgEnabled, setBgEnabled] = usePersistedState('tediapros.burn.bgEnabled', false)
+  const [bgColor, setBgColor] = usePersistedState('tediapros.burn.bgColor', '#111827')
+  const [bgOpacity, setBgOpacity] = usePersistedState('tediapros.burn.bgOpacity', 84)
+  const [fontScale, setFontScale] = usePersistedState('tediapros.burn.fontScale', 100)
+  const [bold, setBold] = usePersistedState('tediapros.burn.bold', true)
+  const [italic, setItalic] = usePersistedState('tediapros.burn.italic', false)
+  const [shadowPx, setShadowPx] = usePersistedState('tediapros.burn.shadowPx', 1)
+  const [bgPaddingPx, setBgPaddingPx] = usePersistedState('tediapros.burn.bgPaddingPx', 10)
   const [ghep, setGhep] = useState<'idle' | 'chay' | 'xong' | 'loi'>('idle')
   const [ghepPct, setGhepPct] = useState(0)
   const [ghepOut, setGhepOut] = useState('')
@@ -102,14 +102,14 @@ export default function ScreenText(): JSX.Element {
 
   const [batOcrBox, setBatOcrBox] = useState(false)
   const [ocrRegion, setOcrRegion] = useState<Region | undefined>(undefined)
-  const [fmtSrt, setFmtSrt] = usePersistedState('tblao.ocr.fmt.srt', true)
-  const [fmtTxt, setFmtTxt] = usePersistedState('tblao.ocr.fmt.txt', false)
-  const [fmtVtt, setFmtVtt] = usePersistedState('tblao.ocr.fmt.vtt', false)
-  const [fmtJson, setFmtJson] = usePersistedState('tblao.ocr.fmt.json', false)
+  const [fmtSrt, setFmtSrt] = usePersistedState('tediapros.ocr.fmt.srt', true)
+  const [fmtTxt, setFmtTxt] = usePersistedState('tediapros.ocr.fmt.txt', false)
+  const [fmtVtt, setFmtVtt] = usePersistedState('tediapros.ocr.fmt.vtt', false)
+  const [fmtJson, setFmtJson] = usePersistedState('tediapros.ocr.fmt.json', false)
 
   const [batAmThanh, setBatAmThanh] = useState(false)
   const [amThanhMode, setAmThanhMode] = usePersistedState<'single' | 'voice-per-cue'>(
-    'tblao.burn.audioMode',
+    'tediapros.burn.audioMode',
     'single'
   )
   const [amThanhFile, setAmThanhFile] = useState('')
@@ -117,7 +117,7 @@ export default function ScreenText(): JSX.Element {
   const [voiceScan, setVoiceScan] = useState<VoiceSyncScanResult | null>(null)
   const [voiceScanBusy, setVoiceScanBusy] = useState(false)
   const [amLuongGoc, setAmLuongGoc] = useState(100)
-  const [amLuongVoice, setAmLuongVoice] = usePersistedState('tblao.burn.voiceVolume', 100)
+  const [amLuongVoice, setAmLuongVoice] = usePersistedState('tediapros.burn.voiceVolume', 100)
 
   const [hasEngine, setHasEngine] = useState<boolean | null>(null)
   const [installing, setInstalling] = useState(false)
@@ -187,7 +187,7 @@ export default function ScreenText(): JSX.Element {
 
   // Nap @font-face khi doi font — chu mau tren khung video doi theo
   useEffect(() => {
-    const styleId = 'tblao-burn-font-preview'
+    const styleId = 'tediapros-burn-font-preview'
     let el = document.getElementById(styleId) as HTMLStyleElement | null
     if (!el) {
       el = document.createElement('style')
@@ -202,7 +202,7 @@ export default function ScreenText(): JSX.Element {
       return
     }
 
-    const fam = `TblaoBurn_${entry.id}`
+    const fam = `TediaProsBurn_${entry.id}`
     const fmt = /\.otf$/i.test(entry.file) ? 'opentype' : 'truetype'
     el.textContent =
       `@font-face{font-family:'${fam}';src:url('${entry.previewUrl}') format('${fmt}');` +
@@ -673,7 +673,7 @@ export default function ScreenText(): JSX.Element {
               <>Đã có bản công cụ mới — đang tải và cài đè bản cũ (~230MB).</>
             ) : (
               <>
-                Việc nhận diện chữ chạy <b>ngay trên máy bạn</b>. T-blao cần tải thêm khoảng 230 MB
+                Việc nhận diện chữ chạy <b>ngay trên máy bạn</b>. TediaPros cần tải thêm khoảng 230 MB
                 trong lần cài đầu tiên.
               </>
             )}
@@ -943,7 +943,7 @@ export default function ScreenText(): JSX.Element {
                     <label className="gk-check">
                       <input
                         type="radio"
-                        name="tblao-subtitle-mode"
+                        name="tediapros-subtitle-mode"
                         checked={subtitleMode === 'burn'}
                         onChange={() => setSubtitleMode('burn')}
                       />
@@ -952,7 +952,7 @@ export default function ScreenText(): JSX.Element {
                     <label className="gk-check">
                       <input
                         type="radio"
-                        name="tblao-subtitle-mode"
+                        name="tediapros-subtitle-mode"
                         checked={subtitleMode === 'soft'}
                         onChange={() => setSubtitleMode('soft')}
                       />
@@ -1249,7 +1249,7 @@ export default function ScreenText(): JSX.Element {
                     <label className="gk-check">
                       <input
                         type="radio"
-                        name="tblao-audio-mode"
+                        name="tediapros-audio-mode"
                         checked={amThanhMode === 'single'}
                         onChange={() => setAmThanhMode('single')}
                       />
@@ -1258,7 +1258,7 @@ export default function ScreenText(): JSX.Element {
                     <label className="gk-check">
                       <input
                         type="radio"
-                        name="tblao-audio-mode"
+                        name="tediapros-audio-mode"
                         checked={amThanhMode === 'voice-per-cue'}
                         onChange={() => setAmThanhMode('voice-per-cue')}
                       />
@@ -1471,7 +1471,7 @@ export default function ScreenText(): JSX.Element {
                   ref={vidRef}
                   src={srcVideo(video)}
                   onLoadedMetadata={onMeta}
-                  onError={() => setLoi('T-blao không mở được video này. Hãy thử một video MP4 khác.')}
+                  onError={() => setLoi('TediaPros không mở được video này. Hãy thử một video MP4 khác.')}
                   onPlay={() => setPreviewPlaying(true)}
                   onPause={() => setPreviewPlaying(false)}
                   onTimeUpdate={capNhatPreviewTime}

@@ -35,7 +35,7 @@ test('review clip starts 1.5 seconds early and ends 2 seconds late', () => {
 })
 
 test('local video URL uses the established b64 protocol', () => {
-  assert.match(localMediaUrl('C:\\video test\\a.mp4'), /^tblao:\/\/b64\//)
+  assert.match(localMediaUrl('C:\\video test\\a.mp4'), /^tediapros:\/\/b64\//)
 })
 
 test('five-step UI classes preserve scroll and responsive review layout', () => {

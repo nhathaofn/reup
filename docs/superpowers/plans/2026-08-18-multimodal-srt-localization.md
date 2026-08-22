@@ -6,7 +6,7 @@
 
 **Architecture:** Giữ vertical slice `srt-translator`, nhưng Main trở thành job orchestrator quản lý đúng một job, một remote video và vòng đời cleanup. Các service Files API, source validation, restoration, audit, locale profile, conversion và localization đều nhận dependency interface để unit test không cần Electron hoặc mạng; Renderer chỉ giữ `jobId` và dữ liệu review đã làm sạch.
 
-**Tech Stack:** Electron 34, React 19, TypeScript 5.7, Node built-in `fetch`/`node:test`, Gemini REST Files API + structured output, FFprobe hiện có, ExchangeRate-API open endpoint, CSS hiện có của T-blao.
+**Tech Stack:** Electron 34, React 19, TypeScript 5.7, Node built-in `fetch`/`node:test`, Gemini REST Files API + structured output, FFprobe hiện có, ExchangeRate-API open endpoint, CSS hiện có của TediaPros.
 
 **Spec:** `docs/superpowers/specs/2026-08-18-multimodal-srt-localization-design.md`
 
@@ -38,7 +38,7 @@
 - `src/preload/features/srt-translator.ts` hiện expose load/translate/export/progress.
 - `src/renderer/src/features/srt-translator/index.tsx` hiện là một component text-only; `model.ts` giữ state helper đơn giản.
 - `src/main/gemini.ts` đã có `loadKey()` và luồng text-only dùng chung; không được chuyển prompt multimodal vào đây.
-- `tblao://b64/...` trong `src/main/index.ts` đã hỗ trợ Range/seek video local và sẽ được tái sử dụng ở review UI.
+- `tediapros://b64/...` trong `src/main/index.ts` đã hỗ trợ Range/seek video local và sẽ được tái sử dụng ở review UI.
 - `resolveFfmpeg()` trong `src/main/deps.ts` là nguồn duy nhất để tìm FFprobe.
 
 ## Locked File Structure
@@ -4033,7 +4033,7 @@ test('review clip starts 1.5 seconds early and ends 2 seconds late', () => {
 })
 
 test('local video URL uses the established b64 protocol', () => {
-  assert.match(localMediaUrl('C:\\video test\\a.mp4'), /^tblao:\/\/b64\//)
+  assert.match(localMediaUrl('C:\\video test\\a.mp4'), /^tediapros:\/\/b64\//)
 })
 
 test('five-step UI classes preserve scroll and responsive review layout', () => {
@@ -4072,7 +4072,7 @@ export function localMediaUrl(path: string): string {
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/g, '')
-  return `tblao://b64/${b64}`
+  return `tediapros://b64/${b64}`
 }
 
 export function reviewClipRange(cue: Pick<SrtReviewCue, 'startSeconds' | 'endSeconds'>): {
@@ -4958,10 +4958,10 @@ Expected: PASS with no live network, no Electron import and exact one upload/del
 The test is skipped unless all four variables exist:
 
 ```text
-TBLAO_GEMINI_SMOKE_KEY
-TBLAO_SRT_SMOKE_VIDEO
-TBLAO_SRT_SMOKE_SRT
-TBLAO_SRT_SMOKE_OUTPUT_DIR
+TEDIAPROS_GEMINI_SMOKE_KEY
+TEDIAPROS_SRT_SMOKE_VIDEO
+TEDIAPROS_SRT_SMOKE_SRT
+TEDIAPROS_SRT_SMOKE_OUTPUT_DIR
 ```
 
 The test must:
@@ -4969,7 +4969,7 @@ The test must:
 1. Load a short Chinese video/SRT containing a known homophone ASR error, visually disambiguated species, slang, money and a measurement.
 2. Run real upload → active → restoration → audit → vi/ja/th/id translation.
 3. Assert exact cue count/timestamps/speaker labels.
-4. Write output files only under `TBLAO_SRT_SMOKE_OUTPUT_DIR`.
+4. Write output files only under `TEDIAPROS_SRT_SMOKE_OUTPUT_DIR`.
 5. Delete the remote file in `finally`.
 6. Query the deleted file once and accept only `404`/not-found as cleanup confirmation.
 7. Never print key, URI, source text or raw model response.
@@ -5005,10 +5005,10 @@ import {
 } from '../src/main/services/srt-source-validation.ts'
 
 const configured = [
-  process.env.TBLAO_GEMINI_SMOKE_KEY,
-  process.env.TBLAO_SRT_SMOKE_VIDEO,
-  process.env.TBLAO_SRT_SMOKE_SRT,
-  process.env.TBLAO_SRT_SMOKE_OUTPUT_DIR
+  process.env.TEDIAPROS_GEMINI_SMOKE_KEY,
+  process.env.TEDIAPROS_SRT_SMOKE_VIDEO,
+  process.env.TEDIAPROS_SRT_SMOKE_SRT,
+  process.env.TEDIAPROS_SRT_SMOKE_OUTPUT_DIR
 ].every(Boolean)
 
 function requiredEnv(name: string): string {
@@ -5044,10 +5044,10 @@ interface SmokeResult {
 }
 
 async function runConfiguredSmoke(): Promise<SmokeResult> {
-  const apiKey = requiredEnv('TBLAO_GEMINI_SMOKE_KEY')
-  const videoPath = requiredEnv('TBLAO_SRT_SMOKE_VIDEO')
-  const srtPath = requiredEnv('TBLAO_SRT_SMOKE_SRT')
-  const outputDir = requiredEnv('TBLAO_SRT_SMOKE_OUTPUT_DIR')
+  const apiKey = requiredEnv('TEDIAPROS_GEMINI_SMOKE_KEY')
+  const videoPath = requiredEnv('TEDIAPROS_SRT_SMOKE_VIDEO')
+  const srtPath = requiredEnv('TEDIAPROS_SRT_SMOKE_SRT')
+  const outputDir = requiredEnv('TEDIAPROS_SRT_SMOKE_OUTPUT_DIR')
   for (const path of [videoPath, srtPath, outputDir]) {
     assert.equal(isAbsolute(path), true, 'Smoke paths must be absolute.')
   }
@@ -5272,10 +5272,10 @@ Use a short known Chinese sample and verify:
 PowerShell:
 
 ```text
-$env:TBLAO_GEMINI_SMOKE_KEY = Read-Host 'Dán Gemini key tạm thời dành riêng cho smoke test'
-$env:TBLAO_SRT_SMOKE_VIDEO = Read-Host 'Nhập đường dẫn tuyệt đối tới video mẫu đã duyệt'
-$env:TBLAO_SRT_SMOKE_SRT = Read-Host 'Nhập đường dẫn tuyệt đối tới SRT tiếng Trung khớp video'
-$env:TBLAO_SRT_SMOKE_OUTPUT_DIR = Read-Host 'Nhập đường dẫn tuyệt đối tới thư mục output dùng một lần'
+$env:TEDIAPROS_GEMINI_SMOKE_KEY = Read-Host 'Dán Gemini key tạm thời dành riêng cho smoke test'
+$env:TEDIAPROS_SRT_SMOKE_VIDEO = Read-Host 'Nhập đường dẫn tuyệt đối tới video mẫu đã duyệt'
+$env:TEDIAPROS_SRT_SMOKE_SRT = Read-Host 'Nhập đường dẫn tuyệt đối tới SRT tiếng Trung khớp video'
+$env:TEDIAPROS_SRT_SMOKE_OUTPUT_DIR = Read-Host 'Nhập đường dẫn tuyệt đối tới thư mục output dùng một lần'
 npm run test:smoke:srt
 ```
 

@@ -50,7 +50,7 @@ export default function OpenAIHelp({ onClose }: { onClose: () => void }): JSX.El
             <div>
               <b>Sao chép khóa</b>
               <p className="muted small">
-                Key chỉ hiện một lần — bấm <b>“Copy”</b>, rồi dán vào ô trong T-blao. Key thường bắt
+                Key chỉ hiện một lần — bấm <b>“Copy”</b>, rồi dán vào ô trong TediaPros. Key thường bắt
                 đầu bằng <b>sk-</b>.
               </p>
             </div>

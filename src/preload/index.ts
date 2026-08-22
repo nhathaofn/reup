@@ -310,4 +310,4 @@ const api = { ...coreApi, ...featureApi }
 
 contextBridge.exposeInMainWorld('api', api)
 
-export type TblaoApi = typeof api
+export type TediaProsApi = typeof api

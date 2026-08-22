@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Tạo một bộ tài liệu Markdown có điểm đọc đầu tiên, bản đồ module, hợp đồng IPC/feature, bản đồ runtime/engine và ghi chú rủi ro để giảm số lần phải quét lại toàn bộ codebase T-blao.
+**Goal:** Tạo một bộ tài liệu Markdown có điểm đọc đầu tiên, bản đồ module, hợp đồng IPC/feature, bản đồ runtime/engine và ghi chú rủi ro để giảm số lần phải quét lại toàn bộ codebase TediaPros.
 
 **Architecture:** Dùng `CODEBASE.md` làm index ở root và chia kiến thức theo năm miền trong `docs/`. Tài liệu mới tham chiếu trực tiếp tới source/config/workflow hiện tại; các tài liệu kiến trúc và feature cũ được giữ lại, cập nhật những điểm đã lệch và nối liên kết từ index.
 
@@ -171,7 +171,7 @@ Ghi cho từng runtime: owner adapter, binary/package, nguồn cài, nơi lưu d
 
 - [ ] **Step 4: Ghi dev/packaged behavior**
 
-Mô tả `TBLAO_USER_DATA_DIR`, `TBLAO_DEV_ALLOW_MISSING_RUNTIME`, resolve PATH/managed binary, runtime setup lúc khởi động và giới hạn khi engine chưa cài.
+Mô tả `TEDIAPROS_USER_DATA_DIR`, `TEDIAPROS_DEV_ALLOW_MISSING_RUNTIME`, resolve PATH/managed binary, runtime setup lúc khởi động và giới hạn khi engine chưa cài.
 
 - [ ] **Step 5: Kiểm tra tên asset/manifest**
 

@@ -85,7 +85,7 @@ export async function saveApiKeyPool(
     { flag: 'w' }
   )
   // Keep the first key in the old location for compatibility with an older
-  // T-blao build. Current code always prefers the pool file above.
+  // TediaPros build. Current code always prefers the pool file above.
   await writeFile(legacyPath, encrypt(normalized[0]), { flag: 'w' })
   return normalized
 }

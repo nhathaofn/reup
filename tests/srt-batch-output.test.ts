@@ -7,7 +7,7 @@ import { materializeSrtBatchOutput } from '../src/main/services/srt-batch-output
 import * as batchOutputModule from '../src/main/services/srt-batch-output.ts'
 
 async function withTempDir<T>(run: (directory: string) => Promise<T>): Promise<T> {
-  const directory = await mkdtemp(join(os.tmpdir(), 'tblao-srt-batch-'))
+  const directory = await mkdtemp(join(os.tmpdir(), 'tediapros-srt-batch-'))
   try {
     return await run(directory)
   } finally {

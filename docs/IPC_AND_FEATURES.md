@@ -61,7 +61,7 @@ Source hiện có **68 request channels**; danh sách dưới đây được tr�
 | Shell | `shell:showItem`, `shell:openPath`, `shell:openExternal` |
 | Proxy/font | `proxy:test`, `fonts:list` |
 
-Logger ghi bản runtime vào `app.getPath('userData')/logs/tblao.log` và tab **Hỗ trợ** có nút mở trực tiếp file này. Workflow Dịch SRT ghi trace cho từng phase, thao tác đọc SRT, request/repair Gemini, response JSON đầy đủ theo từng attempt, audit batch, target bản dịch, cleanup và heartbeat mỗi 30 giây. Khi một phase chạy từ 3 phút trở lên, log chuyển sang cảnh báo và ghi `elapsed`; payload chẩn đoán có thể chứa SRT/prompt nên chỉ chia sẻ file khi đã kiểm tra, còn API key và remote URI luôn được che.
+Logger ghi bản runtime vào `app.getPath('userData')/logs/tediapros.log` và tab **Hỗ trợ** có nút mở trực tiếp file này. Workflow Dịch SRT ghi trace cho từng phase, thao tác đọc SRT, request/repair Gemini, response JSON đầy đủ theo từng attempt, audit batch, target bản dịch, cleanup và heartbeat mỗi 30 giây. Khi một phase chạy từ 3 phút trở lên, log chuyển sang cảnh báo và ghi `elapsed`; payload chẩn đoán có thể chứa SRT/prompt nên chỉ chia sẻ file khi đã kiểm tra, còn API key và remote URI luôn được che.
 
 ### yt-dlp/download
 
@@ -145,7 +145,7 @@ Contract và điểm nối:
 | `subtitle-pipeline:cancel` | Renderer → Main | abort job, kill engine đang chạy và dọn thư mục tạm |
 | `subtitle-pipeline:progress` | Main → Renderer | phase, percent, elapsed, cue/conflict count và job id |
 
-Request nhận video, SRT tham chiếu tùy chọn, model/language/device Whisper, OCR mode (`auto`/`full`) hoặc vùng pixel tùy chọn, Gemini/target locale và cờ giữ intermediate. Main không trộn text trước khi đối chiếu: `subtitle-pipeline-fusion.ts` tạo cue có `primarySource` và toàn bộ `sources[]` (ASR/OCR/SRT, timestamp, similarity, overlap). `*.smart.final.srt` là transcript canonical, `*.smart.tts-ready.srt` là bản chuẩn hóa phát âm sinh từ final, còn cue `hard_failure`/`finalAction=drop` chỉ giữ trong `*.smart.needs-review.srt` và `*.smart.evidence.json`. Các artifact `*.smart.fused.srt`, `*.smart.asr.srt`, `*.smart.ocr.srt`, `*.smart.ai-draft.srt` và `*.smart.evidence.json` được ghi cạnh output video; file tạm `.tblao-subtitle-pipeline-<jobId>` được xóa ở terminal paths.
+Request nhận video, SRT tham chiếu tùy chọn, model/language/device Whisper, OCR mode (`auto`/`full`) hoặc vùng pixel tùy chọn, Gemini/target locale và cờ giữ intermediate. Main không trộn text trước khi đối chiếu: `subtitle-pipeline-fusion.ts` tạo cue có `primarySource` và toàn bộ `sources[]` (ASR/OCR/SRT, timestamp, similarity, overlap). `*.smart.final.srt` là transcript canonical, `*.smart.tts-ready.srt` là bản chuẩn hóa phát âm sinh từ final, còn cue `hard_failure`/`finalAction=drop` chỉ giữ trong `*.smart.needs-review.srt` và `*.smart.evidence.json`. Các artifact `*.smart.fused.srt`, `*.smart.asr.srt`, `*.smart.ocr.srt`, `*.smart.ai-draft.srt` và `*.smart.evidence.json` được ghi cạnh output video; file tạm `.tediapros-subtitle-pipeline-<jobId>` được xóa ở terminal paths.
 
 Prompt evidence-aware nói rõ ASR là giả thuyết lời nói, OCR là chữ nhìn thấy và SRT là track độc lập. Audit chỉ auto-promote thay đổi ngữ nghĩa khi bề mặt corrected khớp ít nhất hai provenance độc lập; xung đột không đủ căn cứ vẫn giữ review. Logger heartbeat mỗi 30 giây và chuyển WARN sau 3 phút, đồng thời ghi request/response Gemini đã che key/URI.
 
@@ -155,7 +155,7 @@ Batch chạy tuần tự theo target; một target lỗi vẫn giữ các target
 
 ### Kiểm thử SRT
 
-`npm run test:unit` là đường chạy offline, dùng boundary giả và không gọi Gemini/rate API thật. `npm run test:smoke:srt` là live smoke **opt-in**, chỉ chạy với video/SRT mẫu đã duyệt và bốn biến môi trường tạm thời: `TBLAO_GEMINI_SMOKE_KEY`, `TBLAO_SRT_SMOKE_VIDEO`, `TBLAO_SRT_SMOKE_SRT`, `TBLAO_SRT_SMOKE_OUTPUT_DIR`. Sau smoke test phải xóa các biến; không commit key hoặc đường dẫn mẫu.
+`npm run test:unit` là đường chạy offline, dùng boundary giả và không gọi Gemini/rate API thật. `npm run test:smoke:srt` là live smoke **opt-in**, chỉ chạy với video/SRT mẫu đã duyệt và bốn biến môi trường tạm thời: `TEDIAPROS_GEMINI_SMOKE_KEY`, `TEDIAPROS_SRT_SMOKE_VIDEO`, `TEDIAPROS_SRT_SMOKE_SRT`, `TEDIAPROS_SRT_SMOKE_OUTPUT_DIR`. Sau smoke test phải xóa các biến; không commit key hoặc đường dẫn mẫu.
 
 ## Event channels
 

@@ -362,8 +362,8 @@ export async function fetchPlaylist(
   return { isPlaylist: false, title: null, count: 0, entries: [] }
 }
 
-const PROG = 'TBLAOPROG'
-const FILE_PROG = 'TBLAOFILE'
+const PROG = 'TEDIAPROSPROG'
+const FILE_PROG = 'TEDIAPROSFILE'
 const PP_TAGS = ['[Merger]', '[ExtractAudio]', '[EmbedThumbnail]', '[Metadata]', '[VideoConvertor]']
 const MEDIA_EXTENSIONS = new Set([
   '.mp4',
@@ -395,7 +395,7 @@ function safeTaskId(id: string): string {
 function resultSidecarPath(id: string, attempt: string): string {
   return join(
     app.getPath('temp'),
-    't-blao-download-results',
+    'tediapros-download-results',
     `${safeTaskId(id)}-${safeTaskId(attempt)}.jsonl`
   )
 }
@@ -1220,8 +1220,8 @@ async function ensureH264Output(
   if (!source.codec) throw new Error('Không xác định được codec video vừa tải.')
 
   const safeId = safeTaskId(id)
-  const temp = join(dirname(file), `.${basename(file)}.${safeId}.tblao-h264.mp4`)
-  const backup = `${file}.${safeId}.tblao-original`
+  const temp = join(dirname(file), `.${basename(file)}.${safeId}.tediapros-h264.mp4`)
+  const backup = `${file}.${safeId}.tediapros-original`
   await Promise.all([rm(temp, { force: true }), rm(backup, { force: true })])
 
   try {

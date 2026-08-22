@@ -1,10 +1,10 @@
-# T-blao — đọc nhanh codebase
+# TediaPros — đọc nhanh codebase
 
 > Đây là điểm đọc đầu tiên cho AI hoặc developer trước khi tìm kiếm rộng trong repository. Snapshot này được đối chiếu ngày **2026-08-17** với version ứng dụng **0.1.25** trong `package.json`.
 
 ## Nếu chỉ có vài phút
 
-T-blao là ứng dụng desktop Electron cho tải và xử lý video/audio. Luồng chính là:
+TediaPros là ứng dụng desktop Electron cho tải và xử lý video/audio. Luồng chính là:
 
 ```text
 React Renderer
@@ -44,13 +44,13 @@ Các thư mục `node_modules`, `out`, `dist`, `build` và binary/runtime tải 
 
 ## Entry point và luồng khởi động
 
-1. `src/main/index.ts` đăng ký protocol `tblao`, tạo BrowserWindow với `contextIsolation: true`, `nodeIntegration: false`, đăng ký IPC core và feature Main.
+1. `src/main/index.ts` đăng ký protocol `tediapros`, tạo BrowserWindow với `contextIsolation: true`, `nodeIntegration: false`, đăng ký IPC core và feature Main.
 2. Main tạo cửa sổ, tải `ELECTRON_RENDERER_URL` ở dev hoặc `src/renderer/index.html` trong bản build.
 3. `src/preload/index.ts` tạo `coreApi`, merge với `featureApi`, kiểm tra collision rồi expose đúng một `window.api` qua `contextBridge`.
 4. `src/renderer/src/App.tsx` kiểm tra runtime core; nếu thiếu thì hiển thị setup, nếu đủ thì mount các tab Download, Douyin, Phụ đề, Đọc chữ video, Nâng cấp video và các feature registry.
 5. Runtime core dùng `src/main/deps.ts`; các engine theo feature được cài on-demand trong tab tương ứng.
 
-Protocol `tblao://` dùng base64url để truyền path file cục bộ và tự trả `Range` response cho preview video/font. Mọi path đi vào protocol vẫn là dữ liệu nhạy cảm do Main tạo; không mở rộng giao thức này từ Renderer.
+Protocol `tediapros://` dùng base64url để truyền path file cục bộ và tự trả `Range` response cho preview video/font. Mọi path đi vào protocol vẫn là dữ liệu nhạy cảm do Main tạo; không mở rộng giao thức này từ Renderer.
 
 ## Các đường đi nghiệp vụ chính
 
@@ -147,11 +147,11 @@ npm.cmd run package:mac
 
 `npm.cmd run verify` là `typecheck` + `check:architecture` + production build. `npm.cmd run verify:package:win` kiểm tra gói Windows không chứa runtime/binary bị cấm; engine và FFmpeg được tải từ asset release khi app chạy, không được nhét vào installer.
 
-`npm.cmd run package:win:local` dùng `electron-builder.local.yml` để tạo `dist-local/T-blao Local-<version>-portable.exe`. Bản này dùng `T-blao Local Data` cạnh executable và bỏ qua auto-update GitHub; xem [docs/LOCAL_PORTABLE_BUILD.md](docs/LOCAL_PORTABLE_BUILD.md).
+`npm.cmd run package:win:local` dùng `electron-builder.local.yml` để tạo `dist-local/TediaPros Local-<version>-portable.exe`. Bản này dùng `TediaPros Local Data` cạnh executable và bỏ qua auto-update GitHub; xem [docs/LOCAL_PORTABLE_BUILD.md](docs/LOCAL_PORTABLE_BUILD.md).
 
-Khi chạy dev có thể dùng `TBLAO_DEV_ALLOW_MISSING_RUNTIME=1` để bỏ qua màn hình cài runtime core cho mục đích test UI. `TBLAO_USER_DATA_DIR` dùng để tách dữ liệu `userData` trong smoke test. Không dùng các biến này làm chính sách phát hành.
+Khi chạy dev có thể dùng `TEDIAPROS_DEV_ALLOW_MISSING_RUNTIME=1` để bỏ qua màn hình cài runtime core cho mục đích test UI. `TEDIAPROS_USER_DATA_DIR` dùng để tách dữ liệu `userData` trong smoke test. Không dùng các biến này làm chính sách phát hành.
 
-`npm run test:unit` là bộ kiểm thử offline, không gọi Gemini/rate API thật. `npm run test:smoke:srt` chỉ chạy khi chủ động cấu hình live smoke bằng bốn biến môi trường tạm thời: `TBLAO_GEMINI_SMOKE_KEY`, `TBLAO_SRT_SMOKE_VIDEO`, `TBLAO_SRT_SMOKE_SRT` và `TBLAO_SRT_SMOKE_OUTPUT_DIR`. Sau smoke test phải xóa các biến này; không ghi API key vào tài liệu hoặc log.
+`npm run test:unit` là bộ kiểm thử offline, không gọi Gemini/rate API thật. `npm run test:smoke:srt` chỉ chạy khi chủ động cấu hình live smoke bằng bốn biến môi trường tạm thời: `TEDIAPROS_GEMINI_SMOKE_KEY`, `TEDIAPROS_SRT_SMOKE_VIDEO`, `TEDIAPROS_SRT_SMOKE_SRT` và `TEDIAPROS_SRT_SMOKE_OUTPUT_DIR`. Sau smoke test phải xóa các biến này; không ghi API key vào tài liệu hoặc log.
 
 ## Phạm vi và nguyên tắc đọc source
 

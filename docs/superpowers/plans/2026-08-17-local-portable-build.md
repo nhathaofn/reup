@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Tạo bản Windows portable `T-blao Local` có app ID, dữ liệu, output và updater tách khỏi bản T-blao phát hành từ GitHub.
+**Goal:** Tạo bản Windows portable `TediaPros Local` có app ID, dữ liệu, output và updater tách khỏi bản TediaPros phát hành từ GitHub.
 
-**Status:** Đã triển khai và xác minh; artifact portable đã tạo tại `dist-local/T-blao Local-0.1.25-portable.exe`. Smoke test packaged/unpacked xác nhận thư mục `T-blao Local Data` được tạo cạnh output khi có `PORTABLE_EXECUTABLE_DIR`.
+**Status:** Đã triển khai và xác minh; artifact portable đã tạo tại `dist-local/TediaPros Local-0.1.25-portable.exe`. Smoke test packaged/unpacked xác nhận thư mục `TediaPros Local Data` được tạo cạnh output khi có `PORTABLE_EXECUTABLE_DIR`.
 
 **Architecture:** Giữ nguyên `electron-builder.yml` cho release hiện tại và thêm `electron-builder.local.yml` kế thừa config chuẩn nhưng đổi target sang `portable`, output sang `dist-local`, app ID và product name. Main nhận biết portable packaged qua `PORTABLE_EXECUTABLE_DIR`, đổi `userData` trước single-instance lock, còn updater bỏ qua hoàn toàn bản local.
 
@@ -12,8 +12,8 @@
 
 ## Execution record
 
-- `npm.cmd run package:win:local`: tạo portable `.exe` x64, Windows metadata có `ProductName: T-blao Local`.
-- Smoke test: tạo được `dist-local/T-blao Local Data`; process test đã dừng sau khi kiểm tra.
+- `npm.cmd run package:win:local`: tạo portable `.exe` x64, Windows metadata có `ProductName: TediaPros Local`.
+- Smoke test: tạo được `dist-local/TediaPros Local Data`; process test đã dừng sau khi kiểm tra.
 - `npm.cmd run test:unit`: 10/10 pass.
 - `npm.cmd run verify`: typecheck Node/Web, architecture và production build pass.
 - `electron-builder.yml` vẫn là config release NSIS; `electron-builder.local.yml` dùng app ID/output/target riêng.
@@ -22,10 +22,10 @@
 
 - Không sửa hành vi/lệnh build release `npm run package:win`.
 - Artifact local là `.exe` portable, không tạo installer Windows.
-- Local app ID là `com.nhathaofn.tblao.local`; product name là `T-blao Local`.
-- Local output là `dist-local`; dữ liệu runtime là thư mục `T-blao Local Data` cạnh portable executable.
+- Local app ID là `com.nhathaofn.tediapros.local`; product name là `TediaPros Local`.
+- Local output là `dist-local`; dữ liệu runtime là thư mục `TediaPros Local Data` cạnh portable executable.
 - Bản local không gọi GitHub Releases qua electron-updater.
-- `TBLAO_USER_DATA_DIR` vẫn được ưu tiên cho smoke test/override có chủ đích.
+- `TEDIAPROS_USER_DATA_DIR` vẫn được ưu tiên cho smoke test/override có chủ đích.
 - Không thêm runtime dependency.
 - Workspace không có `.git`; không tạo commit giả.
 
@@ -80,9 +80,9 @@ Expected: FAIL vì `src/shared/build-variant.ts` chưa tồn tại.
 - [ ] **Step 3: Implement helper tối thiểu**
 
 ```ts
-export const LOCAL_APP_ID = 'com.nhathaofn.tblao.local'
-export const LOCAL_APP_NAME = 'T-blao Local'
-export const LOCAL_USER_DATA_DIRECTORY = 'T-blao Local Data'
+export const LOCAL_APP_ID = 'com.nhathaofn.tediapros.local'
+export const LOCAL_APP_NAME = 'TediaPros Local'
+export const LOCAL_USER_DATA_DIRECTORY = 'TediaPros Local Data'
 
 export function isLocalPortableBuild(
   env: Record<string, string | undefined>,
@@ -106,12 +106,12 @@ Thêm test file vào `test:unit`, rồi chạy `npm.cmd run test:unit`. Expected
 
 **Interfaces:**
 - Consumes `isLocalPortableBuild`, `LOCAL_APP_ID`, `LOCAL_USER_DATA_DIRECTORY` từ `src/shared/build-variant.ts`.
-- `src/main/index.ts` gọi `app.setPath('userData', join(PORTABLE_EXECUTABLE_DIR, LOCAL_USER_DATA_DIRECTORY))` trước `app.requestSingleInstanceLock()` nếu không có `TBLAO_USER_DATA_DIR` override.
+- `src/main/index.ts` gọi `app.setPath('userData', join(PORTABLE_EXECUTABLE_DIR, LOCAL_USER_DATA_DIRECTORY))` trước `app.requestSingleInstanceLock()` nếu không có `TEDIAPROS_USER_DATA_DIR` override.
 - `src/main/updater.ts` giữ status `none` và không gọi autoUpdater trong local portable.
 
 - [ ] **Step 1: Áp dụng userData trước single-instance lock**
 
-Giữ precedence: `TBLAO_USER_DATA_DIR` trước; nếu không có thì packaged portable có `PORTABLE_EXECUTABLE_DIR` dùng thư mục `T-blao Local Data` cạnh executable. Đặt AppUserModelId local và tiêu đề `T-blao Local`; bản thường vẫn là `T-blao`.
+Giữ precedence: `TEDIAPROS_USER_DATA_DIR` trước; nếu không có thì packaged portable có `PORTABLE_EXECUTABLE_DIR` dùng thư mục `TediaPros Local Data` cạnh executable. Đặt AppUserModelId local và tiêu đề `TediaPros Local`; bản thường vẫn là `TediaPros`.
 
 - [ ] **Step 2: Tắt updater đúng cả ba đường gọi**
 
@@ -135,14 +135,14 @@ Expected: Node/Web typecheck pass.
 
 **Interfaces:**
 - Produces `npm run package:win:local`.
-- Produces `dist-local/T-blao-Local-<version>-portable.exe`.
+- Produces `dist-local/TediaPros-Local-<version>-portable.exe`.
 
 - [ ] **Step 1: Tạo config kế thừa config chuẩn**
 
 ```yaml
 extends: electron-builder.yml
-appId: com.nhathaofn.tblao.local
-productName: T-blao Local
+appId: com.nhathaofn.tediapros.local
+productName: TediaPros Local
 directories:
   output: dist-local
 win:
@@ -169,7 +169,7 @@ npx.cmd electron-builder --config electron-builder.local.yml --win portable --di
 npm.cmd run package:win:local
 ```
 
-Expected: config resolve được, output nằm trong `dist-local`, artifact có `T-blao-Local` và `portable` trong tên.
+Expected: config resolve được, output nằm trong `dist-local`, artifact có `TediaPros-Local` và `portable` trong tên.
 
 ---
 
@@ -184,12 +184,12 @@ Expected: config resolve được, output nằm trong `dist-local`, artifact có
 
 - [ ] **Step 1: Ghi lệnh build và data directory**
 
-Tài liệu phải nói rõ `npm run package:win:local`, artifact `dist-local`, thư mục `T-blao Local Data`, khác biệt với `package:win`, và việc không có auto-update GitHub.
+Tài liệu phải nói rõ `npm run package:win:local`, artifact `dist-local`, thư mục `TediaPros Local Data`, khác biệt với `package:win`, và việc không có auto-update GitHub.
 
 - [ ] **Step 2: Rà soát tài liệu không mâu thuẫn**
 
 ```powershell
-rg -n "package:win:local|electron-builder\.local|T-blao Local|dist-local|PORTABLE_EXECUTABLE_DIR" README.md CODEBASE.md docs
+rg -n "package:win:local|electron-builder\.local|TediaPros Local|dist-local|PORTABLE_EXECUTABLE_DIR" README.md CODEBASE.md docs
 ```
 
 Expected: các đường dẫn/lệnh đều trỏ tới config local, không mô tả local như bản release.

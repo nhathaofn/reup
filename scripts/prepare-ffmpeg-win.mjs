@@ -12,7 +12,7 @@ const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const targetParent = join(projectRoot, 'build', 'runtime')
 const targetDir = join(targetParent, 'ffmpeg')
 const archiveUrl =
-  process.env.TBLAO_FFMPEG_BUNDLE_URL?.trim() ||
+  process.env.TEDIAPROS_FFMPEG_BUNDLE_URL?.trim() ||
   'https://github.com/nhathaofn/releases/releases/download/assets-v1/ffmpeg-win.zip'
 
 async function exists(path) {
@@ -87,11 +87,11 @@ async function download(path) {
 async function extract(zipPath, destination) {
   const env = {
     ...process.env,
-    TBLAO_FFMPEG_ZIP_PATH: zipPath,
-    TBLAO_FFMPEG_DEST_DIR: destination
+    TEDIAPROS_FFMPEG_ZIP_PATH: zipPath,
+    TEDIAPROS_FFMPEG_DEST_DIR: destination
   }
   const command =
-    '$ErrorActionPreference = "Stop"; Expand-Archive -LiteralPath $env:TBLAO_FFMPEG_ZIP_PATH -DestinationPath $env:TBLAO_FFMPEG_DEST_DIR -Force'
+    '$ErrorActionPreference = "Stop"; Expand-Archive -LiteralPath $env:TEDIAPROS_FFMPEG_ZIP_PATH -DestinationPath $env:TEDIAPROS_FFMPEG_DEST_DIR -Force'
   const result = await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command], env)
   if (result.code !== 0) throw new Error(`Giải nén FFmpeg bundle thất bại: ${result.output.trim()}`)
 }
@@ -107,7 +107,7 @@ async function main() {
     return
   }
 
-  const tempRoot = await mkdtemp(join(tmpdir(), 'tblao-ffmpeg-'))
+  const tempRoot = await mkdtemp(join(tmpdir(), 'tediapros-ffmpeg-'))
   const archivePath = join(tempRoot, 'ffmpeg-win.zip')
   const expandedDir = join(tempRoot, 'expanded')
   const stagedDir = join(targetParent, `.ffmpeg-staged-${process.pid}`)
@@ -132,7 +132,7 @@ async function main() {
 
     await writeFile(
       join(stagedDir, 'FFMPEG-NOTICE.txt'),
-      `T-blao Windows FFmpeg bundle\n\nFFmpeg/FFprobe version: ${bundle.version}\nSource: ${archiveUrl}\nLicense information: https://ffmpeg.org/legal.html\n\nSee THIRD-PARTY-NOTICES.txt in the application for the project notice.\n`,
+      `TediaPros Windows FFmpeg bundle\n\nFFmpeg/FFprobe version: ${bundle.version}\nSource: ${archiveUrl}\nLicense information: https://ffmpeg.org/legal.html\n\nSee THIRD-PARTY-NOTICES.txt in the application for the project notice.\n`,
       'utf8'
     )
     await mkdir(targetParent, { recursive: true })

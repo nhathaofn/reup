@@ -11,7 +11,7 @@ const FRIENDLY_PROGRESS: Partial<Record<SetupPhase, string>> = {
   'downloading-video2x': 'Đang cài công cụ nâng cấp video…',
   'downloading-cuda': 'Đang cài gói tăng tốc NVIDIA…',
   extracting: 'Đang hoàn tất cài đặt…',
-  done: 'Hoàn tất! T-blao đã sẵn sàng.'
+  done: 'Hoàn tất! TediaPros đã sẵn sàng.'
 }
 
 interface Props {
@@ -54,7 +54,7 @@ export default function SetupScreen({ onDone }: Props): JSX.Element {
   return (
     <div className="center setup">
       <div className="card setup-card">
-        <h2>Chuẩn bị T-blao</h2>
+        <h2>Chuẩn bị TediaPros</h2>
         <p className="muted">
           Ứng dụng đã có sẵn cặp FFmpeg/FFprobe đồng bộ trong bản Windows. Các engine tùy chọn và
           bộ tải xuống còn thiếu sẽ được tải vào thư mục dữ liệu riêng, không yêu cầu quyền quản trị.

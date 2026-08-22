@@ -10,11 +10,11 @@ import {
 import { constants } from 'node:fs'
 import { basename, dirname, join, resolve, win32 } from 'node:path'
 
-export const CAPCUT_PORTABLE_MANIFEST = 'tblao-portable.json'
+export const CAPCUT_PORTABLE_MANIFEST = 'tediapros-portable.json'
 
 interface PortableManifest {
   schemaVersion: 1
-  kind: 'tblao.capcut.portable'
+  kind: 'tediapros.capcut.portable'
   projectName: string
   sourceProjectPath: string
   sourceDraftsDir: string
@@ -194,8 +194,8 @@ async function readJson(path: string): Promise<unknown | null> {
 }
 
 async function writeJsonAtomically(path: string, value: unknown): Promise<void> {
-  const temporary = `${path}.tblao-${process.pid}-${Date.now()}.tmp`
-  const backup = `${path}.tblao-backup`
+  const temporary = `${path}.tediapros-${process.pid}-${Date.now()}.tmp`
+  const backup = `${path}.tediapros-backup`
   await writeFile(temporary, JSON.stringify(value), 'utf8')
   await rm(backup, { force: true }).catch(() => undefined)
   const hadOriginal = await isFile(path)
@@ -223,14 +223,14 @@ async function projectJsonFiles(projectPath: string): Promise<string[]> {
 async function readPortableManifest(path: string): Promise<PortableManifest | null> {
   const parsed = await readJson(path)
   if (!isRecord(parsed)) return null
-  if (parsed.kind !== 'tblao.capcut.portable' || parsed.schemaVersion !== 1) return null
+  if (parsed.kind !== 'tediapros.capcut.portable' || parsed.schemaVersion !== 1) return null
   if (typeof parsed.sourceProjectPath !== 'string') return null
   const assetFiles = Array.isArray(parsed.assetFiles)
     ? parsed.assetFiles.filter((item): item is string => typeof item === 'string' && isSafeAssetFile(item))
     : []
   return {
     schemaVersion: 1,
-    kind: 'tblao.capcut.portable',
+    kind: 'tediapros.capcut.portable',
     projectName: typeof parsed.projectName === 'string' ? parsed.projectName : basename(dirname(path)),
     sourceProjectPath: parsed.sourceProjectPath,
     sourceDraftsDir: typeof parsed.sourceDraftsDir === 'string' ? parsed.sourceDraftsDir : dirname(parsed.sourceProjectPath),
@@ -249,7 +249,7 @@ async function writePortableManifest(
   const manifestPath = join(projectPath, CAPCUT_PORTABLE_MANIFEST)
   const manifest: PortableManifest = {
     schemaVersion: 1,
-    kind: 'tblao.capcut.portable',
+    kind: 'tediapros.capcut.portable',
     projectName,
     sourceProjectPath: resolve(projectPath),
     sourceDraftsDir: dirname(resolve(projectPath)),

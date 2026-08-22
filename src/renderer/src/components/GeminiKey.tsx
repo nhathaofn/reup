@@ -16,19 +16,19 @@ export default function GeminiKey({
   dich: string
   setDich: (v: string) => void
 }): JSX.Element {
-  const [provider, setProvider] = usePersistedState<DichProvider>('tblao.dich.provider', 'gemini')
+  const [provider, setProvider] = usePersistedState<DichProvider>('tediapros.dich.provider', 'gemini')
   const [key, setKey] = useState('')
   const [daLuu, setDaLuu] = useState(false)
   const [dangKiem, setDangKiem] = useState(false)
   const [kq, setKq] = useState<{ ok: boolean; message: string } | null>(null)
   const [hienHd, setHienHd] = useState(false)
-  const [moRong, setMoRong] = usePersistedState('tblao.gemini.mo', false)
+  const [moRong, setMoRong] = usePersistedState('tediapros.gemini.mo', false)
 
   /** Ghi localStorage dong bo — de tab cha doc dung provider ngay khi dich. */
   const chonProvider = (p: DichProvider): void => {
     setProvider(p)
     try {
-      localStorage.setItem('tblao.dich.provider', JSON.stringify(p))
+      localStorage.setItem('tediapros.dich.provider', JSON.stringify(p))
     } catch {
       /* bo qua */
     }
@@ -135,7 +135,7 @@ export default function GeminiKey({
           <div className="muted small gk-note">
             {laGemini
               ? 'Google có thể giới hạn số lượt dịch trong ngày.'
-              : 'T-blao tự chọn cách xử lý phù hợp để cân bằng chất lượng và chi phí.'}
+              : 'TediaPros tự chọn cách xử lý phù hợp để cân bằng chất lượng và chi phí.'}
           </div>
 
           <div className="gk-row2">

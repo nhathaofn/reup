@@ -20,7 +20,7 @@ Mỗi project gồm ba track có thể tiếp tục chỉnh sửa trong CapCut:
 
 Preflight bắt buộc số voice khớp 1:1 với số cue, mọi file đọc được duration và SRT không vượt quá video. Khi dùng scene manifest, preflight kiểm tra scene thuộc đúng video nền, file scene tồn tại, không có gap/overlap và phủ đủ thời lượng video. Voice được tăng/giảm tốc theo từng khoảng SRT; voice chồng nhau vẫn được giữ nguyên và báo cảnh báo để người dùng chỉnh trong CapCut.
 
-Khi một cue SRT đi qua ranh giới nhiều scene, hệ thống **không cắt subtitle hoặc voice**. Thay vào đó, các scene liền kề được ghi vào cùng một nhóm logic và mapping được lưu trong `tblao-scene-links.json` bên trong từng draft. Manifest này chứa `sceneId`, `cueId`, segment ID CapCut và các nhóm liên kết để hỗ trợ di chuyển/chỉnh sửa mà không làm mất nội dung voice.
+Khi một cue SRT đi qua ranh giới nhiều scene, hệ thống **không cắt subtitle hoặc voice**. Thay vào đó, các scene liền kề được ghi vào cùng một nhóm logic và mapping được lưu trong `tediapros-scene-links.json` bên trong từng draft. Manifest này chứa `sceneId`, `cueId`, segment ID CapCut và các nhóm liên kết để hỗ trợ di chuyển/chỉnh sửa mà không làm mất nội dung voice.
 
 ## Hai timing mode
 
@@ -45,7 +45,7 @@ CapCutFactory service
   ├─ đối chiếu SRT ↔ voice
   └─ native schema/style template + new draft JSON
        ├─ scene manifest (optional) → nhiều video segment trên cùng track
-       └─ non-destructive scene links → tblao-scene-links.json
+       └─ non-destructive scene links → tediapros-scene-links.json
 ```
 
 Contract nằm ở `src/shared/features/capcut-factory.ts`; implementation không thêm kiểu vào `src/shared/types.ts` và không thay đổi các service burn/voice hiện tại. Feature được mount `keepAlive` để progress/result không mất khi đổi tab. Main chỉ chạy một batch tại một thời điểm và tạo từng project tuần tự để tránh tranh chấp `root_meta_info.json`.
@@ -61,11 +61,11 @@ Không có username, ổ đĩa hoặc thư mục cá nhân cố định trong so
 - Đường dẫn media trong draft là kết quả của input runtime. Adapter copy video/voice vào thư mục `assets` của từng project để tránh liên kết gãy khi file gốc bị di chuyển.
 - Scene được lấy từ output runtime của tab `Tách cảnh`; manifest cho phép dùng lại các file đã cắt mà không hard-code tên hoặc đường dẫn máy.
 
-Template là bắt buộc. Hãy tạo một project mẫu ngay trên CapCut của máy hiện tại, có ít nhất một segment video, một segment voice và một segment subtitle, sau đó chọn thư mục project đó. T-blao chỉ đọc schema native và style subtitle từ template để dựng một project mới; không clone media, track thừa hoặc nội dung cũ của template. Video/scene, voice và nội dung SRT mới được copy/map vào project mới; không cần `capcut-cli` hoặc runtime Node phụ trên máy người dùng.
+Template là bắt buộc. Hãy tạo một project mẫu ngay trên CapCut của máy hiện tại, có ít nhất một segment video, một segment voice và một segment subtitle, sau đó chọn thư mục project đó. TediaPros chỉ đọc schema native và style subtitle từ template để dựng một project mới; không clone media, track thừa hoặc nội dung cũ của template. Video/scene, voice và nội dung SRT mới được copy/map vào project mới; không cần `capcut-cli` hoặc runtime Node phụ trên máy người dùng.
 
 ## Tương thích và an toàn dữ liệu
 
-Định dạng project CapCut không phải API công khai. Native generator lấy schema track/material từ template do chính CapCut của người dùng tạo, tạo draft mới chỉ với track video, voice và subtitle, sau đó tạo material mới cho từng asset. Material text được kế thừa style của subtitle mẫu (font, cỡ, màu, typesetting và caption metadata); material video/audio chỉ được dùng làm khuôn schema rồi thay hoàn toàn bằng asset mới. Metadata mới được ghi vào `draft_content.json`, `draft_info.json`, `draft_meta_info.json` cùng `root_meta_info.json`. Cách này tránh phụ thuộc adapter đóng gói trong T-blao.
+Định dạng project CapCut không phải API công khai. Native generator lấy schema track/material từ template do chính CapCut của người dùng tạo, tạo draft mới chỉ với track video, voice và subtitle, sau đó tạo material mới cho từng asset. Material text được kế thừa style của subtitle mẫu (font, cỡ, màu, typesetting và caption metadata); material video/audio chỉ được dùng làm khuôn schema rồi thay hoàn toàn bằng asset mới. Metadata mới được ghi vào `draft_content.json`, `draft_info.json`, `draft_meta_info.json` cùng `root_meta_info.json`. Cách này tránh phụ thuộc adapter đóng gói trong TediaPros.
 
 Nguyên tắc vận hành:
 

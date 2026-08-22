@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { usePersistedState } from './persist'
 
-const LEGACY_KEY = 'tblao.outputDir'
+const LEGACY_KEY = 'tediapros.outputDir'
 
 /** Doc path cu dung chung (luu raw string, khong JSON). */
 function readLegacyOutputDir(): string {
@@ -14,8 +14,8 @@ function readLegacyOutputDir(): string {
 
 /**
  * Thu muc luu ket qua theo tung tab.
- * - Key rieng (vd tblao.outputDir.download)
- * - Lan dau: seed tu tblao.outputDir cu neu co, khong thi Downloads
+ * - Key rieng (vd tediapros.outputDir.download)
+ * - Lan dau: seed tu tediapros.outputDir cu neu co, khong thi Downloads
  */
 export function useTabOutputDir(storageKey: string): [string, (d: string) => void] {
   const [outputDir, setOutputDir] = usePersistedState(storageKey, readLegacyOutputDir())

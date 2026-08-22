@@ -49,11 +49,11 @@ interface YtDlpReleaseAsset {
  *
  * Khi nao doi engine -> tao release moi `assets-v2` roi sua DUY NHAT dong duoi.
  * Runtime assets nam tren repo release public, khong nam tren repo source private.
- * Co the dung TBLAO_ASSET_BASE trong dev de tro vao mirror asset da xac minh.
+ * Co the dung TEDIAPROS_ASSET_BASE trong dev de tro vao mirror asset da xac minh.
  */
 export const ASSET_TAG = 'assets-v1'
 const DEFAULT_ASSET_BASE = `https://github.com/nhathaofn/releases/releases/download/${ASSET_TAG}`
-const configuredAssetBase = process.env.TBLAO_ASSET_BASE?.trim().replace(/\/+$/, '')
+const configuredAssetBase = process.env.TEDIAPROS_ASSET_BASE?.trim().replace(/\/+$/, '')
 export const ASSET_BASE = configuredAssetBase || DEFAULT_ASSET_BASE
 const WINDOWS_FFMPEG_FALLBACK_URL = 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip'
 
@@ -153,7 +153,7 @@ export async function resolveNodeRuntime(): Promise<string | null> {
   if (nodeRuntimePath) return nodeRuntimePath
   nodeRuntimePath = (async () => {
     const candidates: string[] = []
-    const configured = process.env.TBLAO_NODE_RUNTIME?.trim()
+    const configured = process.env.TEDIAPROS_NODE_RUNTIME?.trim()
     if (configured) candidates.push(configured)
 
     if (isWin) {
@@ -356,15 +356,15 @@ export function extractZip(zipPath: string, destDir: string): Promise<void> {
             '-NoProfile',
             '-NonInteractive',
             '-Command',
-            'Expand-Archive -LiteralPath $env:TBLAO_EXTRACT_ZIP_PATH -DestinationPath $env:TBLAO_EXTRACT_DEST_DIR -Force'
+            'Expand-Archive -LiteralPath $env:TEDIAPROS_EXTRACT_ZIP_PATH -DestinationPath $env:TEDIAPROS_EXTRACT_DEST_DIR -Force'
           ],
           {
             windowsHide: true,
             stdio: 'ignore',
             env: {
               ...process.env,
-              TBLAO_EXTRACT_ZIP_PATH: zipPath,
-              TBLAO_EXTRACT_DEST_DIR: destDir
+              TEDIAPROS_EXTRACT_ZIP_PATH: zipPath,
+              TEDIAPROS_EXTRACT_DEST_DIR: destDir
             }
           }
         )
@@ -414,9 +414,9 @@ export async function replaceDirectoryFromZip(
   executableName: string,
   verifyArgs = ['--help']
 ): Promise<string> {
-  const installRoot = `${targetDir}.tblao-install-${process.pid}-${Date.now()}`
+  const installRoot = `${targetDir}.tediapros-install-${process.pid}-${Date.now()}`
   const extractDir = join(installRoot, 'extracted')
-  const stagedDir = `${targetDir}.tblao-staged-${process.pid}-${Date.now()}`
+  const stagedDir = `${targetDir}.tediapros-staged-${process.pid}-${Date.now()}`
   await mkdir(extractDir, { recursive: true })
   try {
     await extractZip(zipPath, extractDir)

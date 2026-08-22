@@ -27,10 +27,10 @@ import {
 } from '../src/main/services/srt-source-validation.ts'
 
 const smokeEnabled = [
-  process.env.TBLAO_GEMINI_SMOKE_KEY,
-  process.env.TBLAO_SRT_SMOKE_VIDEO,
-  process.env.TBLAO_SRT_SMOKE_SRT,
-  process.env.TBLAO_SRT_SMOKE_OUTPUT_DIR
+  process.env.TEDIAPROS_GEMINI_SMOKE_KEY,
+  process.env.TEDIAPROS_SRT_SMOKE_VIDEO,
+  process.env.TEDIAPROS_SRT_SMOKE_SRT,
+  process.env.TEDIAPROS_SRT_SMOKE_OUTPUT_DIR
 ].every((value) => Boolean(value?.trim()))
 
 function requiredEnv(name: string): string {
@@ -66,10 +66,10 @@ interface SmokeResult {
 }
 
 async function runConfiguredSmoke(): Promise<SmokeResult> {
-  const apiKey = requiredEnv('TBLAO_GEMINI_SMOKE_KEY')
-  const videoPath = requiredEnv('TBLAO_SRT_SMOKE_VIDEO')
-  const srtPath = requiredEnv('TBLAO_SRT_SMOKE_SRT')
-  const outputDir = requiredEnv('TBLAO_SRT_SMOKE_OUTPUT_DIR')
+  const apiKey = requiredEnv('TEDIAPROS_GEMINI_SMOKE_KEY')
+  const videoPath = requiredEnv('TEDIAPROS_SRT_SMOKE_VIDEO')
+  const srtPath = requiredEnv('TEDIAPROS_SRT_SMOKE_SRT')
+  const outputDir = requiredEnv('TEDIAPROS_SRT_SMOKE_OUTPUT_DIR')
   for (const path of [videoPath, srtPath, outputDir]) {
     assert.equal(isAbsolute(path), true, 'Smoke paths must be absolute.')
   }
@@ -78,7 +78,7 @@ async function runConfiguredSmoke(): Promise<SmokeResult> {
   const validated = await validateVideoSource(videoPath, source, {
     statFile: nodeStatFile,
     probeDuration: (path, signal) => probeVideoDuration(path, {
-      resolveFfmpeg: async () => process.env.TBLAO_FFMPEG_PATH?.trim() || 'ffmpeg',
+      resolveFfmpeg: async () => process.env.TEDIAPROS_FFMPEG_PATH?.trim() || 'ffmpeg',
       spawnProbe: spawnProbeProcess
     }, signal)
   })
