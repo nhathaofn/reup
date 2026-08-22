@@ -118,6 +118,11 @@ function domainOf(url: string): string {
 import { DownloadRequest, LogEntry, SetupProgress } from '../shared/types'
 import type { BurnReq } from '../shared/types'
 import { registerMainFeatures } from './features/registry'
+import { SERVER_CHANNELS } from '../shared/server-contract'
+import {
+  createFileServerEndpointStore,
+  createServerConnectionService
+} from './services/serverConnection'
 
 // Cho phep smoke-test ban dong goi bang mot thu muc du lieu sach, tach biet
 // hoan toan voi du lieu that cua nguoi dung. Ban phat hanh khong dat bien nay.
@@ -275,6 +280,28 @@ app.on('window-all-closed', () => {
 })
 
 function registerIpc(): void {
+  const serverConnection = createServerConnectionService({
+    store: createFileServerEndpointStore(join(app.getPath('userData'), 'server.json')),
+    environmentEndpoint: process.env['TEDIAPROS_SERVER_URL'],
+    clientVersion: app.getVersion(),
+    platform: process.platform,
+    architecture: process.arch
+  })
+
+  ipcMain.handle(SERVER_CHANNELS.status, async () => serverConnection.status())
+  ipcMain.handle(SERVER_CHANNELS.connect, async (_event, endpoint: unknown) => {
+    if (typeof endpoint !== 'string') {
+      return {
+        state: 'unavailable',
+        endpoint: '',
+        capabilities: [],
+        errorCode: 'invalid-url',
+        managed: false
+      }
+    }
+    return serverConnection.connect(endpoint)
+  })
+
   // Kiem tra phu thuoc luc khoi dong
   ipcMain.handle('deps:check', async () => {
     const s = await checkRuntimeDependencies()

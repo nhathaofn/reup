@@ -49,8 +49,16 @@ import {
 } from '../shared/types'
 import { assertNoPreloadApiCollisions } from './features/contracts'
 import { featureApi } from './features/registry'
+import {
+  SERVER_CHANNELS,
+  type ServerConnectionStatus
+} from '../shared/server-contract'
 
 const coreApi = {
+  serverStatus: (): Promise<ServerConnectionStatus> => ipcRenderer.invoke(SERVER_CHANNELS.status),
+  serverConnect: (endpoint: string): Promise<ServerConnectionStatus> =>
+    ipcRenderer.invoke(SERVER_CHANNELS.connect, endpoint),
+
   checkDeps: (): Promise<DepStatus> => ipcRenderer.invoke('deps:check'),
 
   runSetup: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('deps:setup'),
