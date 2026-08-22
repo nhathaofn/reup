@@ -140,3 +140,59 @@ test('environment endpoint không thể bị thay thế từ renderer', async ()
   assert.equal(status.managed, true)
   assert.deepEqual(store.writes, [])
 })
+
+test('dừng đọc response stream ngay khi vượt giới hạn contract', async () => {
+  const store = memoryStore()
+  let pulls = 0
+  const oversizedBody = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      pulls += 1
+      if (pulls > 20) {
+        controller.close()
+        return
+      }
+      controller.enqueue(new Uint8Array(16 * 1024))
+    }
+  })
+  const service = createServerConnectionService({
+    store,
+    clientVersion: '0.1.27',
+    platform: 'win32',
+    architecture: 'x64',
+    fetcher: async () => new Response(oversizedBody)
+  })
+
+  const status = await service.connect('http://127.0.0.1:48191')
+
+  assert.equal(status.state, 'unavailable')
+  if (status.state === 'unavailable') assert.equal(status.errorCode, 'invalid-response')
+  // ReadableStream có thể prefetch thêm một chunk ngoài năm lần đọc chạm ngưỡng.
+  assert.ok(pulls <= 6, `response stream đã bị đọc ${pulls} chunk`)
+  assert.deepEqual(store.writes, [])
+})
+
+test('không trả credential hoặc query từ endpoint lỗi về renderer', async () => {
+  const store = memoryStore()
+  const service = createServerConnectionService({
+    store,
+    environmentEndpoint: 'https://operator:secret@server.example/api?token=private#debug',
+    clientVersion: '0.1.27',
+    platform: 'win32',
+    architecture: 'x64',
+    fetcher: async () => {
+      throw new Error('fetch không được gọi với endpoint lỗi')
+    }
+  })
+
+  const status = await service.status()
+
+  assert.deepEqual(status, {
+    state: 'unavailable',
+    endpoint: 'https://server.example',
+    capabilities: [],
+    errorCode: 'invalid-url',
+    managed: true
+  })
+  assert.equal(JSON.stringify(status).includes('secret'), false)
+  assert.equal(JSON.stringify(status).includes('private'), false)
+})

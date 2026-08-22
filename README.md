@@ -1,8 +1,8 @@
 # TediaPros
 
-Trình tải video & audio đa nền tảng — chạy trên **Windows** và **macOS**.
+Ứng dụng media cho **Windows**, gồm Electron client và Go server TediaPros chạy riêng.
 
-Xây bằng **Electron + React + TypeScript** (electron-vite).
+Client được xây bằng **Electron + React + TypeScript** (electron-vite). Client chỉ mở công cụ sau khi handshake thành công với server.
 
 Repo chính thức của dự án này: <https://github.com/nhathaofn/reup>.
 
@@ -39,7 +39,28 @@ Tiền tệ được hiển thị theo locale đích, giữ giá trị nguồn t
 ## Yêu cầu môi trường
 
 - **Node.js** ≥ 18 (khuyến nghị 20+)
-- Khi build bản **macOS** (`.dmg`) cần chạy trên máy Mac hoặc GitHub Actions.
+- **Go** ≥ 1.22 để chạy và kiểm thử server.
+- **Windows** là target phát triển, kiểm thử và đóng gói duy nhất.
+
+## Chạy server local và LAN
+
+Mặc định server chỉ lắng nghe ở loopback `127.0.0.1:48191`:
+
+```powershell
+cd server
+go run ./cmd/tediapros-server
+```
+
+Để một máy Windows khác trong LAN kết nối, bind server rõ ràng rồi nhập URL IP riêng vào màn hình kết nối client:
+
+```powershell
+$env:TEDIAPROS_SERVER_ADDR = '0.0.0.0:48191'
+go run ./cmd/tediapros-server
+```
+
+TediaPros không tự mở Windows Firewall và không tự quét subnet. Endpoint cũng có thể được quản lý bằng `TEDIAPROS_SERVER_URL`; khi biến này tồn tại renderer không thể ghi đè địa chỉ.
+
+Cổng mạng hiện tại là access gate cho local/LAN tin cậy, không phải DRM chống sửa binary. Trước khi đưa server ra Internet/VPS cần thêm TLS và cơ chế xác thực client hoặc thiết bị.
 
 ## Lệnh
 
@@ -51,11 +72,10 @@ npm run build     # build ra out/
 npm run typecheck # kiểm tra kiểu TypeScript
 npm run check:architecture # kiểm tra IPC và feature registry
 npm run test:unit # bộ test offline, không gọi Gemini/rate API thật
+npm run verify    # kiểm tra Go server + typecheck + unit test + architecture, không build
 npm run test:smoke:srt # live smoke opt-in, chỉ chạy khi đã cấu hình đủ 4 biến môi trường bên dưới
-npm run verify    # typecheck + architecture check + production build
 npm run package:win   # đóng gói .exe (NSIS installer) -> dist/
 npm run package:win:local # đóng gói .exe portable vào thư mục release riêng (xem docs/LOCAL_PORTABLE_BUILD.md)
-npm run package:mac   # đóng gói .dmg (cần macOS)
 ```
 
 Live smoke SRT là tùy chọn, không chạy trong `npm run test:unit` và không nên đặt key thật cố định trong shell profile. Khi có video/SRT mẫu đã duyệt và muốn chạy kiểm thử Gemini thật, cấu hình tạm thời:
@@ -82,7 +102,14 @@ src/
   preload/     # cầu nối an toàn (contextBridge) main <-> renderer
   renderer/    # giao diện React
   shared/      # kiểu dữ liệu dùng chung
+server/
+  cmd/         # composition root và tiến trình TediaPros server
+  internal/    # cấu hình cùng HTTP API nội bộ
 ```
+
+Locale hiện tại chỉ có tiếng Việt tại `src/renderer/src/i18n/`, fallback cố định là `vi` và chưa có bộ chọn ngôn ngữ.
+
+Nền tảng handshake đã bắt buộc server trước khi mở client. Việc chuyển Gemini, OpenAI và các provider khác sang endpoint Go được thực hiện theo từng feature; một workflow chỉ được coi là đã bảo vệ khi provider call và system prompt của chính workflow đó không còn nằm trong Electron.
 
 ## Phát triển feature mới
 

@@ -53,15 +53,43 @@ function unavailable(
   return { state: 'unavailable', endpoint, capabilities: [], errorCode, managed }
 }
 
+function safeEndpointForDisplay(value: string): string {
+  try {
+    const url = new URL(value.trim())
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.origin : ''
+  } catch {
+    return ''
+  }
+}
+
 async function readResponseBody(response: Response): Promise<unknown> {
   const contentLength = Number(response.headers.get('content-length'))
   if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) {
+    await response.body?.cancel()
     throw new ConnectionFailure('invalid-response')
   }
 
-  const text = await response.text()
-  if (Buffer.byteLength(text, 'utf8') > MAX_RESPONSE_BYTES) {
-    throw new ConnectionFailure('invalid-response')
+  if (!response.body) throw new ConnectionFailure('invalid-response')
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let totalBytes = 0
+  let text = ''
+  try {
+    while (true) {
+      const chunk = await reader.read()
+      if (chunk.done) break
+
+      totalBytes += chunk.value.byteLength
+      if (totalBytes > MAX_RESPONSE_BYTES) {
+        await reader.cancel()
+        throw new ConnectionFailure('invalid-response')
+      }
+      text += decoder.decode(chunk.value, { stream: true })
+    }
+    text += decoder.decode()
+  } finally {
+    reader.releaseLock()
   }
 
   try {
@@ -85,7 +113,7 @@ export function createServerConnectionService(
       endpoint = normalizeServerUrl(endpointInput)
     } catch (error) {
       if (error instanceof ServerContractError) {
-        return unavailable(endpointInput.trim(), 'invalid-url', managed)
+        return unavailable(safeEndpointForDisplay(endpointInput), 'invalid-url', managed)
       }
       throw error
     }
@@ -117,7 +145,10 @@ export function createServerConnectionService(
         signal: controller.signal
       })
 
-      if (!response.ok) return unavailable(endpoint, 'incompatible', managed)
+      if (!response.ok) {
+        await response.body?.cancel()
+        return unavailable(endpoint, 'incompatible', managed)
+      }
 
       const body = await readResponseBody(response)
       let handshake

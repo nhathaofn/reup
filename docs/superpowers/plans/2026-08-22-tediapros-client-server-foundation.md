@@ -97,7 +97,7 @@
 
 **Interfaces:**
 - Consumes: server handshake request/response v1.
-- Produces: `server:get-status` and `server:connect` typed IPC calls; persisted endpoint only after successful handshake.
+- Produces: `server:status` and `server:connect` typed IPC calls; persisted endpoint only after successful handshake.
 
 - [ ] Write Node tests for URL normalization, private-LAN HTTP allowance, public HTTP rejection, public HTTPS allowance, and handshake validation.
 - [ ] Run the targeted Node test and confirm RED because the contract module is absent.
