@@ -1,20 +1,16 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { mkdir, readdir, rm, stat } from 'node:fs/promises'
-import { dirname, extname, join } from 'node:path'
+import { extname, join } from 'node:path'
 import type { VoiceSyncEntry, VoiceSyncScanResult } from '../../shared/types'
 import { resolveFfmpeg } from '../deps'
 import { parseSrt, readSrtFile, srtTimeToSeconds } from './srt'
+import { ffprobePathForFfmpeg, probeAudioDurationUs } from './mediaProbe'
 
 const VOICE_EXTENSIONS = new Set(['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac', '.opus'])
 const naturalNameSort = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 
 let voiceChild: ChildProcess | null = null
 let voiceCancelled = false
-
-function ffprobePath(ffmpeg: string): string {
-  if (ffmpeg === 'ffmpeg') return 'ffprobe'
-  return join(dirname(ffmpeg), process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe')
-}
 
 function audioFilesIn(entries: { name: string; isFile(): boolean }[]): string[] {
   return entries
@@ -39,39 +35,6 @@ function emptyScan(srtPath: string, voiceDir: string, error: string): VoiceSyncS
   }
 }
 
-function probeDuration(ffprobe: string, filePath: string): Promise<number> {
-  return new Promise((resolve) => {
-    let output = ''
-    let settled = false
-    const finish = (duration: number): void => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      resolve(duration)
-    }
-    const child = spawn(
-      ffprobe,
-      ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', filePath],
-      { windowsHide: true }
-    )
-    const timer = setTimeout(() => {
-      try {
-        child.kill()
-      } catch {
-        /* bo qua */
-      }
-      finish(0)
-    }, 30_000)
-    child.stdout?.on('data', (data: Buffer) => (output += data.toString()))
-    child.on('error', () => finish(0))
-    child.on('close', (code) => {
-      if (code !== 0) return finish(0)
-      const duration = Number.parseFloat(output.trim())
-      finish(Number.isFinite(duration) && duration > 0 ? duration : 0)
-    })
-  })
-}
-
 /**
  * Quet thu muc voice theo thu tu tu nhien va doi chieu 1:1 voi cue SRT.
  * Chi quet file truc tiep trong thu muc, khong quet xuong thu muc con.
@@ -88,7 +51,7 @@ export async function scanVoiceSync(srtPath: string, voiceDir: string): Promise<
     const audioNames = audioFilesIn(directoryEntries)
     const ffmpeg = await resolveFfmpeg()
     if (!ffmpeg) return emptyScan(srtPath, voiceDir, 'Thiếu ffmpeg/ffprobe để kiểm tra file voice.')
-    const ffprobe = ffprobePath(ffmpeg)
+    const ffprobe = ffprobePathForFfmpeg(ffmpeg)
 
     const entries: VoiceSyncEntry[] = await Promise.all(
       cues.map(async (cue, index) => {
@@ -107,7 +70,12 @@ export async function scanVoiceSync(srtPath: string, voiceDir: string): Promise<
         }
 
         const filePath = join(voiceDir, fileName)
-        const durationSeconds = await probeDuration(ffprobe, filePath)
+        let durationSeconds = 0
+        try {
+          durationSeconds = (await probeAudioDurationUs(filePath, ffprobe)) / 1_000_000
+        } catch {
+          durationSeconds = 0
+        }
         if (durationSeconds <= 0 || cueDuration <= 0) {
           return {
             index: index + 1,

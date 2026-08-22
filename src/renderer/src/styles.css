@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --bg: #0b1018;
   --panel: #131b27;
   --panel-2: #1b2634;
@@ -56,7 +56,12 @@
 .modal-list:hover::-webkit-scrollbar-thumb,
 .modal-body:hover::-webkit-scrollbar-thumb,
 .logs-list:hover::-webkit-scrollbar-thumb,
-.license-page:hover::-webkit-scrollbar-thumb {
+.license-page:hover::-webkit-scrollbar-thumb,
+.srt-translator-workspace:hover::-webkit-scrollbar-thumb,
+.capcut-factory-workspace:hover::-webkit-scrollbar-thumb,
+.sp-config:hover::-webkit-scrollbar-thumb,
+.sp-main:hover::-webkit-scrollbar-thumb,
+.sp-shell:hover::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.16);
   background-clip: padding-box;
 }

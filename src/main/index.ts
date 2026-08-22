@@ -90,6 +90,12 @@ import {
 } from './douyinCookies'
 import type { DichProvider, DouyinRequest, Video2xRunRequest, WhisperRequest } from '../shared/types'
 import {
+  isLocalPortableBuild,
+  LOCAL_APP_ID,
+  LOCAL_APP_NAME,
+  LOCAL_USER_DATA_DIRECTORY
+} from '../shared/build-variant'
+import {
   clearLogs,
   debugRaw,
   errLabel,
@@ -115,8 +121,15 @@ import { registerMainFeatures } from './features/registry'
 
 // Cho phep smoke-test ban dong goi bang mot thu muc du lieu sach, tach biet
 // hoan toan voi du lieu that cua nguoi dung. Ban phat hanh khong dat bien nay.
-const userDataOverride = process.env['TBLAO_USER_DATA_DIR']
-if (userDataOverride) app.setPath('userData', userDataOverride)
+const userDataOverride = process.env['TBLAO_USER_DATA_DIR']?.trim()
+const portableDirectory = process.env['PORTABLE_EXECUTABLE_DIR']?.trim()
+const localPortable = isLocalPortableBuild(process.env, app.isPackaged)
+if (userDataOverride) {
+  app.setPath('userData', userDataOverride)
+} else if (localPortable && portableDirectory) {
+  app.setPath('userData', join(portableDirectory, LOCAL_USER_DATA_DIRECTORY))
+  app.setAppUserModelId(LOCAL_APP_ID)
+}
 
 let mainWindow: BrowserWindow | null = null
 const isPrimaryInstance = app.requestSingleInstanceLock()
@@ -138,7 +151,7 @@ function createWindow(): void {
     minHeight: 620,
     show: false,
     autoHideMenuBar: true,
-    title: 'T-blao',
+    title: localPortable ? LOCAL_APP_NAME : 'T-blao',
     icon: join(__dirname, '../../build/icon.png'),
     backgroundColor: '#0f1115',
     webPreferences: {
@@ -197,6 +210,9 @@ async function maybeAutoUpdateYtDlp(): Promise<void> {
 
 app.whenReady().then(() => {
   if (!isPrimaryInstance) return
+  // Mỗi phiên bắt đầu với nhật ký riêng. Đặt tại đây để không tranh chấp với
+  // các lần ghi async trong lúc app đang thoát.
+  wipeLogFileSync()
   // tblao://b64/<duong-dan-ma-hoa-base64url>  ->  doc tep tren dia.
   // !! Duong dan PHAI di qua base64 va PHAI co host "b64". Da do thuc te:
   //    voi standard:true, Chromium coi khuc dau sau "///" la TEN MIEN, nen
@@ -257,9 +273,6 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
-
-// Tu xoa nhat ky khi thoat app -> moi lan mo la nhat ky moi
-app.on('before-quit', () => wipeLogFileSync())
 
 function registerIpc(): void {
   // Kiem tra phu thuoc luc khoi dong

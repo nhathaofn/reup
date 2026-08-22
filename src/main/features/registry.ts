@@ -1,21 +1,26 @@
 import { ipcMain, type BrowserWindow } from 'electron'
 import { isReservedFeatureId } from '../../shared/features/contracts'
 import type { FeatureInvokeHandler, MainFeatureModule } from './contracts'
-
 // feature-scaffold:imports
 import { autoShortMainFeature } from './auto-short'
 import { capcutFactoryMainFeature } from './capcut-factory'
-import { sceneSplitterMainFeature } from './scene-splitter'
+import { contentBlocksMainFeature } from './content-blocks'
 import { mediaInspectorMainFeature } from './media-inspector'
 import { multiLangShortMainFeature } from './multilang-short'
+import { sceneSplitterMainFeature } from './scene-splitter'
+import { srtTranslatorMainFeature } from './srt-translator'
+import { subtitlePipelineMainFeature } from './subtitle-pipeline'
 
 const registeredMainFeatures = [
   // feature-scaffold:modules
   autoShortMainFeature,
   capcutFactoryMainFeature,
-  sceneSplitterMainFeature,
+  contentBlocksMainFeature,
   mediaInspectorMainFeature,
   multiLangShortMainFeature,
+  sceneSplitterMainFeature,
+  srtTranslatorMainFeature,
+  subtitlePipelineMainFeature
 ] as const satisfies readonly MainFeatureModule[]
 
 const mainFeatureModules: readonly MainFeatureModule[] = registeredMainFeatures

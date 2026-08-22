@@ -60,6 +60,7 @@ export default function ScreenText(): JSX.Element {
   const [loi, setLoi] = useState<string | null>(null)
 
   const [batLamMo, setBatLamMo] = useState(true)
+  const [moTheoSrt, setMoTheoSrt] = usePersistedState('tblao.burn.moTheoSrt', true)
   const [batPhuDe, setBatPhuDe] = useState(false)
   const [subtitleMode, setSubtitleMode] = usePersistedState<SubtitleMode>(
     'tblao.burn.subtitleMode',
@@ -566,6 +567,7 @@ export default function ScreenText(): JSX.Element {
       mode: batPhuDe ? subtitleMode : 'burn',
       blurRegions: batLamMo ? blurRegions : [],
       lamMo: batLamMo,
+      moTheoSrt: batLamMo ? moTheoSrt : false,
       subRegion: batPhuDe ? subRegion : undefined,
       catSrt: batPhuDe && subtitleMode === 'soft',
       batAmThanh,
@@ -853,6 +855,22 @@ export default function ScreenText(): JSX.Element {
 
               {batLamMo && (
                 <div style={{ paddingLeft: 22, marginTop: 8 }}>
+                  <div style={{ marginBottom: 10 }}>
+                    <label className="gk-check">
+                      <input
+                        type="checkbox"
+                        checked={moTheoSrt}
+                        onChange={(e) => setMoTheoSrt(e.target.checked)}
+                      />
+                      <span>Chỉ làm mờ khi xuất hiện phụ đề (theo file SRT)</span>
+                    </label>
+                    {moTheoSrt && (
+                      <div className="muted small" style={{ marginTop: 3, marginLeft: 22, color: '#38bdf8' }}>
+                        Vùng mờ sẽ tự động xuất hiện theo từng câu trong file SRT và biến mất khi không có lời thoại.
+                      </div>
+                    )}
+                  </div>
+
                   <button className="btn" onClick={addBlurRegion}>
                     ➕ Thêm vùng làm mờ
                   </button>
@@ -1024,11 +1042,12 @@ export default function ScreenText(): JSX.Element {
                           value={subtitlePreset}
                           onChange={(e) => apDungPreset(e.target.value as SubtitlePreset)}
                         >
-                          <option value="custom">Tùy chỉnh</option>
+                          <option value="blurBox">✨ Nền mờ che phụ đề (+20px) — ôm sát từng câu</option>
                           <option value="clean">Sạch — chữ trắng, viền rõ</option>
                           <option value="cinema">Điện ảnh — chữ ấm, bóng nhẹ</option>
                           <option value="tiktok">Nền gọn — dễ đọc trên video dọc</option>
                           <option value="highlight">Nổi bật — nền màu</option>
+                          <option value="custom">Tùy chỉnh</option>
                         </select>
                         <span className="muted small">Chọn preset trước, sau đó tinh chỉnh từng thông số bên dưới.</span>
                       </label>
@@ -1157,10 +1176,13 @@ export default function ScreenText(): JSX.Element {
                           setSubtitlePreset('custom')
                         }}
                       />
-                      <span>Bật nền hộp sau chữ</span>
+                      <span>Bật nền hộp sau chữ (ôm sát kích thước chữ +20px)</span>
                     </label>
                     {bgEnabled && (
                       <>
+                        <div className="muted small" style={{ gridColumn: '1 / -1', color: '#38bdf8', marginTop: -4, marginBottom: 4 }}>
+                          💡 Nền hộp mờ tự động co giãn theo độ dài từng câu thoại (+20px lề) và chỉ xuất hiện khi có phụ đề SRT (tự tắt khi không có lời thoại).
+                        </div>
                         <label className="field">
                           <span className="muted small">Màu nền</span>
                           <input
@@ -1187,7 +1209,7 @@ export default function ScreenText(): JSX.Element {
                           />
                         </label>
                         <label className="field" style={{ gridColumn: '1 / -1' }}>
-                          <span className="muted small">Đệm nền: {bgPaddingPx} px</span>
+                          <span className="muted small">Đệm nền: {bgPaddingPx} px (Kích thước chữ + {bgPaddingPx * 2} px)</span>
                           <input
                             type="range"
                             min={4}
@@ -1475,6 +1497,8 @@ export default function ScreenText(): JSX.Element {
                     boxH={boxH}
                     boxW={boxW}
                     xemMo={batLamMo}
+                    moTheoSrt={batLamMo ? moTheoSrt : false}
+                    isCueActive={previewPlaying ? cueAtTimeIndex >= 0 : previewCues.length > 0 && previewTime >= (previewCue?.startSeconds ?? -1) && previewTime <= (previewCue?.endSeconds ?? -1)}
                     previewFontFamily={previewFontFamily || undefined}
                     previewText={videoPreviewText}
                     textColor={textColor}

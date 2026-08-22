@@ -185,3 +185,5 @@ export function parseSrt(raw: string): SrtBlock[] {
 export function buildSrt(blocks: SrtBlock[]): string {
   return blocks.map((b, i) => `${i + 1}\n${b.time}\n${b.text}`).join('\n\n') + '\n'
 }
+
+export { mergeTranslatedBlocks } from '../shared/features/srt-translator'

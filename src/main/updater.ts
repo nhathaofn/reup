@@ -2,6 +2,7 @@ import { app, BrowserWindow } from 'electron'
 import updaterPkg from 'electron-updater'
 import { debugRaw, errLabel, logError, logInfo } from './logger'
 import { UpdateStatus } from '../shared/types'
+import { isLocalPortableBuild } from '../shared/build-variant'
 
 const { autoUpdater } = updaterPkg
 
@@ -25,10 +26,14 @@ export function initAutoUpdate(getWindow: () => BrowserWindow | null): void {
   // đăng ký listener. Điều này tránh mất thông báo khi mạng trả kết quả quá sớm.
   windowProvider = getWindow
 
-  if (!app.isPackaged) {
+  if (!app.isPackaged || isLocalPortableBuild(process.env, app.isPackaged)) {
     // Chế độ dev: electron-updater không chạy, nhưng Renderer vẫn nhận trạng
     // thái ổn định qua IPC query.
-    logInfo('Tự cập nhật app: bỏ qua (đang chạy chế độ phát triển).')
+    logInfo(
+      isLocalPortableBuild(process.env, app.isPackaged)
+        ? 'Tự cập nhật app: bỏ qua (bản local portable).'
+        : 'Tự cập nhật app: bỏ qua (đang chạy chế độ phát triển).'
+    )
     return
   }
 
@@ -60,7 +65,7 @@ export function initAutoUpdate(getWindow: () => BrowserWindow | null): void {
 }
 
 export async function checkForUpdates(): Promise<void> {
-  if (!app.isPackaged) {
+  if (!app.isPackaged || isLocalPortableBuild(process.env, app.isPackaged)) {
     publish({ state: 'none' })
     return
   }
@@ -74,7 +79,7 @@ export function getUpdateStatus(): UpdateStatus {
 }
 
 export function quitAndInstall(): void {
-  if (!app.isPackaged) return
+  if (!app.isPackaged || isLocalPortableBuild(process.env, app.isPackaged)) return
   // Silent + force-run: tranh wizard NSIS (oneClick:false) gỡ app roi dung giua chung.
   autoUpdater.quitAndInstall(true, true)
 }

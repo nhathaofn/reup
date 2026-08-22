@@ -22,6 +22,12 @@ Preflight bắt buộc số voice khớp 1:1 với số cue, mọi file đọc �
 
 Khi một cue SRT đi qua ranh giới nhiều scene, hệ thống **không cắt subtitle hoặc voice**. Thay vào đó, các scene liền kề được ghi vào cùng một nhóm logic và mapping được lưu trong `tblao-scene-links.json` bên trong từng draft. Manifest này chứa `sceneId`, `cueId`, segment ID CapCut và các nhóm liên kết để hỗ trợ di chuyển/chỉnh sửa mà không làm mất nội dung voice.
 
+## Hai timing mode
+
+- CapCut Factory hiện tại giữ mode `preserve-source-timeline`: voice theo thứ tự tự nhiên được đặt vào các cửa sổ SRT source hiện có.
+- Tab `Khối nội dung` dùng mode `block-render-timeline`: block order, voice duration theo locale và SRT mới được dựng qua `capCutBlockAdapter.ts`.
+- Hai mode độc lập, không gọi lẫn nhau. Grouping và shuffle block không được triển khai trong `capCutFactory.ts`.
+
 ## Kiến trúc
 
 ```text

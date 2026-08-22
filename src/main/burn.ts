@@ -14,7 +14,13 @@ import type {
   BurnResult,
   SubtitlePreviewResult
 } from '../shared/types'
-import { parseSrt, readSrtFile, srtTimeToSeconds, type ParsedSrtCue } from './services/srt'
+import {
+  buildSrtTimelineExpression,
+  parseSrt,
+  readSrtFile,
+  srtTimeToSeconds,
+  type ParsedSrtCue
+} from './services/srt'
 import { buildVoiceTimeline, cancelVoiceTimeline } from './services/voiceSync'
 import {
   cueUsesCjkWrap,
@@ -544,6 +550,8 @@ export function taoAss(
   ].join('\n')
 }
 
+export { buildSrtTimelineExpression }
+
 /**
  * Cac tham so filter cho ffmpeg. Supports N blur regions using split=N+1 stream architecture.
  *
@@ -563,7 +571,8 @@ function taoFilterComplex(
   audioVolume = 100,
   externalAudioVolume = 100,
   fontsDir: string | null = null,
-  externalAudioInputIndex = 1
+  externalAudioInputIndex = 1,
+  timelineEnable: string | null = null
 ): string[] {
   const validRegions = lamMo ? regions.filter((r) => r.x1 > r.x0 && r.y1 > r.y0) : []
 
@@ -633,7 +642,8 @@ function taoFilterComplex(
         y -= y % 2
 
         const outLbl = `[v${i + 1}]`
-        lines.push(`[${prev}][masked${i}]overlay=${x}:${y}${outLbl}`)
+        const enableStr = timelineEnable ? `:enable='${timelineEnable}'` : ''
+        lines.push(`[${prev}][masked${i}]overlay=${x}:${y}${enableStr}${outLbl}`)
         prev = `v${i + 1}`
       }
 
@@ -856,6 +866,13 @@ export async function burnSubtitle(
 
     // SRT là input số 1; nếu có voice ngoài thì voice là input số 2.
     // Khi có vùng làm mờ, phải chạy filter video và encode lại thay vì -c:v copy.
+    let softTimelineEnable: string | null = null
+    if (req.moTheoSrt && hasSrt) {
+      const cues = docSrt(docFileSrt(srtTam))
+      const expr = buildSrtTimelineExpression(cues)
+      if (expr) softTimelineEnable = expr
+    }
+
     const softFilterArgs = taoFilterComplex(
       meta,
       regions,
@@ -867,7 +884,8 @@ export async function burnSubtitle(
       req.amLuongGoc ?? 100,
       req.amLuongVoice ?? 100,
       null,
-      2
+      2,
+      softTimelineEnable
     )
     if (softFilterArgs.length > 0) {
       debugRaw('soft subtitle filter_complex', softFilterArgs.join(' '))
@@ -929,6 +947,7 @@ export async function burnSubtitle(
   const picked = findBurnFont(req.fontId)
   const fontsDir = picked ? resolveFontsDir() : null
   let subStyle: SubStyle | null = null
+  let burnTimelineEnable: string | null = null
 
   if (hasSrt) {
     const srtRaw = docFileSrt(srtTam)
@@ -940,6 +959,10 @@ export async function burnSubtitle(
     await writeFile(duongAss, taoAss(cues, meta, bc, picked?.family ?? null, subStyle, picked), 'utf8')
     if (picked) {
       logInfo(`Dịch màn hình: font phụ đề «${picked.label}» (${picked.family}).`)
+    }
+    if (req.moTheoSrt) {
+      const expr = buildSrtTimelineExpression(cues)
+      if (expr) burnTimelineEnable = expr
     }
   }
 
@@ -954,7 +977,9 @@ export async function burnSubtitle(
     hasAudioFile,
     req.amLuongGoc ?? 100,
     req.amLuongVoice ?? 100,
-    fontsDir
+    fontsDir,
+    1,
+    burnTimelineEnable
   )
   logInfo(`Dịch màn hình: đang xử lý video ${basename(req.video)}…`)
   if (filterArgs.length > 0) {

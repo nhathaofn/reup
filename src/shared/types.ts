@@ -299,6 +299,8 @@ export interface BurnReq {
   blurRegions?: BlurRegion[]
   // Co lam mo vung do khong (che phu de goc). Doc lap voi vi tri dat chu.
   lamMo?: boolean
+  // Chi lam mo khi co phu de SRT xuat hien
+  moTheoSrt?: boolean
   // Khung vi tri & co chu phu de (pixel video goc). User khoanh/keo gian khung phu de.
   subRegion?: { x0: number; y0: number; x1: number; y1: number }
   // Cat phu de cho vua thoi luong video (chi che do 'soft'). UI bat co nay khi
@@ -581,4 +583,3 @@ export interface Video2xRunResult {
   output?: string
   error?: string
 }
-
