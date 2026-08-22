@@ -158,7 +158,7 @@ function createWindow(): void {
     autoHideMenuBar: true,
     title: localPortable ? LOCAL_APP_NAME : 'TediaPros',
     icon: join(__dirname, '../../build/icon.png'),
-    backgroundColor: '#0f1115',
+    backgroundColor: '#F5F1E8',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,

@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import SetupScreen from './components/SetupScreen'
+import ServerConnectionScreen from './components/ServerConnectionScreen'
 import Downloader from './components/Downloader'
 import Douyin from './components/Douyin'
 import AudioText from './components/AudioText'
@@ -14,8 +15,17 @@ import {
   type RendererFeatureId
 } from './features/registry'
 import type { RendererFeature } from './features/contracts'
+import {
+  DEFAULT_SERVER_URL,
+  type ServerConnectionStatus
+} from '../../shared/server-contract'
+import {
+  INITIAL_STARTUP_STAGE,
+  transitionStartup,
+  type StartupStage
+} from './startup'
+import { t } from './i18n'
 
-type Stage = 'checking' | 'setup' | 'ready'
 type CoreTabKey = 'download' | 'douyin' | 'audiotext' | 'screen' | 'enhance' | 'logs' | 'license'
 type TabKey = CoreTabKey | RendererFeatureId
 
@@ -103,7 +113,10 @@ const ALL_BOTTOM_TABS = [...BOTTOM_TABS, ...FEATURE_TABS.filter((tab) => {
 })]
 
 export default function App(): JSX.Element {
-  const [stage, setStage] = useState<Stage>('checking')
+  const [stage, setStage] = useState<StartupStage>(INITIAL_STARTUP_STAGE)
+  const [serverStatus, setServerStatus] = useState<ServerConnectionStatus | null>(null)
+  const [serverBusy, setServerBusy] = useState(false)
+  const serverRequestRunning = useRef(false)
   // KHONG nho tab cuoi — moi lan mo app deu ve tab mac dinh (Tai xuong).
   // Chi nho cau hinh user setup cho tung tab (qua usePersistedState trong moi component).
   const [tab, setTab] = useState<TabKey>('download')
@@ -117,16 +130,54 @@ export default function App(): JSX.Element {
     setTab('audiotext')
   }
 
-  const check = async (): Promise<void> => {
-    setStage('checking')
-    const status = await window.api.checkDeps()
-    const bypass = status.devRuntimeBypass === true
-    setDevRuntimeBypass(bypass)
-    setStage(bypass || (status.ytdlp && status.ffmpeg && status.engines) ? 'ready' : 'setup')
-  }
+  const checkDependencies = useCallback(async (): Promise<void> => {
+    try {
+      const status = await window.api.checkDeps()
+      const bypass = status.devRuntimeBypass === true
+      setDevRuntimeBypass(bypass)
+      const ready = bypass || (status.ytdlp && status.ffmpeg && status.engines)
+      setStage((current) =>
+        transitionStartup(current, { type: ready ? 'dependencies-ready' : 'dependencies-missing' })
+      )
+    } catch {
+      setStage((current) => transitionStartup(current, { type: 'dependencies-missing' }))
+    }
+  }, [])
+
+  const establishServer = useCallback(async (endpoint?: string): Promise<void> => {
+    if (serverRequestRunning.current) return
+    serverRequestRunning.current = true
+    setServerBusy(true)
+
+    try {
+      const status = endpoint === undefined
+        ? await window.api.serverStatus()
+        : await window.api.serverConnect(endpoint)
+      setServerStatus(status)
+      if (status.state === 'connected') {
+        setStage((current) => transitionStartup(current, { type: 'server-connected' }))
+        await checkDependencies()
+      } else {
+        setStage((current) => transitionStartup(current, { type: 'server-unavailable' }))
+      }
+    } catch {
+      const status: ServerConnectionStatus = {
+        state: 'unavailable',
+        endpoint: endpoint?.trim() || DEFAULT_SERVER_URL,
+        capabilities: [],
+        errorCode: 'unreachable',
+        managed: false
+      }
+      setServerStatus(status)
+      setStage((current) => transitionStartup(current, { type: 'server-unavailable' }))
+    } finally {
+      serverRequestRunning.current = false
+      setServerBusy(false)
+    }
+  }, [checkDependencies])
 
   useEffect(() => {
-    void check()
+    void establishServer()
     void window.api.appVersion().then(setVersion)
     let mounted = true
     const offUpd = window.api.onUpdateStatus(setUpdate)
@@ -137,23 +188,77 @@ export default function App(): JSX.Element {
       mounted = false
       offUpd()
     }
-  }, [])
+  }, [establishServer])
 
-  if (stage === 'checking') {
+  useEffect(() => {
+    if (stage !== 'ready' && stage !== 'setup') return
+
+    const heartbeat = window.setInterval(() => {
+      if (serverRequestRunning.current) return
+      serverRequestRunning.current = true
+      void window.api.serverStatus()
+        .then((status) => {
+          setServerStatus(status)
+          if (status.state === 'unavailable') {
+            setStage((current) => transitionStartup(current, { type: 'server-unavailable' }))
+          }
+        })
+        .catch(() => {
+          const status: ServerConnectionStatus = {
+            state: 'unavailable',
+            endpoint: serverStatus?.endpoint ?? DEFAULT_SERVER_URL,
+            capabilities: [],
+            errorCode: 'unreachable',
+            managed: serverStatus?.managed ?? false
+          }
+          setServerStatus(status)
+          setStage((current) => transitionStartup(current, { type: 'server-unavailable' }))
+        })
+        .finally(() => {
+          serverRequestRunning.current = false
+        })
+    }, 15_000)
+
+    return () => window.clearInterval(heartbeat)
+  }, [serverStatus?.endpoint, serverStatus?.managed, stage])
+
+  if (stage === 'server-checking' || stage === 'dependency-checking') {
     return (
-      <div className="boot">
+      <div className="boot server-boot">
         <div className="center">
-          <div className="spinner" />
-          <p>Đang chuẩn bị TediaPros…</p>
+          <div className="server-spinner" />
+          <p>{t(stage === 'server-checking' ? 'boot.server' : 'boot.dependencies')}</p>
         </div>
       </div>
+    )
+  }
+
+  if (stage === 'server-required') {
+    const unavailableStatus: Extract<ServerConnectionStatus, { state: 'unavailable' }> =
+      serverStatus?.state === 'unavailable'
+      ? serverStatus
+      : {
+          state: 'unavailable',
+          endpoint: DEFAULT_SERVER_URL,
+          capabilities: [],
+          errorCode: 'unreachable',
+          managed: false
+        }
+    return (
+      <ServerConnectionScreen
+        status={unavailableStatus}
+        busy={serverBusy}
+        onConnect={establishServer}
+      />
     )
   }
 
   if (stage === 'setup') {
     return (
       <div className="boot">
-        <SetupScreen onDone={() => setStage('ready')} />
+        <SetupScreen
+          onDone={() => setStage((current) => transitionStartup(current, { type: 'setup-complete' }))}
+        />
       </div>
     )
   }
